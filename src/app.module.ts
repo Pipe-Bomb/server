@@ -1,0 +1,40 @@
+import { Module } from "@nestjs/common";
+import { AppController } from "./app.controller";
+import { AppService } from "./app.service";
+import { PluginsModule } from "./plugins/plugins.module";
+import { LibrariesModule } from "./libraries/libraries.module";
+import { IdentifiersModule } from "./identifiers/identifiers.module";
+import { ConfigModule } from "@nestjs/config";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { TracksModule } from "./tracks/tracks.module";
+import { DocsModule } from "./docs/docs.module";
+import { AttributesModule } from "./attributes/attributes.module";
+import { TasksModule } from "./tasks/tasks.module";
+import { LanguageModule } from "./language/language.module";
+import { ArtistsModule } from "./artists/artists.module";
+import { ResourcesModule } from "./resources/resources.module";
+import databaseConfig from "./config/database.config";
+
+@Module({
+	imports: [
+		ConfigModule.forRoot({
+			envFilePath: [".development.env"],
+			isGlobal: true,
+			cache: true,
+		}),
+		TypeOrmModule.forRootAsync(databaseConfig.asProvider()),
+		PluginsModule,
+		LibrariesModule,
+		IdentifiersModule,
+		TracksModule,
+		DocsModule,
+		AttributesModule,
+		TasksModule,
+		LanguageModule,
+		ArtistsModule,
+		ResourcesModule,
+	],
+	controllers: [AppController],
+	providers: [AppService],
+})
+export class AppModule {}

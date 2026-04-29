@@ -1,0 +1,8 @@
+{
+	"task.system": "SYSTEM",
+	"task.system.scan-all-libraries.name": "Scan All Libraries",
+	"task.system.attribute-all-libraries.name": "Generate All Library Attributes",
+	"task.system.identify-all-libraries.name": "Identify All Libraries",
+
+	"contextmenu.track.view-info": "Track Info"
+}

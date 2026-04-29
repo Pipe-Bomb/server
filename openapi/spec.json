@@ -1,0 +1,1006 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/libraries": {
+      "get": {
+        "operationId": "getAllLibraries",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PluginLibrary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Libraries"
+        ]
+      }
+    },
+    "/libraries/{pluginId}/{libraryId}": {
+      "get": {
+        "operationId": "getLibrary",
+        "parameters": [
+          {
+            "name": "pluginId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "libraryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginLibrary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Libraries"
+        ]
+      }
+    },
+    "/libraries/{pluginId}/{libraryId}/search": {
+      "post": {
+        "operationId": "searchLibrary",
+        "parameters": [
+          {
+            "name": "pluginId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "libraryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LibrarySearchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryFindResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Libraries"
+        ]
+      }
+    },
+    "/tracks/{pluginId}/{libraryId}/{trackId}": {
+      "get": {
+        "operationId": "getTrack",
+        "parameters": [
+          {
+            "name": "pluginId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "libraryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "trackId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Track"
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Tracks"
+        ]
+      }
+    },
+    "/tracks/{pluginId}/{libraryId}/{trackId}/identities": {
+      "get": {
+        "operationId": "getTrackIdentities",
+        "parameters": [
+          {
+            "name": "pluginId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "libraryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "trackId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Identity"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Tracks"
+        ]
+      }
+    },
+    "/identifiers": {
+      "get": {
+        "operationId": "getAllIdentifiers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Identifier"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Identifiers"
+        ]
+      }
+    },
+    "/artists/{artistUuid}": {
+      "get": {
+        "operationId": "getArtist",
+        "parameters": [
+          {
+            "name": "artistUuid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Artist"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Artists"
+        ]
+      }
+    },
+    "/artists": {
+      "post": {
+        "operationId": "searchArtists",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArtistsSearchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistsSearchResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Artists"
+        ]
+      }
+    },
+    "/attributes": {
+      "get": {
+        "operationId": "getAllAttributeSources",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AttributeSource"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Attributes"
+        ]
+      }
+    },
+    "/tasks": {
+      "get": {
+        "operationId": "getTasks",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllTasksResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Tasks"
+        ]
+      }
+    },
+    "/tasks/{taskUuid}/start": {
+      "post": {
+        "operationId": "startTask",
+        "parameters": [
+          {
+            "name": "taskUuid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Tasks"
+        ]
+      }
+    },
+    "/resources/{dir}/{file}": {
+      "get": {
+        "operationId": "get",
+        "parameters": [
+          {
+            "name": "dir",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "file",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Resources"
+        ]
+      }
+    },
+    "/language": {
+      "get": {
+        "operationId": "getLanguageIds",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Language"
+        ]
+      }
+    },
+    "/language/{languageId}": {
+      "get": {
+        "operationId": "getLanguageMap",
+        "parameters": [
+          {
+            "name": "languageId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LanguageMap"
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Language"
+        ]
+      }
+    },
+    "/docs/json": {
+      "get": {
+        "operationId": "getJson",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Docs"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Pipe Bomb API",
+    "description": "",
+    "version": "0.0.1",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "schemas": {
+      "PluginLibrary": {
+        "type": "object",
+        "properties": {
+          "pluginId": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "pluginId",
+          "id",
+          "name"
+        ]
+      },
+      "LibrarySearchDto": {
+        "type": "object",
+        "properties": {
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "pageSize",
+          "page"
+        ]
+      },
+      "StringAttribute": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "string"
+            ]
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "type",
+          "values"
+        ]
+      },
+      "BooleanAttribute": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "boolean"
+            ]
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "boolean"
+            }
+          }
+        },
+        "required": [
+          "type",
+          "values"
+        ]
+      },
+      "DecimalAttribute": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "decimal"
+            ]
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "type",
+          "values"
+        ]
+      },
+      "IntegerAttribute": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "integer"
+            ]
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "type",
+          "values"
+        ]
+      },
+      "Resource": {
+        "type": "object",
+        "properties": {
+          "uuid": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "extension": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "url",
+          "extension",
+          "sha256"
+        ]
+      },
+      "BufferAttribute": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "buffer"
+            ]
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Resource"
+            }
+          }
+        },
+        "required": [
+          "type",
+          "values"
+        ]
+      },
+      "Identity": {
+        "type": "object",
+        "properties": {
+          "pluginId": {
+            "type": "string"
+          },
+          "identityId": {
+            "type": "string"
+          },
+          "entityId": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "pluginId",
+          "identityId",
+          "entityId",
+          "value"
+        ]
+      },
+      "Artist": {
+        "type": "object",
+        "properties": {
+          "uuid": {
+            "type": "string"
+          },
+          "attributes": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AttributeMap"
+              }
+            ],
+            "nullable": true
+          },
+          "identities": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Identity"
+            }
+          },
+          "tracks": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "uuid",
+          "attributes",
+          "identities",
+          "tracks"
+        ]
+      },
+      "TrackArtist": {
+        "type": "object",
+        "properties": {
+          "artistUuid": {
+            "type": "string"
+          },
+          "artist": {
+            "$ref": "#/components/schemas/Artist"
+          },
+          "joinPhrase": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "artistUuid",
+          "artist",
+          "joinPhrase"
+        ]
+      },
+      "Track": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "pluginId": {
+            "type": "string"
+          },
+          "libraryId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "artists": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrackArtist"
+            }
+          },
+          "attributes": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AttributeMap"
+              }
+            ],
+            "nullable": true
+          },
+          "identities": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Identity"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "pluginId",
+          "libraryId",
+          "title",
+          "artists",
+          "attributes",
+          "identities"
+        ]
+      },
+      "LibraryFindResponse": {
+        "type": "object",
+        "properties": {
+          "tracks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Track"
+            }
+          }
+        },
+        "required": [
+          "tracks"
+        ]
+      },
+      "IdentifierDependency": {
+        "type": "object",
+        "properties": {
+          "pluginId": {
+            "type": "string",
+            "nullable": true
+          },
+          "sourceId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "pluginId",
+          "sourceId"
+        ]
+      },
+      "Identifier": {
+        "type": "object",
+        "properties": {
+          "pluginId": {
+            "type": "string"
+          },
+          "identifierId": {
+            "type": "string"
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdentifierDependency"
+            }
+          },
+          "softDependencies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdentifierDependency"
+            }
+          }
+        },
+        "required": [
+          "pluginId",
+          "identifierId",
+          "dependencies",
+          "softDependencies"
+        ]
+      },
+      "ArtistsSearchDto": {
+        "type": "object",
+        "properties": {
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "pageSize",
+          "page"
+        ]
+      },
+      "ArtistsSearchResponse": {
+        "type": "object",
+        "properties": {
+          "artists": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Artist"
+            }
+          }
+        },
+        "required": [
+          "artists"
+        ]
+      },
+      "AttributeSource": {
+        "type": "object",
+        "properties": {
+          "pluginId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "pluginId",
+          "sourceId",
+          "name"
+        ]
+      },
+      "Task": {
+        "type": "object",
+        "properties": {
+          "uuid": {
+            "type": "string"
+          },
+          "pluginId": {
+            "type": "string",
+            "nullable": true
+          },
+          "taskId": {
+            "type": "string"
+          },
+          "inProgress": {
+            "type": "boolean"
+          },
+          "percent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "nullable": true
+          }
+        },
+        "required": [
+          "uuid",
+          "pluginId",
+          "taskId",
+          "inProgress",
+          "percent"
+        ]
+      },
+      "AllTasksResponse": {
+        "type": "object",
+        "properties": {
+          "pluginTasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            }
+          },
+          "systemTasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            }
+          }
+        },
+        "required": [
+          "pluginTasks",
+          "systemTasks"
+        ]
+      },
+      "LanguageMap": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "keys": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "keys"
+        ]
+      },
+      "AttributeMap": {
+        "type": "object",
+        "additionalProperties": {
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/StringAttribute"
+            },
+            {
+              "$ref": "#/components/schemas/BooleanAttribute"
+            },
+            {
+              "$ref": "#/components/schemas/IntegerAttribute"
+            },
+            {
+              "$ref": "#/components/schemas/DecimalAttribute"
+            },
+            {
+              "$ref": "#/components/schemas/BufferAttribute"
+            }
+          ],
+          "discriminator": {
+            "propertyName": "type",
+            "mapping": {
+              "string": "#/components/schemas/StringAttribute",
+              "boolean": "#/components/schemas/BooleanAttribute",
+              "integer": "#/components/schemas/IntegerAttribute",
+              "decimal": "#/components/schemas/DecimalAttribute",
+              "buffer": "#/components/schemas/BufferAttribute"
+            }
+          }
+        }
+      }
+    }
+  }
+}
