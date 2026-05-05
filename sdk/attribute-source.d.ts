@@ -1,13 +1,15 @@
 import { Readable } from "stream";
 import { AttributeValue, Attribute } from "./attribute";
 import { Track } from "./audio-types";
-import { TrackInformationHelper } from "./information-helper";
+import { ArtistInformationHelper, TrackInformationHelper } from "./information-helper";
 import { PluginTask } from "./task";
+import { Logger } from "./logger";
 
 export interface AttributeSourceApiContext {
     registerTrackAttributes(attributes: Attribute[]): void;
     registerArtistAttributes(attributes: Attribute[]): void;
     registerPluginTask(task: PluginTask): void;
+    getLogger(): Logger;
 }
 
 export interface TrackAttributes {
@@ -30,5 +32,7 @@ export interface AttributeSource {
 
 	getName(): string;
 
-    getTrackAttributeValues(helper: TrackInformationHelper): Promise<TrackAttributes>;
+    getTrackAttributeValues(helper: TrackAttributionHelper): Promise<TrackAttributes>;
+
+    getArtistAttributeValues(helper: ArtistInformationHelper): Promise<AttributeValue[]>;
 }

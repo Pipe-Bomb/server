@@ -8,3 +8,5 @@ export * from "./identifier";
 export * from "./attribute";
 export * from "./information-helper";
 export * from "./task";
+export * from "./external-url-source";
+export * from "./audio-producer";

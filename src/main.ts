@@ -12,12 +12,17 @@ import {
 	PersistentStringAttributeResponse,
 } from "./attributes/response/persistent-attribute.response";
 import { AttributeType } from "./attributes/enum/attribute-type.enum";
+import { AttributeSourcesService } from "./attribute-sources/attribute-sources.service";
+import { AttributeInterceptor } from "./attribute-sources/attribute.interceptor";
 
 async function bootstrap() {
 	const app = await NestFactory.create(AppModule);
 	app.enableCors();
 
 	app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+
+	const attributesService = app.get(AttributeSourcesService);
+	app.useGlobalInterceptors(new AttributeInterceptor(attributesService));
 
 	const swaggerConfig = new DocumentBuilder()
 		.setTitle("Pipe Bomb API")

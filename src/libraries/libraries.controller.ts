@@ -15,10 +15,14 @@ import {
 import { PluginLibrary } from "./response/loaded-library.response";
 import { LibrarySearchDto } from "./dto/library-search.dto";
 import { LibraryFindResponse } from "./response/library-find.response";
+import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
 
 @Controller("libraries")
 export class LibrariesController {
-	constructor(private readonly librariesService: LibrariesService) {}
+	constructor(
+		private readonly librariesService: LibrariesService,
+		private readonly attributeSourcesService: AttributeSourcesService,
+	) {}
 
 	@Get()
 	@ApiOperation({ operationId: "getAllLibraries" })
@@ -83,11 +87,7 @@ export class LibrariesController {
 		});
 
 		return {
-			tracks: result.tracks.map((track, i) =>
-				track.toResponse({
-					attributes: result.attributes![i],
-				}),
-			),
+			tracks: result.tracks.map((track) => track.toResponse()),
 		};
 	}
 }

@@ -120,6 +120,364 @@
         ]
       }
     },
+    "/tasks": {
+      "get": {
+        "operationId": "getTasks",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllTasksResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Tasks"
+        ]
+      }
+    },
+    "/tasks/{taskUuid}/start": {
+      "post": {
+        "operationId": "startTask",
+        "parameters": [
+          {
+            "name": "taskUuid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Tasks"
+        ]
+      }
+    },
+    "/artists/{artistUuid}": {
+      "get": {
+        "operationId": "getArtist",
+        "parameters": [
+          {
+            "name": "artistUuid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Artist"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Artists"
+        ]
+      }
+    },
+    "/artists": {
+      "post": {
+        "operationId": "searchArtists",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArtistsSearchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistsSearchResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Artists"
+        ]
+      }
+    },
+    "/artists/{artistUuid}/urls": {
+      "get": {
+        "operationId": "getArtistExternalUrls",
+        "parameters": [
+          {
+            "name": "artistUuid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExternalUrl"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Artists"
+        ]
+      }
+    },
+    "/attribute-sources": {
+      "get": {
+        "operationId": "getAllAttributeSources",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AttributeSource"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "AttributeSources"
+        ]
+      }
+    },
+    "/attribute-sources/order": {
+      "post": {
+        "operationId": "setAttributeSourceOrder",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttributeSourceOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AttributeSource"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "AttributeSources"
+        ]
+      }
+    },
+    "/resources/{dir}/{file}": {
+      "get": {
+        "operationId": "get",
+        "parameters": [
+          {
+            "name": "dir",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "file",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Resources"
+        ]
+      }
+    },
+    "/icons/{pluginId}/{iconId}": {
+      "get": {
+        "operationId": "getIcon",
+        "parameters": [
+          {
+            "name": "pluginId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "iconId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Icons"
+        ]
+      }
+    },
+    "/identifiers": {
+      "get": {
+        "operationId": "getAllIdentifiers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Identifier"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Identifiers"
+        ]
+      }
+    },
+    "/language": {
+      "get": {
+        "operationId": "getLanguageIds",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Language"
+        ]
+      }
+    },
+    "/language/{languageId}": {
+      "get": {
+        "operationId": "getLanguageMap",
+        "parameters": [
+          {
+            "name": "languageId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LanguageMap"
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Language"
+        ]
+      }
+    },
     "/tracks/{pluginId}/{libraryId}/{trackId}": {
       "get": {
         "operationId": "getTrack",
@@ -217,258 +575,99 @@
         ]
       }
     },
-    "/identifiers": {
+    "/tracks/{pluginId}/{libraryId}/{trackId}/audio": {
       "get": {
-        "operationId": "getAllIdentifiers",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Identifier"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "",
-        "tags": [
-          "Identifiers"
-        ]
-      }
-    },
-    "/artists/{artistUuid}": {
-      "get": {
-        "operationId": "getArtist",
+        "operationId": "streamAudio",
         "parameters": [
           {
-            "name": "artistUuid",
+            "name": "pluginId",
             "required": true,
             "in": "path",
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "libraryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "trackId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Range",
+            "required": false,
+            "in": "header",
+            "description": "Byte range for seeking (e.g., bytes=0-1024)",
+            "schema": {
+              "type": "string",
+              "example": "bytes=0-1024"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "",
+            "description": "Returns the full audio file when no range is requested",
             "content": {
-              "application/json": {
+              "audio/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/Artist"
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a valid range is provided",
+            "headers": {
+              "Content-Range": {
+                "description": "The range of bytes sent and the total size of the file",
+                "schema": {
+                  "type": "string",
+                  "example": "bytes 0-99/3539613"
+                }
+              },
+              "Accept-Ranges": {
+                "description": "Indicates that the server supports range requests",
+                "schema": {
+                  "type": "string",
+                  "example": "bytes"
+                }
+              },
+              "Content-Length": {
+                "description": "Size of the chunk being returned",
+                "schema": {
+                  "type": "number"
+                }
+              }
+            },
+            "content": {
+              "audio/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
                 }
               }
             }
           },
           "404": {
-            "description": ""
-          }
-        },
-        "summary": "",
-        "tags": [
-          "Artists"
-        ]
-      }
-    },
-    "/artists": {
-      "post": {
-        "operationId": "searchArtists",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ArtistsSearchDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ArtistsSearchResponse"
-                }
-              }
-            }
-          }
-        },
-        "summary": "",
-        "tags": [
-          "Artists"
-        ]
-      }
-    },
-    "/attributes": {
-      "get": {
-        "operationId": "getAllAttributeSources",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AttributeSource"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "",
-        "tags": [
-          "Attributes"
-        ]
-      }
-    },
-    "/tasks": {
-      "get": {
-        "operationId": "getTasks",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AllTasksResponse"
-                }
-              }
-            }
-          }
-        },
-        "summary": "",
-        "tags": [
-          "Tasks"
-        ]
-      }
-    },
-    "/tasks/{taskUuid}/start": {
-      "post": {
-        "operationId": "startTask",
-        "parameters": [
-          {
-            "name": "taskUuid",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
+            "description": "Library or Track not found"
           },
-          "404": {
-            "description": ""
-          },
-          "409": {
-            "description": ""
-          }
-        },
-        "summary": "",
-        "tags": [
-          "Tasks"
-        ]
-      }
-    },
-    "/resources/{dir}/{file}": {
-      "get": {
-        "operationId": "get",
-        "parameters": [
-          {
-            "name": "dir",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "file",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
+          "416": {
+            "description": "Requested Range Not Satisfiable"
           }
         },
         "tags": [
-          "Resources"
-        ]
-      }
-    },
-    "/language": {
-      "get": {
-        "operationId": "getLanguageIds",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "",
-        "tags": [
-          "Language"
-        ]
-      }
-    },
-    "/language/{languageId}": {
-      "get": {
-        "operationId": "getLanguageMap",
-        "parameters": [
-          {
-            "name": "languageId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LanguageMap"
-                }
-              }
-            }
-          }
-        },
-        "summary": "",
-        "tags": [
-          "Language"
+          "Tracks"
         ]
       }
     },
@@ -543,6 +742,12 @@
               "string"
             ]
           },
+          "pluginId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
           "values": {
             "type": "array",
             "items": {
@@ -552,6 +757,8 @@
         },
         "required": [
           "type",
+          "pluginId",
+          "sourceId",
           "values"
         ]
       },
@@ -564,6 +771,12 @@
               "boolean"
             ]
           },
+          "pluginId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
           "values": {
             "type": "array",
             "items": {
@@ -573,6 +786,8 @@
         },
         "required": [
           "type",
+          "pluginId",
+          "sourceId",
           "values"
         ]
       },
@@ -585,6 +800,12 @@
               "decimal"
             ]
           },
+          "pluginId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
           "values": {
             "type": "array",
             "items": {
@@ -594,6 +815,8 @@
         },
         "required": [
           "type",
+          "pluginId",
+          "sourceId",
           "values"
         ]
       },
@@ -606,6 +829,12 @@
               "integer"
             ]
           },
+          "pluginId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
           "values": {
             "type": "array",
             "items": {
@@ -615,6 +844,8 @@
         },
         "required": [
           "type",
+          "pluginId",
+          "sourceId",
           "values"
         ]
       },
@@ -650,6 +881,12 @@
               "buffer"
             ]
           },
+          "pluginId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
           "values": {
             "type": "array",
             "items": {
@@ -659,6 +896,8 @@
         },
         "required": [
           "type",
+          "pluginId",
+          "sourceId",
           "values"
         ]
       },
@@ -676,13 +915,17 @@
           },
           "value": {
             "type": "string"
+          },
+          "ordinal": {
+            "type": "integer"
           }
         },
         "required": [
           "pluginId",
           "identityId",
           "entityId",
-          "value"
+          "value",
+          "ordinal"
         ]
       },
       "Artist": {
@@ -803,102 +1046,6 @@
           "tracks"
         ]
       },
-      "IdentifierDependency": {
-        "type": "object",
-        "properties": {
-          "pluginId": {
-            "type": "string",
-            "nullable": true
-          },
-          "sourceId": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "pluginId",
-          "sourceId"
-        ]
-      },
-      "Identifier": {
-        "type": "object",
-        "properties": {
-          "pluginId": {
-            "type": "string"
-          },
-          "identifierId": {
-            "type": "string"
-          },
-          "dependencies": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/IdentifierDependency"
-            }
-          },
-          "softDependencies": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/IdentifierDependency"
-            }
-          }
-        },
-        "required": [
-          "pluginId",
-          "identifierId",
-          "dependencies",
-          "softDependencies"
-        ]
-      },
-      "ArtistsSearchDto": {
-        "type": "object",
-        "properties": {
-          "pageSize": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 30
-          },
-          "page": {
-            "type": "integer",
-            "minimum": 1
-          }
-        },
-        "required": [
-          "pageSize",
-          "page"
-        ]
-      },
-      "ArtistsSearchResponse": {
-        "type": "object",
-        "properties": {
-          "artists": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Artist"
-            }
-          }
-        },
-        "required": [
-          "artists"
-        ]
-      },
-      "AttributeSource": {
-        "type": "object",
-        "properties": {
-          "pluginId": {
-            "type": "string"
-          },
-          "sourceId": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "pluginId",
-          "sourceId",
-          "name"
-        ]
-      },
       "Task": {
         "type": "object",
         "properties": {
@@ -949,6 +1096,150 @@
         "required": [
           "pluginTasks",
           "systemTasks"
+        ]
+      },
+      "ArtistsSearchDto": {
+        "type": "object",
+        "properties": {
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "pageSize",
+          "page"
+        ]
+      },
+      "ArtistsSearchResponse": {
+        "type": "object",
+        "properties": {
+          "artists": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Artist"
+            }
+          }
+        },
+        "required": [
+          "artists"
+        ]
+      },
+      "ExternalUrl": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "iconUrl": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "iconUrl",
+          "name"
+        ]
+      },
+      "AttributeSource": {
+        "type": "object",
+        "properties": {
+          "pluginId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "pluginId",
+          "sourceId",
+          "name"
+        ]
+      },
+      "OrderedAttributeSourceDto": {
+        "type": "object",
+        "properties": {
+          "pluginId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "pluginId",
+          "sourceId"
+        ]
+      },
+      "AttributeSourceOrderDto": {
+        "type": "object",
+        "properties": {
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderedAttributeSourceDto"
+            }
+          }
+        },
+        "required": [
+          "sources"
+        ]
+      },
+      "IdentifierDependency": {
+        "type": "object",
+        "properties": {
+          "pluginId": {
+            "type": "string",
+            "nullable": true
+          },
+          "sourceId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "pluginId",
+          "sourceId"
+        ]
+      },
+      "Identifier": {
+        "type": "object",
+        "properties": {
+          "pluginId": {
+            "type": "string"
+          },
+          "identifierId": {
+            "type": "string"
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdentifierDependency"
+            }
+          },
+          "softDependencies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdentifierDependency"
+            }
+          }
+        },
+        "required": [
+          "pluginId",
+          "identifierId",
+          "dependencies",
+          "softDependencies"
         ]
       },
       "LanguageMap": {

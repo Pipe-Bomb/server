@@ -7,6 +7,7 @@ import { toSimplifiedAttributeList } from "src/attributes/attributes.util";
 import { AttributeMapResponse } from "src/attributes/response/attribute-map.response";
 import { IdentityResponse } from "src/identifiers/response/identity.response";
 import { TrackResponse } from "src/tracks/response/track.response";
+import { BasePersistentAttributeResponse } from "src/attributes/response/persistent-attribute.response";
 
 @Entity("artists")
 export class DBArtist {
@@ -23,11 +24,6 @@ export class DBArtist {
 	tracks?: DBTrackArtist[];
 
 	toResponse(): ArtistResponse {
-		let attributes: AttributeMapResponse | null = null;
-		if (this.attributes) {
-			attributes = toSimplifiedAttributeList(this.attributes);
-		}
-
 		let identities: IdentityResponse[] | null = null;
 		if (this.identities) {
 			identities = this.identities.map((identity) => identity.toResponse());
@@ -42,7 +38,7 @@ export class DBArtist {
 
 		return {
 			uuid: this.uuid,
-			attributes,
+			attributes: this.attributes ?? null,
 			identities,
 			tracks,
 		};

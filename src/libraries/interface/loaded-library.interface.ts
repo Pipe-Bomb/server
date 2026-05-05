@@ -5,5 +5,5 @@ import { DBTrack } from "src/tracks/entities/track.entity";
 export interface LoadedLibraryHandler {
 	handler: LibraryHandler;
 	plugin: LoadedPlugin;
-	informationHelper: (track: DBTrack) => Promise<TrackInformationHelper>;
+	informationHelper(track: DBTrack): Promise<TrackInformationHelper>;
 }

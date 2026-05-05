@@ -13,4 +13,9 @@ export class IdentityResponse {
 
 	@ApiProperty()
 	value: string;
+
+	@ApiProperty({
+		type: "integer",
+	})
+	ordinal: number;
 }

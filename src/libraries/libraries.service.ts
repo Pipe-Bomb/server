@@ -1,10 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import {
-	Identity,
-	LibraryHandler,
-	LibraryTrackInformationHelper,
-	TrackInformationHelper,
-} from "@sdk";
+import { LibraryHandler, TrackInformationHelper } from "@sdk";
 import { AttributesService } from "src/attributes/attributes.service";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { TracksService } from "src/tracks/tracks.service";
@@ -13,6 +8,7 @@ import { TasksService } from "src/tasks/tasks.service";
 import { LoadedLibraryHandler } from "./interface/loaded-library.interface";
 import { IdentifiersService } from "src/identifiers/identifiers.service";
 import { DBTrack } from "src/tracks/entities/track.entity";
+import { TrackManagerService } from "src/track-manager/track-manager.service";
 
 interface PluginLibraries {
 	readonly plugin: LoadedPlugin;
@@ -25,7 +21,7 @@ export class LibrariesService {
 	private readonly libraries = new Map<string, PluginLibraries>();
 
 	constructor(
-		private readonly tracksService: TracksService,
+		private readonly trackManagerService: TrackManagerService,
 		private readonly attributesService: AttributesService,
 		private readonly tasksService: TasksService,
 		private readonly identifiersService: IdentifiersService,
@@ -115,7 +111,7 @@ export class LibrariesService {
 
 	public getCount(library: LoadedLibraryHandler) {
 		const { handler, plugin } = library;
-		return this.tracksService.count({
+		return this.trackManagerService.count({
 			libraryId: handler.id,
 			pluginId: plugin.package.name,
 		});
@@ -132,7 +128,7 @@ export class LibrariesService {
 		},
 	): Promise<ILibraryFindResult> {
 		const { handler, plugin } = library;
-		const tracks = await this.tracksService.find({
+		const tracks = await this.trackManagerService.find({
 			where: {
 				libraryId: handler.id,
 				pluginId: plugin.package.name,
@@ -144,28 +140,13 @@ export class LibrariesService {
 					},
 				},
 				identities: options.withIdentities,
+				attributes: options.withAttributes,
 			},
 			take: options.amount,
 			skip: options.offset,
 		});
 
-		if (!options.withAttributes) {
-			return {
-				tracks,
-				attributes: null,
-			};
-		}
-
-		const attributes = await this.attributesService.findTrackAttributes(tracks);
-
-		return {
-			tracks,
-			attributes: tracks.map(
-				(track) =>
-					attributes.find(({ entityId }) => entityId == track.uuid)
-						?.attributes ?? [],
-			),
-		};
+		return { tracks };
 	}
 
 	public register(handler: LibraryHandler, plugin: LoadedPlugin) {
@@ -223,7 +204,8 @@ export class LibrariesService {
 			});
 		}
 		handler.enable({
-			addTrack: (track) => this.tracksService.addTrack(plugin, handler, track),
+			addTrack: (track) =>
+				this.trackManagerService.addTrack(plugin, handler, track),
 			useAttributeSource: (attributeSource) => {
 				throw new Error("Not implemented"); // todo: implement
 				// this.attributesService.registerAttributeSource(plugin, attributeSource);
@@ -241,39 +223,87 @@ export class LibrariesService {
 		onProgress?: (completed: number, total: number) => void,
 	) {
 		const CHUNK_SIZE = 30;
+		const MAX_THREADS = 5;
 
 		const count = await this.getCount(library);
+		if (!count) {
+			return;
+		}
 
-		for (let i = 0; i * 30 < count; i++) {
-			const { tracks } = await this.findTracks(library, {
-				amount: CHUNK_SIZE,
-				offset: CHUNK_SIZE * i,
-				withArtists: true,
-			});
+		const trackPool: DBTrack[] = [];
+		let activeThreads = 0;
+		let isFindingTracks = false;
+		let chunksLoaded = 0;
+		let allChunksLoaded = false;
+		let completedTracks = 0;
 
-			if (!tracks.length) {
-				break;
-			}
+		return new Promise<void>((resolve, reject) => {
+			const handle = async () => {
+				activeThreads++;
+				const track = trackPool.shift();
+				if (!track) {
+					activeThreads--;
+					increaseTrackPool();
 
-			for (const [index, track] of tracks.entries()) {
+					if (!activeThreads) {
+						resolve();
+					}
+					return;
+				}
+
 				try {
 					const attributes = await this.attributesService.attributeTrack(
 						track,
 						library,
 					);
 					this.logger.debug(
-						`Attributed ${attributes.length} attributes to Library track #${index + i * CHUNK_SIZE}`,
+						`Attributed ${attributes.length} attributes to Library track #${completedTracks + 1}`,
 					);
 				} catch (e) {
 					this.logger.debug(
-						`Failed to attribute to Library track #${index + i * CHUNK_SIZE}:`,
+						`Failed to attribute to Library track #${completedTracks + 1}:`,
 						e,
 					);
 				}
 
-				onProgress?.(index + i * CHUNK_SIZE, count);
-			}
-		}
+				onProgress?.(++completedTracks, count);
+				activeThreads--;
+				setImmediate(handle);
+			};
+
+			const increaseTrackPool = () => {
+				if (isFindingTracks || allChunksLoaded) {
+					return;
+				}
+
+				isFindingTracks = true;
+				this.findTracks(library, {
+					amount: CHUNK_SIZE,
+					offset: CHUNK_SIZE * chunksLoaded++,
+					withArtists: true,
+				})
+					.then(({ tracks }) => {
+						if (tracks.length) {
+							trackPool.push(...tracks);
+							isFindingTracks = false;
+							if (chunksLoaded == 1) {
+								onProgress?.(0, count);
+							}
+							for (let i = activeThreads; i < MAX_THREADS; i++) {
+								handle();
+							}
+						} else {
+							allChunksLoaded = true;
+							if (!activeThreads) {
+								resolve();
+							}
+						}
+					})
+					.catch(reject);
+			};
+
+			increaseTrackPool();
+		});
 	}
 
 	async identify(

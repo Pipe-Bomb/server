@@ -13,6 +13,10 @@ import { TasksModule } from "./tasks/tasks.module";
 import { LanguageModule } from "./language/language.module";
 import { ArtistsModule } from "./artists/artists.module";
 import { ResourcesModule } from "./resources/resources.module";
+import { AttributeSourcesModule } from "./attribute-sources/attribute-sources.module";
+import { IconsModule } from "./icons/icons.module";
+import { ExternalUrlsModule } from "./external-urls/external-urls.module";
+import { TrackManagerModule } from "./track-manager/track-manager.module";
 import databaseConfig from "./config/database.config";
 
 @Module({
@@ -33,6 +37,10 @@ import databaseConfig from "./config/database.config";
 		LanguageModule,
 		ArtistsModule,
 		ResourcesModule,
+		AttributeSourcesModule,
+		IconsModule,
+		ExternalUrlsModule,
+		TrackManagerModule,
 	],
 	controllers: [AppController],
 	providers: [AppService],

@@ -3,6 +3,10 @@
 	"task.system.scan-all-libraries.name": "Scan All Libraries",
 	"task.system.attribute-all-libraries.name": "Generate All Library Attributes",
 	"task.system.identify-all-libraries.name": "Identify All Libraries",
+	"task.system.attribute-all-artists.name": "Generate All Artist Attributes",
+	"task.system.identify-all-artists.name": "Identify All Artists",
 
-	"contextmenu.track.view-info": "Track Info"
+	"contextmenu.track.view-info": "Track Info",
+	"contextmenu.track.play-next": "Play Next",
+	"contextmenu.track.add-to-queue": "Add to Queue"
 }

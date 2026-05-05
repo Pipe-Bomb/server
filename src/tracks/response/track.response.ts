@@ -14,6 +14,7 @@ import {
 import { AttributeMapResponse } from "../../attributes/response/attribute-map.response";
 import { IdentityResponse } from "src/identifiers/response/identity.response";
 import { TrackArtistResponse } from "./track-artist.response";
+import { DBTrackAttribute } from "src/attributes/entities/track-attribute.entity";
 
 @ApiSchema({ name: "Track" })
 @ApiExtraModels(
@@ -54,7 +55,7 @@ export class TrackResponse {
 		oneOf: [{ $ref: getSchemaPath(AttributeMapResponse) }],
 		nullable: true,
 	})
-	attributes: AttributeMapResponse | null;
+	attributes: DBTrackAttribute[] | null;
 
 	@ApiProperty({
 		type: [IdentityResponse],

@@ -48,7 +48,9 @@ export class ResourcesService {
 		const filePath = resource.getFilePath();
 		this.logger.debug(`Writing resource to "${filePath}"`);
 
-		await mkdir(path.dirname(filePath));
+		await mkdir(path.dirname(filePath), {
+			recursive: true,
+		});
 		await writeFile(filePath, buffer);
 		return resource;
 	}

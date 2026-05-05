@@ -5,10 +5,16 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { DBArtist } from "./entity/artist.entity";
 import { DBArtistIdentity } from "./entity/artist-identity.entity";
 import { DBTrackArtist } from "./entity/track-artist.entity";
+import { TasksModule } from "src/tasks/tasks.module";
+import { AttributeSourcesModule } from "src/attribute-sources/attribute-sources.module";
+import { ExternalUrlsModule } from "src/external-urls/external-urls.module";
 
 @Module({
 	imports: [
 		TypeOrmModule.forFeature([DBArtist, DBArtistIdentity, DBTrackArtist]),
+		TasksModule,
+		AttributeSourcesModule,
+		ExternalUrlsModule,
 	],
 	controllers: [ArtistsController],
 	providers: [ArtistsService],

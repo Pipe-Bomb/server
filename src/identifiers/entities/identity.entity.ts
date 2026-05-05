@@ -48,6 +48,7 @@ export class DBIdentity {
 			identityId: this.identifierId,
 			entityId: this.trackUuid,
 			value: this.identity,
+			ordinal: this.ordinal,
 		};
 	}
 }

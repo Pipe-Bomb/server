@@ -15,10 +15,15 @@ import {
 } from "@nestjs/swagger";
 import { ArtistsSearchResponse } from "./response/artists-search.response";
 import { ArtistResponse } from "./response/artist.response";
+import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
+import { ExternalUrlResponse } from "src/external-urls/response/external-url.response";
 
 @Controller("artists")
 export class ArtistsController {
-	constructor(private readonly artistsService: ArtistsService) {}
+	constructor(
+		private readonly artistsService: ArtistsService,
+		private readonly attributeSourcesService: AttributeSourcesService,
+	) {}
 
 	@Get(":artistUuid")
 	@ApiOperation({ operationId: "getArtist" })
@@ -30,7 +35,7 @@ export class ArtistsController {
 		const artist = await this.artistsService.findOne(artistUuid, {
 			withAttributes: true,
 			withIdentities: true,
-			withTracks: true,
+			withTracks: 10,
 			withTrackArtists: true,
 			withTrackAttributes: true,
 		});
@@ -56,5 +61,21 @@ export class ArtistsController {
 		return {
 			artists: artists.map((artist) => artist.toResponse()),
 		};
+	}
+
+	@Get(":artistUuid/urls")
+	@ApiOperation({ operationId: "getArtistExternalUrls" })
+	@ApiOkResponse({
+		type: [ExternalUrlResponse],
+	})
+	@ApiNotFoundResponse()
+	async getExternalUrls(
+		@Param("artistUuid") artistUuid: string,
+	): Promise<ExternalUrlResponse[]> {
+		const artist = await this.artistsService.findOne(artistUuid);
+		if (!artist) {
+			throw new NotFoundException("Artist not found");
+		}
+		return this.artistsService.getExternalUrls(artist);
 	}
 }

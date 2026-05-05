@@ -13,7 +13,10 @@ import { IdentifiersService } from "src/identifiers/identifiers.service";
 import { randomUUID } from "crypto";
 import { TasksService } from "src/tasks/tasks.service";
 import { LanguageService } from "src/language/language.service";
-import { AttributesService } from "src/attributes/attributes.service";
+import { ArtistsService } from "src/artists/artists.service";
+import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
+import { IconsService } from "src/icons/icons.service";
+import { ExternalUrlsService } from "src/external-urls/external-urls.service";
 
 @Injectable()
 export class PluginsService {
@@ -28,7 +31,10 @@ export class PluginsService {
 		private readonly identifiersService: IdentifiersService,
 		private readonly tasksService: TasksService,
 		private readonly languagesService: LanguageService,
-		private readonly attributesService: AttributesService,
+		private readonly attributeSourcesService: AttributeSourcesService,
+		private readonly artistsService: ArtistsService,
+		private readonly iconsService: IconsService,
+		private readonly externalUrlsService: ExternalUrlsService,
 	) {
 		this.logger.debug(`Plugin directory is "${this.pluginsDirectory}"`);
 
@@ -179,8 +185,10 @@ export class PluginsService {
 			},
 			registerLibraryHandler: (handler) =>
 				this.librariesService.register(handler, plugin),
-			registerIdentifier: (identifier) =>
+			registerTrackIdentifier: (identifier) =>
 				this.identifiersService.register(identifier, plugin),
+			registerArtistIdentifier: (identifier) =>
+				this.artistsService.registerIdentifier(identifier, plugin),
 			registerTask: (task) =>
 				this.tasksService.registerPluginTask(task, plugin),
 			registerLanguageDirectory: (directory) => {
@@ -190,7 +198,15 @@ export class PluginsService {
 				);
 			},
 			registerAttributeSource: (source) =>
-				this.attributesService.registerAttributeSource(plugin, source),
+				this.attributeSourcesService.registerAttributeSource(plugin, source),
+			registerIconDirectory: (directory) => {
+				this.iconsService.registerIconDirectory(
+					path.join(pluginDirectory, directory),
+					plugin,
+				);
+			},
+			registerExternalUrlSource: (source) =>
+				this.externalUrlsService.registerSource(source, plugin),
 		};
 	}
 

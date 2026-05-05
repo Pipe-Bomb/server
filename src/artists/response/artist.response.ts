@@ -1,4 +1,5 @@
 import { ApiProperty, ApiSchema, getSchemaPath } from "@nestjs/swagger";
+import { DBArtistAttribute } from "src/attributes/entities/artist-attribute.entity";
 import { AttributeMapResponse } from "src/attributes/response/attribute-map.response";
 import { IdentityResponse } from "src/identifiers/response/identity.response";
 import { TrackResponse } from "src/tracks/response/track.response";
@@ -12,7 +13,7 @@ export class ArtistResponse {
 		oneOf: [{ $ref: getSchemaPath(AttributeMapResponse) }],
 		nullable: true,
 	})
-	attributes: AttributeMapResponse | null;
+	attributes: DBArtistAttribute[] | null;
 
 	@ApiProperty({
 		type: [IdentityResponse],

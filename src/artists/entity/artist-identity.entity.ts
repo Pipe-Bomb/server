@@ -8,6 +8,7 @@ import {
 } from "typeorm";
 import { DBArtist } from "./artist.entity";
 import { IdentityResponse } from "src/identifiers/response/identity.response";
+import { Identity } from "@sdk";
 
 @Entity("artist_identities")
 export class DBArtistIdentity {
@@ -45,6 +46,15 @@ export class DBArtistIdentity {
 			pluginId: this.pluginId,
 			identityId: this.identifierId,
 			entityId: this.artistUuid,
+			value: this.identity,
+			ordinal: this.ordinal,
+		};
+	}
+
+	toIdentity(): Identity {
+		return {
+			identifierId: this.identifierId,
+			pluginId: this.pluginId,
 			value: this.identity,
 		};
 	}

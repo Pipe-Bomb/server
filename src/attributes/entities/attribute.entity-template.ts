@@ -24,11 +24,15 @@ export abstract class DBAttributeTemplate {
 	@PrimaryColumn({
 		type: "text",
 	})
+	sourceId: string;
+
+	@PrimaryColumn({
+		type: "text",
+	})
 	key: string;
 
 	@PrimaryColumn({
 		type: "integer",
-		default: 0,
 	})
 	ordinal: number;
 
@@ -93,12 +97,14 @@ export abstract class DBAttributeTemplate {
 			attribute = new PersistentBufferAttributeResponse();
 			attribute.type = AttributeType.BUFFER;
 			attribute.values = [this.value_buffer.toResponse()];
-			console.log(attribute);
 		}
 
 		if (!attribute) {
 			throw new Error("Attribute had no value");
 		}
+
+		attribute.pluginId = this.pluginId;
+		attribute.sourceId = this.sourceId;
 
 		return attribute;
 	}

@@ -10,6 +10,12 @@ export class BasePersistentAttributeResponse {
 
 	@ApiProperty({ enum: AttributeType })
 	type: AttributeType;
+
+	@ApiProperty()
+	pluginId: string;
+
+	@ApiProperty()
+	sourceId: string;
 }
 
 @ApiSchema({ name: "StringAttribute" })

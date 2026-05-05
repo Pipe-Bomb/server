@@ -13,6 +13,7 @@ import { IdentityResponse } from "src/identifiers/response/identity.response";
 import { DBTrackArtist } from "../../artists/entity/track-artist.entity";
 import { AttributeMapResponse } from "src/attributes/response/attribute-map.response";
 import { TrackArtistResponse } from "../response/track-artist.response";
+import { BasePersistentAttributeResponse } from "src/attributes/response/persistent-attribute.response";
 
 @Entity("tracks")
 @Unique("IDX_pluginId_libraryId_trackId", ["pluginId", "libraryId", "trackId"])
@@ -51,18 +52,10 @@ export class DBTrack {
 
 	toResponse(
 		options: {
-			attributes?: DBTrackAttribute[];
 			identities?: DBIdentity[];
 			artists?: DBTrackArtist[];
 		} = {},
 	): TrackResponse {
-		let attributes: AttributeMapResponse | null = null;
-		if (options.attributes) {
-			attributes = toSimplifiedAttributeList(options.attributes);
-		} else if (this.attributes) {
-			attributes = toSimplifiedAttributeList(this.attributes);
-		}
-
 		let identities: IdentityResponse[] | null = null;
 		if (options.identities) {
 			identities = options.identities.map((identity) => identity.toResponse());
@@ -86,7 +79,7 @@ export class DBTrack {
 			pluginId: this.pluginId,
 			libraryId: this.libraryId,
 			title: this.title,
-			attributes,
+			attributes: this.attributes ?? null,
 			identities,
 			artists,
 		};

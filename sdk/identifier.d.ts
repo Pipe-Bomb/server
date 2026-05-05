@@ -1,19 +1,28 @@
 import {Readable} from "stream";
-import { TrackInformationHelper } from "./information-helper";
+import { ArtistInformationHelper, TrackInformationHelper } from "./information-helper";
+import { Logger } from "./logger";
 
 export interface IdentifierDependency {
     pluginId: string | null;
     sourceId: string;
 }
 
-export type IdentifierTarget = "track" | "artist" | "album";
+export type TrackIdentifierTarget = "track" | "artist" | "album";
 
 export interface Identifier {
     public readonly id: string;
-    public readonly target: IdentifierTarget;
-
-    identify(helper: TrackInformationHelper): Promise<string[] | null>;
-
+    
     getDependencies(): IdentifierDependency[];
     getSoftDependencies(): IdentifierDependency[];
+}
+
+export interface TrackIdentifier extends Identifier {
+    public readonly target: TrackIdentifierTarget;
+
+    identify(helper: TrackInformationHelper, logger: Logger): Promise<string[] | null>;
+}
+
+export interface ArtistIdentifier extends Identifier {
+    
+    identify(helper: ArtistInformationHelper, logger: Logger): Promise<string[] | null>;
 }

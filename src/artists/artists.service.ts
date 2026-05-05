@@ -1,13 +1,35 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DBArtist } from "./entity/artist.entity";
-import { DataSource, Repository } from "typeorm";
+import { DataSource, FindOptionsWhere, Repository } from "typeorm";
 import { DBArtistIdentity } from "./entity/artist-identity.entity";
 import { DBTrackArtist } from "./entity/track-artist.entity";
 import { DBTrack } from "src/tracks/entities/track.entity";
+import {
+	ArtistIdentifier,
+	ArtistInformationHelper,
+	Identity,
+	TrackIdentifier,
+} from "@sdk";
+import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
+import { LoadedIdentifier } from "src/identifiers/interface/loaded-identifier";
+import { orderIdentifiers } from "src/identifiers/identifiers.util";
+import { ExistingDependency } from "src/identifiers/interface/existing-identifier-dependency.interface";
+import { TasksService } from "src/tasks/tasks.service";
+import { ExternalUrlsService } from "src/external-urls/external-urls.service";
+import { TrackManagerService } from "src/track-manager/track-manager.service";
 
 @Injectable()
 export class ArtistsService {
+	private readonly logger = new Logger("Artists Service");
+
+	private readonly identifiers = new Map<
+		string,
+		Map<string, LoadedIdentifier<ArtistIdentifier>>
+	>();
+	private orderedIdentifiers: LoadedIdentifier<ArtistIdentifier>[] = [];
+	private readonly trackIdentifiers: ExistingDependency[] = [];
+
 	constructor(
 		@InjectRepository(DBArtist)
 		private readonly artistsRepository: Repository<DBArtist>,
@@ -15,8 +37,19 @@ export class ArtistsService {
 		private readonly identitiesRepository: Repository<DBArtistIdentity>,
 		@InjectRepository(DBTrackArtist)
 		private readonly trackArtistsRepository: Repository<DBTrackArtist>,
+		private readonly tasksService: TasksService,
+		private readonly externalUrlsService: ExternalUrlsService,
 		private readonly dataSource: DataSource,
-	) {}
+	) {
+		this.tasksService.registerSystemTask({
+			id: "identify-all-artists",
+			run: async (context) => {
+				await this.identifyAllArtists((completed, total) => {
+					context.update(completed / total);
+				});
+			},
+		});
+	}
 
 	async setJoinPhrase(
 		trackUuid: string,
@@ -112,22 +145,32 @@ export class ArtistsService {
 		);
 	}
 
-	findOne(
+	async findOne(
 		uuid: string,
 		options: {
 			withAttributes?: boolean;
 			withIdentities?: boolean;
-			withTracks?: boolean;
+			withTracks?: number;
 			withTrackAttributes?: boolean;
 			withTrackArtists?: boolean;
 		} = {},
 	) {
-		return this.artistsRepository.findOne({
+		const artist = await this.artistsRepository.findOne({
 			where: {
 				uuid,
 			},
 			relations: {
-				tracks: options.withTracks && {
+				attributes: options.withAttributes,
+				identities: options.withIdentities,
+			},
+		});
+
+		if (artist && options.withTracks) {
+			artist.tracks = await this.trackArtistsRepository.find({
+				where: {
+					artistUuid: artist.uuid,
+				},
+				relations: {
 					track: {
 						attributes: options.withTrackAttributes,
 						artists: options.withTrackArtists && {
@@ -137,9 +180,16 @@ export class ArtistsService {
 						},
 					},
 				},
-				attributes: options.withAttributes,
-				identities: options.withIdentities,
-			},
+				take: options.withTracks,
+			});
+		}
+
+		return artist;
+	}
+
+	findIdentities(artist: DBArtist) {
+		return this.identitiesRepository.findBy({
+			artistUuid: artist.uuid,
 		});
 	}
 
@@ -157,5 +207,243 @@ export class ArtistsService {
 				identities: options.withIdentities,
 			},
 		});
+	}
+
+	count(where: FindOptionsWhere<DBArtist> | FindOptionsWhere<DBArtist>[]) {
+		return this.artistsRepository.countBy(where);
+	}
+
+	public registerIdentifier(
+		identifier: ArtistIdentifier,
+		plugin: LoadedPlugin,
+	) {
+		const pluginIdentifiers = this.identifiers.get(plugin.package.name);
+		if (pluginIdentifiers) {
+			if (pluginIdentifiers.has(identifier.id)) {
+				throw new Error(
+					`Plugin has already registered Identifier with ID "${identifier.id}"`,
+				);
+			}
+			pluginIdentifiers.set(identifier.id, { identifier, plugin });
+		} else {
+			this.identifiers.set(
+				plugin.package.name,
+				new Map([[identifier.id, { identifier, plugin }]]),
+			);
+		}
+
+		this.orderIdentifiers();
+		this.logger.log(
+			`Plugin "${plugin.package.name}" registered Identifier "${identifier.id}"`,
+		);
+	}
+
+	private orderIdentifiers() {
+		this.orderedIdentifiers = orderIdentifiers(
+			Array.from(this.identifiers.values()).flatMap((map) =>
+				Array.from(map.values()),
+			),
+			this.trackIdentifiers,
+		);
+	}
+
+	public registerTrackIdentifier(
+		identifier: TrackIdentifier,
+		plugin: LoadedPlugin,
+	) {
+		this.trackIdentifiers.push({
+			sourceId: identifier.id,
+			pluginId: plugin.package.name,
+		});
+		this.orderIdentifiers();
+	}
+
+	public async getInformationHelper(
+		artist: DBArtist,
+		getIdentities?: (id: string, pluginId?: string | null) => Identity[] | null,
+	): Promise<ArtistInformationHelper> {
+		if (!getIdentities) {
+			const identities = await this.findIdentities(artist);
+
+			getIdentities = (id, pluginId) => {
+				return identities
+					.filter(
+						(identity) =>
+							identity.identifierId == id &&
+							(!pluginId || pluginId == identity.pluginId),
+					)
+					.map((identity) => identity.toIdentity());
+			};
+		}
+
+		return {
+			getArtistUuid: () => artist.uuid,
+			getIdentity: (id, pluginId, multiple) => {
+				const matches = getIdentities(id, pluginId);
+
+				if (!matches?.length) {
+					return null;
+				}
+
+				if (multiple) {
+					return matches;
+				}
+				return matches[0] as any;
+			},
+		};
+	}
+
+	public async identifyAllArtists(
+		onProgress?: (completed: number, total: number) => void,
+	) {
+		const CHUNK_SIZE = 30;
+		const MAX_THREADS = 5;
+
+		const pool: DBArtist[] = [];
+		let activeThreads = 0;
+		let isFinding = false;
+		let chunksLoaded = 0;
+		let allChunksLoaded = false;
+		let completed = 0;
+
+		const count = await this.count({});
+		if (!count) {
+			return;
+		}
+
+		return new Promise<void>((resolve, reject) => {
+			const handle = async () => {
+				activeThreads++;
+				const artist = pool.shift();
+				if (!artist) {
+					activeThreads--;
+					increasePool();
+
+					if (!activeThreads) {
+						resolve();
+					}
+					return;
+				}
+
+				try {
+					const identities = await this.identifyArtist(artist);
+					this.logger.debug(
+						`Identified ${identities.length} identities to Artist #${completed + 1}`,
+					);
+				} catch (e) {
+					this.logger.debug(
+						`Failed to identify to Artist #${completed + 1}:`,
+						e,
+					);
+				}
+
+				onProgress?.(++completed, count);
+				activeThreads--;
+				setImmediate(handle);
+			};
+
+			const increasePool = () => {
+				if (isFinding || allChunksLoaded) {
+					return;
+				}
+
+				isFinding = true;
+				this.findMany({
+					amount: CHUNK_SIZE,
+					offset: CHUNK_SIZE * chunksLoaded++,
+				})
+					.then((artists) => {
+						if (artists.length) {
+							pool.push(...artists);
+							isFinding = false;
+							if (chunksLoaded == 1) {
+								onProgress?.(0, count);
+							}
+							for (let i = activeThreads; i < MAX_THREADS; i++) {
+								handle();
+							}
+						} else {
+							allChunksLoaded = true;
+							if (!activeThreads) {
+								resolve();
+							}
+						}
+					})
+					.catch(reject);
+			};
+
+			increasePool();
+		});
+	}
+
+	public async identifyArtist(artist: DBArtist) {
+		let allIdentities = (await this.findIdentities(artist)).map((identity) =>
+			identity.toIdentity(),
+		);
+
+		const deleteConditions: FindOptionsWhere<DBArtistIdentity>[] = [];
+		const newEntries: DBArtistIdentity[] = [];
+
+		if (!this.orderedIdentifiers.length) {
+			this.logger.warn(
+				`Cannot identity Artist "${artist.uuid}" because no Artist Identifiers are registered`,
+			);
+			return [];
+		}
+
+		for (const { identifier, plugin } of this.orderedIdentifiers) {
+			const helper = await this.getInformationHelper(artist, (id, pluginId) =>
+				allIdentities.filter(
+					(identity) =>
+						identity.identifierId == id &&
+						(!pluginId || identity.pluginId == pluginId),
+				),
+			);
+			const newIdentities = await identifier.identify(
+				helper,
+				new Logger(`PLUGIN ${plugin.package.name}`),
+			);
+			allIdentities = allIdentities.filter(
+				(identity) =>
+					identity.identifierId != identifier.id ||
+					identity.pluginId != plugin.package.name,
+			);
+			if (newIdentities?.length) {
+				allIdentities.push(
+					...newIdentities.map((value) => ({
+						pluginId: plugin.package.name,
+						identifierId: identifier.id,
+						value,
+					})),
+				);
+				newEntries.push(
+					...newIdentities.map((identity, ordinal) =>
+						this.identitiesRepository.create({
+							artistUuid: artist.uuid,
+							pluginId: plugin.package.name,
+							identifierId: identifier.id,
+							identity,
+							ordinal,
+						}),
+					),
+				);
+			}
+
+			deleteConditions.push({
+				artistUuid: artist.uuid,
+				pluginId: plugin.package.name,
+				identifierId: identifier.id,
+			});
+		}
+
+		await this.identitiesRepository.delete(deleteConditions);
+		await this.identitiesRepository.insert(newEntries);
+		return newEntries;
+	}
+
+	public async getExternalUrls(artist: DBArtist) {
+		return this.externalUrlsService.getArtistUrls(
+			await this.getInformationHelper(artist),
+		);
 	}
 }

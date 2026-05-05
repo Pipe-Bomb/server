@@ -3,5 +3,4 @@ import { DBTrack } from "src/tracks/entities/track.entity";
 
 export interface ILibraryFindResult {
 	tracks: DBTrack[];
-	attributes: DBTrackAttribute[][] | null;
 }
