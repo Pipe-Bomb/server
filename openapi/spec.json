@@ -1144,22 +1144,31 @@
           "taskId": {
             "type": "string"
           },
-          "inProgress": {
-            "type": "boolean"
+          "status": {
+            "type": "string",
+            "enum": [
+              "stopped",
+              "suspended",
+              "running"
+            ]
           },
           "percent": {
             "type": "number",
             "minimum": 0,
             "maximum": 100,
             "nullable": true
+          },
+          "resumable": {
+            "type": "boolean"
           }
         },
         "required": [
           "uuid",
           "pluginId",
           "taskId",
-          "inProgress",
-          "percent"
+          "status",
+          "percent",
+          "resumable"
         ]
       },
       "AllTasksResponse": {

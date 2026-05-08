@@ -1,9 +1,11 @@
 export interface TaskRunContext {
 	update(percentComplete: number);
+	getRunId(): string;
 }
 
 export interface Task {
-	id: string;
+	readonly id: string;
+	readonly resumable: boolean;
 	// name: string;
 	run: (context: TaskRunContext) => Promise<void>;
 }

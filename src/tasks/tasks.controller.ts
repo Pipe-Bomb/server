@@ -15,6 +15,7 @@ import {
 	ApiOperation,
 } from "@nestjs/swagger";
 import { AllTasksResponse } from "./response/all-tasks.response";
+import { LoadedTask } from "./interface/loaded-task.interface";
 
 @Controller("tasks")
 export class TasksController {
@@ -25,16 +26,26 @@ export class TasksController {
 	@ApiOkResponse({
 		type: AllTasksResponse,
 	})
-	all() {
+	async all() {
 		const pluginTasks = this.tasksService.allPluginTasks();
 		const systemTasks = this.tasksService.allSystemTasks();
+		const progresses = await this.tasksService.allResumableProgresses();
+
+		const getProgress = (task: LoadedTask) =>
+			progresses.find(
+				(progress) =>
+					progress.taskId == task.task.id &&
+					(task.plugin
+						? task.plugin.package.name == progress.pluginId
+						: !progress.pluginId),
+			) ?? null;
 
 		return {
 			pluginTasks: pluginTasks.map((task) =>
-				this.tasksService.toResponse(task),
+				this.tasksService.toResponse(task, getProgress(task)),
 			),
 			systemTasks: systemTasks.map((task) =>
-				this.tasksService.toResponse(task),
+				this.tasksService.toResponse(task, getProgress(task)),
 			),
 		};
 	}

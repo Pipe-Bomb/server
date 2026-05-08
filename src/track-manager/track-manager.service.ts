@@ -8,6 +8,8 @@ import {
 	FindManyOptions,
 	FindOptionsWhere,
 	FindOneOptions,
+	In,
+	QueryDeepPartialEntity,
 } from "typeorm";
 
 @Injectable()
@@ -23,12 +25,38 @@ export class TrackManagerService {
 		return this.tracksRepository.find(options);
 	}
 
-	count(where: FindOptionsWhere<DBTrack>) {
-		return this.tracksRepository.count({ where });
+	count(where: FindOptionsWhere<DBTrack> | FindOptionsWhere<DBTrack>[]) {
+		return this.tracksRepository.countBy(where);
 	}
 
 	findOne(options: FindOneOptions<DBTrack>) {
 		return this.tracksRepository.findOne(options);
+	}
+
+	async setRunId(
+		tracks: DBTrack[],
+		runId: string,
+		type: "attribute" | "identity",
+	) {
+		const partial: QueryDeepPartialEntity<DBTrack> = (() => {
+			switch (type) {
+				case "attribute":
+					return {
+						lastAttributionRunId: runId,
+					};
+				case "identity":
+					return {
+						lastIdentificationRunId: runId,
+					};
+			}
+		})();
+
+		await this.tracksRepository.update(
+			{
+				uuid: In(tracks.map((track) => track.uuid)),
+			},
+			partial,
+		);
 	}
 
 	async addTrack(

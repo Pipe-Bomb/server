@@ -6,17 +6,16 @@ import {
 } from "@nestjs/common";
 import { Task } from "@sdk";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
-import { TaskResponse } from "./response/task.response";
+import { TaskResponse, TaskStatusResponse } from "./response/task.response";
 import { randomUUID } from "crypto";
-
-interface LoadedTask {
-	task: Task;
-	uuid: string;
-	plugin: LoadedPlugin | null;
-}
+import { InjectRepository } from "@nestjs/typeorm";
+import { DBResumableTaskProgress } from "./entity/resumable-task-progress.entity";
+import { FindOptionsWhere, Repository } from "typeorm";
+import { LoadedTask } from "./interface/loaded-task.interface";
 
 interface ActiveTask extends LoadedTask {
 	percent: number | null;
+	runId: string;
 }
 
 @Injectable()
@@ -25,12 +24,30 @@ export class TasksService {
 	private readonly tasks = new Map<string, LoadedTask>();
 	private readonly activePluginTasks: ActiveTask[] = [];
 
+	constructor(
+		@InjectRepository(DBResumableTaskProgress)
+		private readonly resumableTaskProgressRepository: Repository<DBResumableTaskProgress>,
+	) {}
+
 	private generateTaskId() {
 		let uuid: string;
 		do {
 			uuid = randomUUID();
 		} while (this.tasks.has(uuid));
 		return uuid;
+	}
+
+	private async generateRunId() {
+		let runId: string;
+		do {
+			runId = randomUUID();
+		} while (
+			this.activePluginTasks.some((active) => active.runId == runId) ||
+			(await this.resumableTaskProgressRepository.countBy({
+				runId,
+			}))
+		);
+		return runId;
 	}
 
 	registerSystemTask(task: Task) {
@@ -77,26 +94,52 @@ export class TasksService {
 		);
 	}
 
+	allTasks() {
+		return Array.from(this.tasks.values());
+	}
+
 	allPluginTasks() {
-		return Array.from(this.tasks.values()).filter((task) => task.plugin);
+		return this.allTasks().filter((task) => task.plugin);
+	}
+
+	allResumableProgresses() {
+		const conditions: FindOptionsWhere<DBResumableTaskProgress>[] =
+			this.allTasks()
+				.filter((task) => task.task.resumable)
+				.map((task) => ({
+					pluginId: task.plugin?.package.name ?? "",
+					taskId: task.task.id,
+				}));
+
+		return this.resumableTaskProgressRepository.findBy(conditions);
 	}
 
 	allSystemTasks() {
-		return Array.from(this.tasks.values()).filter((task) => !task.plugin);
+		return this.allTasks().filter((task) => !task.plugin);
 	}
 
-	toResponse({ plugin, task, uuid }: LoadedTask): TaskResponse {
+	toResponse(
+		{ plugin, task, uuid }: LoadedTask,
+		resumableProgress: DBResumableTaskProgress | null,
+	): TaskResponse {
 		const activeTask = this.activePluginTasks.find((task) => task.uuid == uuid);
 
 		return {
 			uuid,
 			taskId: task.id,
 			pluginId: plugin?.package.name ?? null,
-			inProgress: !!activeTask,
+			status: activeTask
+				? TaskStatusResponse.RUNNING
+				: resumableProgress
+					? TaskStatusResponse.SUSPENDED
+					: TaskStatusResponse.STOPPED,
 			percent:
 				typeof activeTask?.percent == "number"
 					? activeTask.percent * 100
-					: null,
+					: resumableProgress && resumableProgress.progress >= 0
+						? resumableProgress.progress * 100
+						: null,
+			resumable: task.resumable,
 		};
 	}
 
@@ -113,7 +156,7 @@ export class TasksService {
 		return null;
 	}
 
-	runTask(uuid: string) {
+	async runTask(uuid: string) {
 		if (
 			this.activePluginTasks.some((existingTask) => existingTask.uuid == uuid)
 		) {
@@ -125,9 +168,37 @@ export class TasksService {
 			throw new NotFoundException("Task does not exist");
 		}
 
+		let runId: string;
+		let startingProgress = 0;
+
+		if (task.task.resumable) {
+			const resumableProgress =
+				await this.resumableTaskProgressRepository.findOneBy({
+					pluginId: task.plugin?.package.name ?? "",
+					taskId: task.task.id,
+				});
+			if (resumableProgress) {
+				runId = resumableProgress.runId;
+				startingProgress = Math.max(0, resumableProgress.progress);
+			} else {
+				runId = await this.generateRunId();
+				const newResumableProgress =
+					this.resumableTaskProgressRepository.create({
+						pluginId: task.plugin?.package.name ?? "",
+						taskId: task.task.id,
+						progress: -1,
+						runId,
+					});
+				await this.resumableTaskProgressRepository.insert(newResumableProgress);
+			}
+		} else {
+			runId = await this.generateRunId();
+		}
+
 		const activeTask: ActiveTask = {
 			...task,
 			percent: null,
+			runId,
 		};
 
 		this.activePluginTasks.push(activeTask);
@@ -135,14 +206,46 @@ export class TasksService {
 			? `Plugin "${task.plugin.package.name}"'s Task "${task.task.id}"`
 			: `SYSTEM Task "${task.task.id}"`;
 		this.logger.log(`Started ${title}`);
+
+		let lastResumeUpdateTime = 0;
+		let isUpdatingTime = false;
 		task.task
 			.run({
 				update: (percent) => {
-					activeTask.percent = Math.max(Math.min(percent, 1), 0);
+					const normalized = Math.max(Math.min(percent, 1), 0);
+					const newPercent =
+						startingProgress + normalized * (1 - startingProgress);
+
+					activeTask.percent = newPercent;
 					this.logger.debug(
 						`${title} is at ${Math.round(activeTask.percent * 1000) / 10}%`,
 					);
+					if (task.task.resumable && !isUpdatingTime) {
+						if (lastResumeUpdateTime + 5_000 < Date.now()) {
+							isUpdatingTime = true;
+							this.resumableTaskProgressRepository
+								.update(
+									{
+										runId,
+									},
+									{
+										progress: activeTask.percent,
+									},
+								)
+								.catch((e) =>
+									this.logger.error(
+										`Failed to store Task progress for "${task.task.id}":`,
+										e,
+									),
+								)
+								.finally(() => {
+									isUpdatingTime = false;
+									lastResumeUpdateTime = Date.now();
+								});
+						}
+					}
 				},
+				getRunId: () => runId,
 			})
 			.then(() => {
 				this.logger.log(`Finished ${title}`);

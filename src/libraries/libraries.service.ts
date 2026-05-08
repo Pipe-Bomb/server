@@ -13,6 +13,7 @@ import { LoadedLibraryHandler } from "./interface/loaded-library.interface";
 import { IdentifiersService } from "src/identifiers/identifiers.service";
 import { DBTrack } from "src/tracks/entities/track.entity";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
+import { FindOptionsWhere, In, IsNull, Not } from "typeorm";
 
 interface PluginLibraries {
 	readonly plugin: LoadedPlugin;
@@ -32,6 +33,7 @@ export class LibrariesService {
 	) {
 		this.tasksService.registerSystemTask({
 			id: "scan-all-libraries",
+			resumable: false,
 			run: async (context) => {
 				const libraries = this.allFlat();
 				const sectionPercent = 1 / libraries.length;
@@ -40,20 +42,21 @@ export class LibrariesService {
 					const startPercent = sectionPercent * index;
 					context.update(startPercent);
 
-					await library.handler.scan({
-						update: (percent) => {
-							context.update(
-								startPercent +
-									Math.max(Math.min(percent, 1), 0) * sectionPercent,
-							);
-						},
-					});
+					// await library.handler.scan({
+					// 	update: (percent) => {
+					// 		context.update(
+					// 			startPercent +
+					// 				Math.max(Math.min(percent, 1), 0) * sectionPercent,
+					// 		);
+					// 	},
+					// });
 				}
 			},
 		});
 
 		this.tasksService.registerSystemTask({
 			id: "identify-all-libraries",
+			resumable: true,
 			run: async (context) => {
 				const libraries = this.allFlat();
 				const sectionPercent = 1 / libraries.length;
@@ -62,15 +65,22 @@ export class LibrariesService {
 					const startPercent = sectionPercent * index;
 
 					context.update(startPercent);
-					await this.identify(library, (completed, total) => {
-						context.update(startPercent + (sectionPercent * completed) / total);
-					});
+					await this.identify(
+						library,
+						context.getRunId(),
+						(completed, total) => {
+							context.update(
+								startPercent + (sectionPercent * completed) / total,
+							);
+						},
+					);
 				}
 			},
 		});
 
 		this.tasksService.registerSystemTask({
 			id: "attribute-all-libraries",
+			resumable: true,
 			run: async (context) => {
 				const libraries = this.allFlat();
 				const sectionPercent = 1 / libraries.length;
@@ -79,9 +89,15 @@ export class LibrariesService {
 					const startPercent = sectionPercent * index;
 
 					context.update(startPercent);
-					await this.attribute(library, (completed, total) => {
-						context.update(startPercent + (sectionPercent * completed) / total);
-					});
+					await this.attribute(
+						library,
+						context.getRunId(),
+						(completed, total) => {
+							context.update(
+								startPercent + (sectionPercent * completed) / total,
+							);
+						},
+					);
 				}
 			},
 		});
@@ -251,12 +267,27 @@ export class LibrariesService {
 
 	async attribute(
 		library: LoadedLibraryHandler,
+		runId: string,
 		onProgress?: (completed: number, total: number) => void,
 	) {
 		const CHUNK_SIZE = 30;
 		const MAX_THREADS = 5;
 
-		const count = await this.getCount(library);
+		const criteria: FindOptionsWhere<DBTrack>[] = [
+			{
+				lastAttributionRunId: Not(runId),
+				libraryId: library.handler.id,
+				pluginId: library.plugin.package.name,
+			},
+			{
+				lastAttributionRunId: IsNull(),
+				libraryId: library.handler.id,
+				pluginId: library.plugin.package.name,
+			},
+		];
+
+		const count = await this.trackManagerService.count(criteria);
+		this.logger.debug(`Attributing ${count} tracks`);
 		if (!count) {
 			return;
 		}
@@ -267,6 +298,8 @@ export class LibrariesService {
 		let chunksLoaded = 0;
 		let allChunksLoaded = false;
 		let completedTracks = 0;
+		const toSetRunId: DBTrack[] = [];
+		const recentIds = new Set<string>();
 
 		return new Promise<void>((resolve, reject) => {
 			const handle = async () => {
@@ -282,6 +315,8 @@ export class LibrariesService {
 					return;
 				}
 
+				recentIds.add(track.uuid);
+
 				try {
 					const attributes = await this.attributesService.attributeTrack(
 						track,
@@ -296,6 +331,24 @@ export class LibrariesService {
 						e,
 					);
 				}
+				toSetRunId.push(track);
+				if (toSetRunId.length >= CHUNK_SIZE) {
+					const updateList = toSetRunId.splice(0, toSetRunId.length);
+					try {
+						await this.trackManagerService.setRunId(
+							updateList,
+							runId,
+							"attribute",
+						);
+					} catch (e) {
+						this.logger.error(e);
+					}
+					setTimeout(() => {
+						for (const track of updateList) {
+							recentIds.delete(track.uuid);
+						}
+					}, 30_000);
+				}
 
 				onProgress?.(++completedTracks, count);
 				activeThreads--;
@@ -307,13 +360,21 @@ export class LibrariesService {
 					return;
 				}
 
+				const recentIdArray = Array.from(recentIds);
+
 				isFindingTracks = true;
-				this.findTracks(library, {
-					amount: CHUNK_SIZE,
-					offset: CHUNK_SIZE * chunksLoaded++,
-					withArtists: true,
-				})
-					.then(({ tracks }) => {
+				this.trackManagerService
+					.find({
+						where: criteria.map((criteria) => ({
+							...criteria,
+							uuid: Not(In(recentIdArray)),
+						})),
+						take: CHUNK_SIZE,
+						relations: {
+							artists: true,
+						},
+					})
+					.then((tracks) => {
 						if (tracks.length) {
 							trackPool.push(...tracks);
 							isFindingTracks = false;
@@ -339,16 +400,30 @@ export class LibrariesService {
 
 	async identify(
 		library: LoadedLibraryHandler,
+		runId: string,
 		onProgress?: (completed: number, total: number) => void,
 	) {
 		const CHUNK_SIZE = 30;
 
-		const count = await this.getCount(library);
+		const criteria: FindOptionsWhere<DBTrack>[] = [
+			{
+				lastIdentificationRunId: Not(runId),
+				libraryId: library.handler.id,
+				pluginId: library.plugin.package.name,
+			},
+			{
+				lastIdentificationRunId: IsNull(),
+				libraryId: library.handler.id,
+				pluginId: library.plugin.package.name,
+			},
+		];
+
+		const count = await this.trackManagerService.count(criteria);
 
 		for (let i = 0; i * 30 < count; i++) {
-			const { tracks } = await this.findTracks(library, {
-				amount: CHUNK_SIZE,
-				offset: CHUNK_SIZE * i,
+			const tracks = await this.trackManagerService.find({
+				where: criteria,
+				take: CHUNK_SIZE,
 			});
 
 			if (!tracks.length) {
@@ -359,6 +434,7 @@ export class LibrariesService {
 				await this.identifiersService.identifyTrack(track, library);
 				onProgress?.(index + i * CHUNK_SIZE, count);
 			}
+			await this.trackManagerService.setRunId(tracks, runId, "identity");
 		}
 	}
 }

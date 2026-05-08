@@ -1,5 +1,11 @@
 import { ApiProperty, ApiSchema } from "@nestjs/swagger";
 
+export enum TaskStatusResponse {
+	STOPPED = "stopped",
+	SUSPENDED = "suspended",
+	RUNNING = "running",
+}
+
 @ApiSchema({ name: "Task" })
 export class TaskResponse {
 	@ApiProperty()
@@ -14,8 +20,10 @@ export class TaskResponse {
 	@ApiProperty()
 	taskId: string;
 
-	@ApiProperty()
-	inProgress: boolean;
+	@ApiProperty({
+		enum: TaskStatusResponse,
+	})
+	status: TaskStatusResponse;
 
 	@ApiProperty({
 		minimum: 0,
@@ -24,4 +32,7 @@ export class TaskResponse {
 		type: "number",
 	})
 	percent: number | null;
+
+	@ApiProperty()
+	resumable: boolean;
 }

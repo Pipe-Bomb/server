@@ -38,7 +38,7 @@ export class DBArtist {
 		type: "uuid",
 		nullable: true,
 	})
-	lastIdentificationSession: string | null;
+	lastIdentificationRunId: string | null;
 
 	toResponse(): ArtistResponse {
 		let identities: IdentityResponse[] | null = null;

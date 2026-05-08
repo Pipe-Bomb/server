@@ -57,10 +57,14 @@ export class ArtistsService {
 	) {
 		this.tasksService.registerSystemTask({
 			id: "identify-all-artists",
+			resumable: true,
 			run: async (context) => {
-				await this.identifyAllArtists((completed, total) => {
-					context.update(completed / total);
-				});
+				await this.identifyAllArtists(
+					context.getRunId(),
+					(completed, total) => {
+						context.update(completed / total);
+					},
+				);
 			},
 		});
 	}
@@ -308,12 +312,12 @@ export class ArtistsService {
 	}
 
 	public async identifyAllArtists(
+		runId: string,
 		onProgress?: (completed: number, total: number) => void,
 	) {
 		const CHUNK_SIZE = 30;
 		const MAX_THREADS = 1;
 
-		const identificationSession = randomUUID();
 		let pool: DBArtist[] = [];
 		let activeThreads = 0;
 		let isFinding = false;
@@ -322,7 +326,18 @@ export class ArtistsService {
 		let completed = 0;
 		const failedUuids: string[] = [];
 
-		const count = await this.count({});
+		const criteria: FindOptionsWhere<DBArtist>[] = [
+			{
+				lastIdentificationRunId: Not(runId),
+				uuid: Not(In(failedUuids)),
+			},
+			{
+				lastIdentificationRunId: IsNull(),
+				uuid: Not(In(failedUuids)),
+			},
+		];
+
+		const count = await this.count(criteria);
 		if (!count) {
 			return;
 		}
@@ -344,7 +359,7 @@ export class ArtistsService {
 				try {
 					const { mergedArtists, identities } = await this.identifyArtist(
 						artist,
-						identificationSession,
+						runId,
 					);
 					this.logger.debug(
 						`Identified ${identities.length} identities to Artist #${completed + 1}`,
@@ -374,16 +389,7 @@ export class ArtistsService {
 				isFinding = true;
 				this.artistsRepository
 					.find({
-						where: [
-							{
-								lastIdentificationSession: Not(identificationSession),
-								uuid: Not(In(failedUuids)),
-							},
-							{
-								lastIdentificationSession: IsNull(),
-								uuid: Not(In(failedUuids)),
-							},
-						],
+						where: criteria,
 						take: CHUNK_SIZE,
 					})
 					.then((artists) => {
@@ -689,7 +695,7 @@ export class ArtistsService {
 
 	public async identifyArtist(
 		artist: DBArtist,
-		identificationSession: string,
+		runId: string,
 	): Promise<ArtistIdentificationResult> {
 		let allIdentities = (await this.findIdentities(artist)).map((identity) =>
 			identity.toIdentity(),
@@ -746,7 +752,7 @@ export class ArtistsService {
 		if (!newEntries.length) {
 			await this.artistsRepository.update(
 				{ uuid: artist.uuid },
-				{ lastIdentificationSession: identificationSession },
+				{ lastIdentificationRunId: runId },
 			);
 			return { identities: [], mergedArtists: [artist.uuid] };
 		}
@@ -892,14 +898,14 @@ export class ArtistsService {
 					// --- D. CLEANUP ---
 					await artistsRepo.delete({ uuid: In(removedArtistIds) });
 					await artistsRepo.update(masterArtist.uuid, {
-						lastIdentificationSession: identificationSession,
+						lastIdentificationRunId: runId,
 					});
 
 					return { mergedArtists: allArtistIds, identities: masterIdentities };
 				} else {
 					// Standard single-artist update
 					await artistsRepo.update(artist.uuid, {
-						lastIdentificationSession: identificationSession,
+						lastIdentificationRunId: runId,
 					});
 					await idRepo.delete(
 						newEntries.map((e) => ({

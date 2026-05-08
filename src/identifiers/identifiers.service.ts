@@ -10,6 +10,7 @@ import { IdentifierResponse } from "./response/identifier.response";
 import { ArtistsService } from "src/artists/artists.service";
 import { LoadedIdentifier } from "./interface/loaded-identifier";
 import { orderIdentifiers } from "./identifiers.util";
+import { TrackManagerService } from "src/track-manager/track-manager.service";
 
 @Injectable()
 export class IdentifiersService {

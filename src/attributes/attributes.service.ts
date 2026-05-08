@@ -26,6 +26,7 @@ export class AttributesService {
 	) {
 		this.tasksService.registerSystemTask({
 			id: "attribute-all-artists",
+			resumable: false,
 			run: async (context) => {
 				await this.attributeAllArtists((completed, total) =>
 					context.update(completed / total),

@@ -3,7 +3,6 @@ import { IdentifiersController } from "./identifiers.controller";
 import { IdentifiersService } from "./identifiers.service";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { DBIdentity } from "./entities/identity.entity";
-import { LibrariesModule } from "src/libraries/libraries.module";
 import { ArtistsModule } from "src/artists/artists.module";
 
 @Module({

@@ -41,6 +41,18 @@ export class DBTrack {
 	})
 	title: string;
 
+	@Column({
+		type: "uuid",
+		nullable: true,
+	})
+	lastIdentificationRunId: string | null;
+
+	@Column({
+		type: "uuid",
+		nullable: true,
+	})
+	lastAttributionRunId: string | null;
+
 	@OneToMany(() => DBTrackArtist, (artist) => artist.track)
 	artists?: DBTrackArtist[];
 
