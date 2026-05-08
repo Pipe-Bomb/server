@@ -8,10 +8,16 @@ import { DBTrackArtist } from "./entity/track-artist.entity";
 import { TasksModule } from "src/tasks/tasks.module";
 import { AttributeSourcesModule } from "src/attribute-sources/attribute-sources.module";
 import { ExternalUrlsModule } from "src/external-urls/external-urls.module";
+import { DBArtistAttribute } from "src/attributes/entities/artist-attribute.entity";
 
 @Module({
 	imports: [
-		TypeOrmModule.forFeature([DBArtist, DBArtistIdentity, DBTrackArtist]),
+		TypeOrmModule.forFeature([
+			DBArtist,
+			DBArtistIdentity,
+			DBTrackArtist,
+			DBArtistAttribute,
+		]),
 		TasksModule,
 		AttributeSourcesModule,
 		ExternalUrlsModule,

@@ -577,7 +577,7 @@
     },
     "/tracks/{pluginId}/{libraryId}/{trackId}/audio": {
       "get": {
-        "operationId": "streamAudio",
+        "operationId": "createTrackAudioSession",
         "parameters": [
           {
             "name": "pluginId",
@@ -597,6 +597,37 @@
           },
           {
             "name": "trackId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Tracks"
+        ]
+      }
+    },
+    "/audio-sessions/{id}/stream": {
+      "get": {
+        "operationId": "getStream",
+        "parameters": [
+          {
+            "name": "id",
             "required": true,
             "in": "path",
             "schema": {
@@ -667,7 +698,61 @@
           }
         },
         "tags": [
-          "Tracks"
+          "AudioSessions"
+        ]
+      }
+    },
+    "/audio-sessions/{id}/hls/playlist.m3u8": {
+      "get": {
+        "operationId": "getHLSPlaylist",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AudioSessions"
+        ]
+      }
+    },
+    "/audio-sessions/{id}/hls/segment/{segmentId}": {
+      "get": {
+        "operationId": "getHLSSegment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "segmentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AudioSessions"
         ]
       }
     },
@@ -1258,6 +1343,25 @@
         "required": [
           "id",
           "keys"
+        ]
+      },
+      "Session": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "hls",
+              "stream"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "type"
         ]
       },
       "AttributeMap": {

@@ -18,4 +18,5 @@ export interface PluginApiContext {
 	registerLanguageDirectory(path: string): void;
 	registerIconDirectory(path: string): void;
 	registerExternalUrlSource(externalUrlSource: ExternalUrlSource);
+	requestCacheDirectory(): Promise<string>;
 }

@@ -14,8 +14,16 @@ import {
 import { AttributeType } from "./attributes/enum/attribute-type.enum";
 import { AttributeSourcesService } from "./attribute-sources/attribute-sources.service";
 import { AttributeInterceptor } from "./attribute-sources/attribute.interceptor";
+import { mkdir, rm } from "fs/promises";
 
 async function bootstrap() {
+	try {
+		await rm("temp", {
+			recursive: true,
+		});
+	} catch {}
+	await mkdir("temp");
+
 	const app = await NestFactory.create(AppModule);
 	app.enableCors();
 

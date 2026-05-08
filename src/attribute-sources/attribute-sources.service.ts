@@ -11,7 +11,7 @@ import { PersistentAttributeResponse } from "src/attributes/response/persistent-
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { ResourcesService } from "src/resources/resources.service";
 import { TasksService } from "src/tasks/tasks.service";
-import { DeepPartial, Repository } from "typeorm";
+import { DeepPartial, In, Repository } from "typeorm";
 
 @Injectable()
 export class AttributeSourcesService {
@@ -177,6 +177,7 @@ export class AttributeSourcesService {
 			const dbAttribute = await (async () => {
 				const entity = repository.create({
 					entityId,
+					entityRelationId: entityId,
 					pluginId: source.plugin.package.name,
 					sourceId: source.source.id,
 					key: attribute.key,

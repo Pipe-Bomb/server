@@ -1,4 +1,4 @@
-import { Column, ManyToOne, PrimaryColumn } from "typeorm";
+import { Column, JoinColumn, ManyToOne, PrimaryColumn } from "typeorm";
 import {
 	PersistentAttributeResponse,
 	PersistentBooleanAttributeResponse,
@@ -12,9 +12,12 @@ import { DBResource } from "src/resources/entities/resource.entity";
 
 export abstract class DBAttributeTemplate {
 	@PrimaryColumn({
-		type: "text",
+		type: "uuid",
 	})
-	abstract entityId: string;
+	entityId: string;
+
+	@JoinColumn()
+	abstract entityRelationId: string;
 
 	@PrimaryColumn({
 		type: "text",

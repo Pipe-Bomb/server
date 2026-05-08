@@ -5,5 +5,5 @@ import { DBTrack } from "src/tracks/entities/track.entity";
 @Entity("track_attributes")
 export class DBTrackAttribute extends DBAttributeTemplate {
 	@ManyToOne(() => DBTrack, (track) => track.attributes)
-	entityId: string;
+	entityRelationId: string;
 }

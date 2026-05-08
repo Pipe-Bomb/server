@@ -1,4 +1,9 @@
-import { CallHandler, ExecutionContext, NestInterceptor } from "@nestjs/common";
+import {
+	CallHandler,
+	ExecutionContext,
+	NestInterceptor,
+	StreamableFile,
+} from "@nestjs/common";
 import { map, Observable } from "rxjs";
 import { AttributeSourcesService } from "./attribute-sources.service";
 
@@ -11,12 +16,17 @@ export class AttributeInterceptor implements NestInterceptor {
 		context: ExecutionContext,
 		next: CallHandler<any>,
 	): Observable<any> | Promise<Observable<any>> {
-		return next.handle().pipe(map((data) => this.traverse(data)));
+		return next.handle().pipe(
+			map((data) => {
+				return this.traverse(data);
+			}),
+		);
 	}
 
 	private traverse(node: any): any {
 		// 1. Handle Null or Undefined
-		if (node === null || node === undefined) return node;
+		if (node === null || node === undefined || node instanceof StreamableFile)
+			return node;
 
 		// 2. Handle Arrays (Recurse into each element)
 		if (Array.isArray(node)) {

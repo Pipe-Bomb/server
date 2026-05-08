@@ -19,8 +19,6 @@ import { AttributeSourcesService } from "src/attribute-sources/attribute-sources
 export class AttributesService {
 	private readonly logger = new Logger("Attributes Service");
 
-	private readonly sources: LoadedAttributeSource[] = [];
-
 	constructor(
 		private readonly attributeSourcesService: AttributeSourcesService,
 		private readonly tasksService: TasksService,
@@ -45,7 +43,9 @@ export class AttributesService {
 
 		const completedAttributes = new Set<string>();
 
-		for (const source of this.sources) {
+		const sources = this.attributeSourcesService.getSources();
+
+		for (const source of sources) {
 			const attributionHelper: TrackAttributionHelper = {
 				...(await library.informationHelper(track)),
 				getCompletedAttributeKeys: () => Array.from(completedAttributes),
@@ -112,8 +112,9 @@ export class AttributesService {
 		const allAttributes: DBArtistAttribute[] = [];
 
 		const helper = await this.artistsService.getInformationHelper(artist);
+		const sources = this.attributeSourcesService.getSources();
 
-		for (const source of this.sources) {
+		for (const source of sources) {
 			try {
 				const attributes = await source.source.getArtistAttributeValues(helper);
 				const dbAttributes =
@@ -161,10 +162,6 @@ export class AttributesService {
 		}
 	}
 
-	getSources() {
-		return [...this.sources];
-	}
-
 	// findTrackAttributes(tracks: DBTrack[]) {
 	// 	return this.findAttributes(
 	// 		this.trackAttributesRepository,
@@ -172,27 +169,27 @@ export class AttributesService {
 	// 	);
 	// }
 
-	private async findAttributes(
-		repository: Repository<DBTrackAttribute>,
-		entityIds: string[],
-	) {
-		// todo: support ordering attribute sources
+	// private async findAttributes(
+	// 	repository: Repository<DBTrackAttribute>,
+	// 	entityIds: string[],
+	// ) {
+	// 	// todo: support ordering attribute sources
 
-		if (!entityIds.length) {
-			return [];
-		}
+	// 	if (!entityIds.length) {
+	// 		return [];
+	// 	}
 
-		const rawAttributes = await repository.findBy({
-			entityId: entityIds.length == 1 ? entityIds[0] : In(entityIds),
-		});
+	// 	const rawAttributes = await repository.findBy({
+	// 		entityId: entityIds.length == 1 ? entityIds[0] : In(entityIds),
+	// 	});
 
-		return entityIds.map((entityId) => ({
-			entityId,
-			attributes: rawAttributes.filter(
-				(attribute) => attribute.entityId == entityId,
-			),
-		}));
-	}
+	// 	return entityIds.map((entityId) => ({
+	// 		entityId,
+	// 		attributes: rawAttributes.filter(
+	// 			(attribute) => attribute.entityId == entityId,
+	// 		),
+	// 	}));
+	// }
 
 	toSimplifiedAttributeList(attributes: DBAttributeTemplate[]) {
 		const dictionary: Record<string, PersistentAttributeResponse[]> = {};

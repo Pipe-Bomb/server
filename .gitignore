@@ -4,6 +4,7 @@
 /build
 /plugins
 /resources
+/plugin-cache
 
 # Logs
 logs

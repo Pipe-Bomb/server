@@ -5,5 +5,5 @@ import { DBArtist } from "src/artists/entity/artist.entity";
 @Entity("artist_attributes")
 export class DBArtistAttribute extends DBAttributeTemplate {
 	@ManyToOne(() => DBArtist, (artist) => artist.attributes)
-	entityId: string;
+	entityRelationId: string;
 }

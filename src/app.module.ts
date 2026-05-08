@@ -17,6 +17,7 @@ import { AttributeSourcesModule } from "./attribute-sources/attribute-sources.mo
 import { IconsModule } from "./icons/icons.module";
 import { ExternalUrlsModule } from "./external-urls/external-urls.module";
 import { TrackManagerModule } from "./track-manager/track-manager.module";
+import { AudioSessionsModule } from "./audio-sessions/audio-sessions.module";
 import databaseConfig from "./config/database.config";
 
 @Module({
@@ -41,6 +42,7 @@ import databaseConfig from "./config/database.config";
 		IconsModule,
 		ExternalUrlsModule,
 		TrackManagerModule,
+		AudioSessionsModule,
 	],
 	controllers: [AppController],
 	providers: [AppService],

@@ -1,5 +1,9 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { LibraryHandler, TrackInformationHelper } from "@sdk";
+import {
+	AudioProducerType,
+	LibraryHandler,
+	TrackInformationHelper,
+} from "@sdk";
 import { AttributesService } from "src/attributes/attributes.service";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { TracksService } from "src/tracks/tracks.service";
@@ -154,8 +158,35 @@ export class LibrariesService {
 
 		const informationHelper = async (track: DBTrack) => {
 			const helper: TrackInformationHelper = {
-				...(await handler.getInformationHelper(track.toResponse())),
+				getAudioProducer: async (type?: AudioProducerType) => {
+					const producer = await handler.getAudioProducer(
+						track.toResponse(),
+						type ?? null,
+					);
+
+					if (type) {
+						if (!producer) {
+							return null;
+						}
+						if (producer.type != type) {
+							this.logger.error(
+								`Library Handler "${handler.id}" from Plugin "${plugin.package.name}" returned an Audio Producer of the wrong type`,
+							);
+							return null as any;
+						}
+						return producer;
+					}
+					if (!producer) {
+						throw new Error(
+							`Library Handler "${handler.id}" from Plugin "${plugin.package.name}" didn't return an Audio Producer`,
+						);
+					}
+					return producer;
+				},
 				getTrackUuid: () => track.uuid,
+				getPluginId: () => track.pluginId,
+				getLibraryId: () => track.libraryId,
+				getTrackId: () => track.trackId,
 				getIdentity: async (id, pluginId, multiple) => {
 					// todo: optimize for single grabs
 					const identities = await this.identifiersService.getTrackIdentity(

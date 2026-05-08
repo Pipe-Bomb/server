@@ -4,7 +4,7 @@ import { TrackInformationHelper } from "./identifier";
 import { AttributeSource } from "./attribute-source";
 import { LibraryTrackInformationHelper, TrackInformationHelper } from "./information-helper";
 import { Task, TaskRunContext } from "./task";
-import { AudioProducer } from "./audio-producer";
+import { AudioProducer, AudioProducerType, HLSAudioProducer, StreamAudioProducer } from "./audio-producer";
 
 export interface LibraryHandlerApiContext {
 	addTrack(track: Track): Promise<void>;
@@ -19,9 +19,9 @@ export interface LibraryHandler {
 
 	getName(): string;
 
-	getInformationHelper(track: Track): Promise<LibraryTrackInformationHelper>;
+	// getInformationHelper(track: Track): Promise<LibraryTrackInformationHelper>;
 
-	getAudioProducer(track: Track): Promise<AudioProducer>;
+	getAudioProducer(track: Track, type: AudioProducerType | null): Promise<AudioProducer | null>;
 
-	scan(TaskRunContext: TaskRunContext): Promise<void>;
+	scan(taskRunContext: TaskRunContext): Promise<void>;
 }

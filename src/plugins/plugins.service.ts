@@ -183,6 +183,13 @@ export class PluginsService {
 				await mkdir(dir);
 				return dir;
 			},
+			requestCacheDirectory: async () => {
+				const dir = path.join("plugin-cache", plugin.package.name);
+				await mkdir(dir, {
+					recursive: true,
+				});
+				return dir;
+			},
 			registerLibraryHandler: (handler) =>
 				this.librariesService.register(handler, plugin),
 			registerTrackIdentifier: (identifier) =>

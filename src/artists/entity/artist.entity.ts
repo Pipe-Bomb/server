@@ -1,4 +1,10 @@
-import { Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import {
+	Column,
+	CreateDateColumn,
+	Entity,
+	OneToMany,
+	PrimaryGeneratedColumn,
+} from "typeorm";
 import { DBArtistIdentity } from "./artist-identity.entity";
 import { DBTrackArtist } from "./track-artist.entity";
 import { DBArtistAttribute } from "src/attributes/entities/artist-attribute.entity";
@@ -17,11 +23,22 @@ export class DBArtist {
 	@OneToMany(() => DBArtistIdentity, (identity) => identity.artist)
 	identities?: DBArtistIdentity[];
 
-	@OneToMany(() => DBArtistAttribute, (attribute) => attribute.entityId)
+	@OneToMany(() => DBArtistAttribute, (attribute) => attribute.entityRelationId)
 	attributes?: DBArtistAttribute[];
 
 	@OneToMany(() => DBTrackArtist, (track) => track.artist)
 	tracks?: DBTrackArtist[];
+
+	@CreateDateColumn({
+		type: "integer",
+	})
+	dateAdded: number;
+
+	@Column({
+		type: "uuid",
+		nullable: true,
+	})
+	lastIdentificationSession: string | null;
 
 	toResponse(): ArtistResponse {
 		let identities: IdentityResponse[] | null = null;

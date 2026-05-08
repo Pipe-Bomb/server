@@ -18,6 +18,7 @@ import {
 	ApiProduces,
 	ApiRequestedRangeNotSatisfiableResponse,
 	ApiResponse,
+	getSchemaPath,
 } from "@nestjs/swagger";
 import { IdentifiersService } from "src/identifiers/identifiers.service";
 import { IdentityResponse } from "src/identifiers/response/identity.response";
@@ -25,6 +26,9 @@ import { TrackResponse } from "./response/track.response";
 import type { Response } from "express";
 import { LibrariesService } from "src/libraries/libraries.service";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
+import { StreamAudioProducer } from "@sdk";
+import { AudioSessionsService } from "src/audio-sessions/audio-sessions.service";
+import { SessionResponse } from "src/audio-sessions/response/session.response";
 
 @Controller("tracks")
 export class TracksController {
@@ -33,6 +37,7 @@ export class TracksController {
 		private readonly trackManagerService: TrackManagerService,
 		private readonly librariesService: LibrariesService,
 		private readonly identifiersService: IdentifiersService,
+		private readonly audioSessionsService: AudioSessionsService,
 	) {}
 
 	@Get(":pluginId/:libraryId/:trackId")
@@ -83,60 +88,15 @@ export class TracksController {
 	}
 
 	@Get(":pluginId/:libraryId/:trackId/audio")
-	@ApiHeader({
-		name: "Range",
-		description: "Byte range for seeking (e.g., bytes=0-1024)",
-		required: false,
-		schema: { type: "string", example: "bytes=0-1024" },
-	})
-	@ApiProduces("audio/mpeg", "audio/ogg", "audio/flac")
+	@ApiOperation({ operationId: "createTrackAudioSession" })
 	@ApiOkResponse({
-		description: "Returns the full audio file when no range is requested",
-		content: {
-			"audio/*": {
-				schema: {
-					type: "string",
-					format: "binary",
-				},
-			},
-		},
+		type: SessionResponse,
 	})
-	@ApiPartialContentResponse({
-		description: "Partial content when a valid range is provided",
-		headers: {
-			"Content-Range": {
-				description: "The range of bytes sent and the total size of the file",
-				schema: { type: "string", example: "bytes 0-99/3539613" },
-			},
-			"Accept-Ranges": {
-				description: "Indicates that the server supports range requests",
-				schema: { type: "string", example: "bytes" },
-			},
-			"Content-Length": {
-				description: "Size of the chunk being returned",
-				schema: { type: "number" },
-			},
-		},
-		content: {
-			"audio/*": {
-				schema: {
-					type: "string",
-					format: "binary",
-				},
-			},
-		},
-	})
-	@ApiNotFoundResponse({ description: "Library or Track not found" })
-	@ApiRequestedRangeNotSatisfiableResponse({
-		description: "Requested Range Not Satisfiable",
-	})
-	async streamAudio(
+	async getAudioInfo(
 		@Param("pluginId") pluginId: string,
 		@Param("libraryId") libraryId: string,
 		@Param("trackId") trackId: string,
-		@Headers("Range") range: string,
-		@Res({ passthrough: true }) res: Response,
-	) {
+	): Promise<SessionResponse> {
 		const library = this.librariesService.findLibrary(pluginId, libraryId);
 		if (!library) {
 			throw new NotFoundException("Library not found");
@@ -157,49 +117,7 @@ export class TracksController {
 			throw new NotFoundException("Track not found");
 		}
 
-		const producer = await library.handler.getAudioProducer({
-			id: track.trackId,
-			title: track.title,
-		});
-
-		const metadata = await producer.getMetadata();
-
-		if (!range) {
-			const stream = await producer.getStream();
-
-			res.set({
-				"Content-Type": metadata.mimeType,
-				"Content-Length": metadata.size,
-				"Accept-Ranges": "bytes",
-			});
-
-			return new StreamableFile(stream);
-		}
-
-		const parts = range.replace(/bytes=/, "").split("-");
-		const start = parseInt(parts[0], 10);
-		const end = parts[1] ? parseInt(parts[1], 10) : metadata.size - 1;
-
-		if (start >= metadata.size || end >= metadata.size) {
-			res.status(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE);
-			res.set("Content-Range", `bytes */${metadata.size}`);
-			return;
-		}
-
-		const stream = await producer.getPart(start, end);
-		const chunkSize = end - start + 1;
-
-		res.status(HttpStatus.PARTIAL_CONTENT);
-		res.set({
-			"Content-Range": `bytes ${start}-${end}/${metadata.size}`,
-			"Accept-Ranges": "bytes",
-			"Content-Length": chunkSize,
-			"Content-Type": metadata.mimeType,
-		});
-
-		if (Buffer.isBuffer(stream)) {
-			return stream;
-		}
-		return new StreamableFile(stream);
+		const session = await this.audioSessionsService.createSession(track);
+		return session.toResponse();
 	}
 }

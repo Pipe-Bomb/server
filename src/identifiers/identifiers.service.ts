@@ -100,7 +100,7 @@ export class IdentifiersService {
 							);
 							artistUuids.push(artistUuid);
 						}
-						this.artistsService.setTrackLinks(
+						await this.artistsService.setTrackLinks(
 							track,
 							artistUuids,
 							plugin.package.name,

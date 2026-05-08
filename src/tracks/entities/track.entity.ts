@@ -44,7 +44,7 @@ export class DBTrack {
 	@OneToMany(() => DBTrackArtist, (artist) => artist.track)
 	artists?: DBTrackArtist[];
 
-	@OneToMany(() => DBTrackAttribute, (attribute) => attribute.entityId)
+	@OneToMany(() => DBTrackAttribute, (attribute) => attribute.entityRelationId)
 	attributes?: DBTrackAttribute[];
 
 	@OneToMany(() => DBIdentity, (identity) => identity.trackUuid)
@@ -53,7 +53,6 @@ export class DBTrack {
 	toResponse(
 		options: {
 			identities?: DBIdentity[];
-			artists?: DBTrackArtist[];
 		} = {},
 	): TrackResponse {
 		let identities: IdentityResponse[] | null = null;
@@ -63,15 +62,29 @@ export class DBTrack {
 			identities = this.identities.map((identity) => identity.toResponse());
 		}
 
-		let artists: TrackArtistResponse[] | null = null;
-		if (options.artists) {
-			artists = options.artists
-				.map((artist) => artist.toResponse())
-				.filter((a) => !!a);
-		} else if (this.artists) {
-			artists = this.artists
-				.map((artist) => artist.toResponse())
-				.filter((a) => !!a);
+		const artistMap: Record<string, DBTrackArtist> = {};
+
+		if (this.artists) {
+			for (const trackArtist of this.artists) {
+				if (!trackArtist.artist) {
+					continue;
+				}
+				const existing = artistMap[trackArtist.artist.uuid];
+				if (existing) {
+					if (existing.joinPhrase && !trackArtist.joinPhrase) {
+						continue;
+					}
+				}
+				artistMap[trackArtist.artist.uuid] = trackArtist;
+			}
+		}
+
+		const artists: TrackArtistResponse[] = [];
+		for (const trackArtist of Object.values(artistMap)) {
+			const artist = trackArtist.toResponse();
+			if (artist) {
+				artists.push(artist);
+			}
 		}
 
 		return {
@@ -81,7 +94,7 @@ export class DBTrack {
 			title: this.title,
 			attributes: this.attributes ?? null,
 			identities,
-			artists,
+			artists: (this.artists && artists) ?? null,
 		};
 	}
 }

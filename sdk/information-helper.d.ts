@@ -1,4 +1,9 @@
 import { Readable } from "stream";
+import {
+	AudioProducer,
+	HLSAudioProducer,
+	StreamAudioProducer,
+} from "./audio-producer";
 
 export interface Identity {
 	pluginId: string;
@@ -7,8 +12,9 @@ export interface Identity {
 }
 
 export interface LibraryTrackInformationHelper {
-	getStream(): Readable | null | Promise<Readable | null>;
-	getDuration(): number | null | Promise<number | null>;
+	getAudioProducer(): Promise<AudioProducer>;
+	getAudioProducer(type: "stream"): Promise<StreamAudioProducer | null>;
+	getAudioProducer(type: "hls"): Promise<HLSAudioProducer | null>;
 }
 
 export interface TrackInformationHelper extends LibraryTrackInformationHelper {
@@ -23,6 +29,9 @@ export interface TrackInformationHelper extends LibraryTrackInformationHelper {
 		pluginId?: string | null,
 		multiple?: false,
 	): Promise<Identity | null>;
+	getPluginId(): string;
+	getLibraryId(): string;
+	getTrackId(): string;
 }
 
 export interface TrackAttributionHelper extends TrackInformationHelper {

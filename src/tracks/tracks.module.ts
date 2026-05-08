@@ -6,6 +6,7 @@ import { DBTrack } from "./entities/track.entity";
 import { IdentifiersModule } from "src/identifiers/identifiers.module";
 import { LibrariesModule } from "src/libraries/libraries.module";
 import { TrackManagerModule } from "src/track-manager/track-manager.module";
+import { AudioSessionsModule } from "src/audio-sessions/audio-sessions.module";
 
 @Module({
 	imports: [
@@ -13,6 +14,7 @@ import { TrackManagerModule } from "src/track-manager/track-manager.module";
 		IdentifiersModule,
 		LibrariesModule,
 		TrackManagerModule,
+		AudioSessionsModule,
 	],
 	controllers: [TracksController],
 	providers: [TracksService],
