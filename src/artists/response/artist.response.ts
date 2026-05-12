@@ -22,7 +22,7 @@ export class ArtistResponse {
 	identities: IdentityResponse[] | null;
 
 	@ApiProperty({
-		type: [TrackResponse],
+		type: () => [TrackResponse],
 		nullable: true,
 	})
 	tracks: TrackResponse[] | null;

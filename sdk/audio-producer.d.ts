@@ -10,6 +10,8 @@ export interface StreamAudioMetadata {
 export interface StreamAudioProducer {
 	type: "stream";
 
+	readonly cacheable: boolean;
+
 	getMetadata(): Promise<StreamAudioMetadata>;
 
 	getDuration(): Promise<number>;
@@ -56,6 +58,8 @@ export interface HLSAudioMetadata {
 
 export interface HLSAudioProducer {
 	type: "hls";
+
+	readonly cacheable: boolean;
 
 	getMetadata(): Promise<HLSAudioMetadata>;
 

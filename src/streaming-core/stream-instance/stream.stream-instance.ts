@@ -1,7 +1,7 @@
 import { StreamAudioMetadata, StreamAudioProducer } from "@sdk";
-import { Session } from "./session";
+import { StreamInstance } from "./stream-instance";
 
-export class StreamSession extends Session<StreamAudioProducer> {
+export class StreamStreamInstance extends StreamInstance<StreamAudioProducer> {
 	private metadata: StreamAudioMetadata | null;
 
 	async getMetadata() {

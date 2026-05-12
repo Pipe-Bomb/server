@@ -9,6 +9,7 @@ import { TasksModule } from "src/tasks/tasks.module";
 import { AttributeSourcesModule } from "src/attribute-sources/attribute-sources.module";
 import { ExternalUrlsModule } from "src/external-urls/external-urls.module";
 import { DBArtistAttribute } from "src/attributes/entities/artist-attribute.entity";
+import { TrackManagerModule } from "src/track-manager/track-manager.module";
 
 @Module({
 	imports: [
@@ -21,6 +22,7 @@ import { DBArtistAttribute } from "src/attributes/entities/artist-attribute.enti
 		TasksModule,
 		AttributeSourcesModule,
 		ExternalUrlsModule,
+		TrackManagerModule,
 	],
 	controllers: [ArtistsController],
 	providers: [ArtistsService],

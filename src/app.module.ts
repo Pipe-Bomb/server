@@ -18,6 +18,8 @@ import { IconsModule } from "./icons/icons.module";
 import { ExternalUrlsModule } from "./external-urls/external-urls.module";
 import { TrackManagerModule } from "./track-manager/track-manager.module";
 import { AudioSessionsModule } from "./audio-sessions/audio-sessions.module";
+import { AudioCacheModule } from "./audio-cache/audio-cache.module";
+import { StreamingCoreModule } from "./streaming-core/streaming-core.module";
 import databaseConfig from "./config/database.config";
 
 @Module({
@@ -43,6 +45,8 @@ import databaseConfig from "./config/database.config";
 		ExternalUrlsModule,
 		TrackManagerModule,
 		AudioSessionsModule,
+		AudioCacheModule,
+		StreamingCoreModule,
 	],
 	controllers: [AppController],
 	providers: [AppService],

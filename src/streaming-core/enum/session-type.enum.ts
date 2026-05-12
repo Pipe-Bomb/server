@@ -1,4 +1,4 @@
-export enum SessionType {
+export enum StreamInstanceType {
 	HLS = "hls",
 	STREAM = "stream",
 }

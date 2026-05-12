@@ -258,6 +258,18 @@ export class TasksService {
 				if (index >= 0) {
 					this.activePluginTasks.splice(index, 1);
 				}
+				if (task.task.resumable) {
+					this.resumableTaskProgressRepository
+						.delete({
+							runId,
+						})
+						.catch((e) =>
+							this.logger.error(
+								`Failed to remove Task progress for "${task.task.id}":`,
+								e,
+							),
+						);
+				}
 			});
 	}
 }

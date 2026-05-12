@@ -1,10 +1,10 @@
 import { HLSAudioProducer, HLSContainerType, HLSPlaylist } from "@sdk";
-import { Session } from "./session";
 import { randomUUID } from "crypto";
 import { Readable } from "stream";
 import { BadRequestException } from "@nestjs/common";
+import { StreamInstance } from "./stream-instance";
 
-export class HLSSession extends Session<HLSAudioProducer> {
+export class HLSStreamInstance extends StreamInstance<HLSAudioProducer> {
 	private readonly segmentMap = new Map<string, string>();
 	private cachedManifest: string | null = null;
 	private playlist: HLSPlaylist | null = null;
@@ -25,6 +25,25 @@ export class HLSSession extends Session<HLSAudioProducer> {
 				return "aac";
 			case "fmp4":
 				return "m4s";
+		}
+	}
+
+	getMimeType(segmentId: string): string {
+		const extension = segmentId.split(".").pop();
+
+		switch (extension) {
+			case "m3u8":
+				return "application/vnd.apple.mpegurl";
+			case "ts":
+				return "video/MP2T";
+			case "m4s":
+				return "video/iso.segment";
+			case "mp4":
+				return "video/mp4";
+			case "aac":
+				return "audio/aac";
+			default:
+				return "application/octet-stream";
 		}
 	}
 

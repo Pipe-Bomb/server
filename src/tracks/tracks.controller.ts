@@ -1,34 +1,13 @@
-import {
-	Controller,
-	Get,
-	Headers,
-	HttpStatus,
-	NotFoundException,
-	Param,
-	Res,
-	StreamableFile,
-} from "@nestjs/common";
+import { Controller, Get, NotFoundException, Param } from "@nestjs/common";
 import { TracksService } from "./tracks.service";
-import {
-	ApiHeader,
-	ApiNotFoundResponse,
-	ApiOkResponse,
-	ApiOperation,
-	ApiPartialContentResponse,
-	ApiProduces,
-	ApiRequestedRangeNotSatisfiableResponse,
-	ApiResponse,
-	getSchemaPath,
-} from "@nestjs/swagger";
+import { ApiOkResponse, ApiOperation } from "@nestjs/swagger";
 import { IdentifiersService } from "src/identifiers/identifiers.service";
 import { IdentityResponse } from "src/identifiers/response/identity.response";
 import { TrackResponse } from "./response/track.response";
-import type { Response } from "express";
 import { LibrariesService } from "src/libraries/libraries.service";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
-import { StreamAudioProducer } from "@sdk";
 import { AudioSessionsService } from "src/audio-sessions/audio-sessions.service";
-import { SessionResponse } from "src/audio-sessions/response/session.response";
+import { StreamInstanceResponse } from "src/streaming-core/response/session.response";
 
 @Controller("tracks")
 export class TracksController {
@@ -90,13 +69,13 @@ export class TracksController {
 	@Get(":pluginId/:libraryId/:trackId/audio")
 	@ApiOperation({ operationId: "createTrackAudioSession" })
 	@ApiOkResponse({
-		type: SessionResponse,
+		type: StreamInstanceResponse,
 	})
 	async getAudioInfo(
 		@Param("pluginId") pluginId: string,
 		@Param("libraryId") libraryId: string,
 		@Param("trackId") trackId: string,
-	): Promise<SessionResponse> {
+	): Promise<StreamInstanceResponse> {
 		const library = this.librariesService.findLibrary(pluginId, libraryId);
 		if (!library) {
 			throw new NotFoundException("Library not found");

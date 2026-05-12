@@ -5,6 +5,7 @@
 /plugins
 /resources
 /plugin-cache
+/audio-cache
 
 # Logs
 logs

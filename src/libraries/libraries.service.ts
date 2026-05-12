@@ -14,6 +14,7 @@ import { IdentifiersService } from "src/identifiers/identifiers.service";
 import { DBTrack } from "src/tracks/entities/track.entity";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { FindOptionsWhere, In, IsNull, Not } from "typeorm";
+import { AudioCacheService } from "src/audio-cache/audio-cache.service";
 
 interface PluginLibraries {
 	readonly plugin: LoadedPlugin;
@@ -30,6 +31,7 @@ export class LibrariesService {
 		private readonly attributesService: AttributesService,
 		private readonly tasksService: TasksService,
 		private readonly identifiersService: IdentifiersService,
+		private readonly audioCacheService: AudioCacheService,
 	) {
 		this.tasksService.registerSystemTask({
 			id: "scan-all-libraries",
@@ -42,14 +44,15 @@ export class LibrariesService {
 					const startPercent = sectionPercent * index;
 					context.update(startPercent);
 
-					// await library.handler.scan({
-					// 	update: (percent) => {
-					// 		context.update(
-					// 			startPercent +
-					// 				Math.max(Math.min(percent, 1), 0) * sectionPercent,
-					// 		);
-					// 	},
-					// });
+					await library.handler.scan({
+						update: (percent) => {
+							context.update(
+								startPercent +
+									Math.max(Math.min(percent, 1), 0) * sectionPercent,
+							);
+						},
+						getRunId: () => context.getRunId(),
+					});
 				}
 			},
 		});
@@ -97,6 +100,20 @@ export class LibrariesService {
 								startPercent + (sectionPercent * completed) / total,
 							);
 						},
+					);
+				}
+			},
+		});
+
+		this.tasksService.registerSystemTask({
+			id: "cache-all-libraries",
+			resumable: false,
+			run: async (context) => {
+				const libraries = this.allFlat();
+				context.update(0);
+				for (const [index, library] of libraries.entries()) {
+					await this.cache(library, (completed, total) =>
+						context.update((index + completed / total) / libraries.length),
 					);
 				}
 			},
@@ -175,8 +192,9 @@ export class LibrariesService {
 		const informationHelper = async (track: DBTrack) => {
 			const helper: TrackInformationHelper = {
 				getAudioProducer: async (type?: AudioProducerType) => {
-					const producer = await handler.getAudioProducer(
-						track.toResponse(),
+					const producer = await this.audioCacheService.getAudioProducer(
+						handler,
+						track,
 						type ?? null,
 					);
 
@@ -436,5 +454,95 @@ export class LibrariesService {
 			}
 			await this.trackManagerService.setRunId(tracks, runId, "identity");
 		}
+	}
+
+	async cache(
+		library: LoadedLibraryHandler,
+		onProgress?: (completed: number, total: number) => void,
+	) {
+		const CHUNK_SIZE = 30;
+		const MAX_THREADS = 5;
+		// const MAX_THREADS = 1;
+
+		const count = await this.getCount(library);
+		this.logger.debug(`Caching ${count} tracks...`);
+		if (!count) {
+			return;
+		}
+
+		const trackPool: DBTrack[] = [];
+		let activeThreads = 0;
+		let isFindingTracks = false;
+		let chunksLoaded = 0;
+		let allChunksLoaded = false;
+		let completedTracks = 0;
+
+		return new Promise<void>((resolve, reject) => {
+			const handle = async () => {
+				activeThreads++;
+				const track = trackPool.shift();
+				if (!track) {
+					activeThreads--;
+					increaseTrackPool();
+
+					if (!activeThreads) {
+						resolve();
+					}
+					return;
+				}
+
+				try {
+					const isCached = await this.audioCacheService.cacheTrack(
+						library,
+						track,
+					);
+					if (isCached) {
+						this.logger.debug(`Cached Library track #${completedTracks + 1}`);
+					}
+				} catch (e) {
+					this.logger.debug(
+						`Failed to cache Library track #${completedTracks + 1}:`,
+						e,
+					);
+				}
+
+				onProgress?.(++completedTracks, count);
+				activeThreads--;
+				setImmediate(handle);
+			};
+
+			const increaseTrackPool = () => {
+				if (isFindingTracks || allChunksLoaded) {
+					return;
+				}
+
+				isFindingTracks = true;
+
+				this.findTracks(library, {
+					amount: CHUNK_SIZE,
+					offset: CHUNK_SIZE * chunksLoaded++,
+				})
+					.then(({ tracks }) => {
+						if (tracks.length) {
+							trackPool.push(...tracks);
+							isFindingTracks = false;
+							if (chunksLoaded == 1) {
+								onProgress?.(0, count);
+							}
+							for (let i = activeThreads; i < MAX_THREADS; i++) {
+								handle();
+							}
+						} else {
+							allChunksLoaded = true;
+							if (!activeThreads) {
+								resolve();
+							}
+						}
+					})
+					.catch(reject);
+			};
+
+			increaseTrackPool();
+		});
 	}
 }

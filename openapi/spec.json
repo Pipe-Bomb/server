@@ -422,6 +422,140 @@
         ]
       }
     },
+    "/streaming/{id}/stream": {
+      "get": {
+        "operationId": "getStream",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Range",
+            "required": false,
+            "in": "header",
+            "description": "Byte range for seeking (e.g., bytes=0-1024)",
+            "schema": {
+              "type": "string",
+              "example": "bytes=0-1024"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns the full audio file when no range is requested",
+            "content": {
+              "audio/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a valid range is provided",
+            "headers": {
+              "Content-Range": {
+                "description": "The range of bytes sent and the total size of the file",
+                "schema": {
+                  "type": "string",
+                  "example": "bytes 0-99/3539613"
+                }
+              },
+              "Accept-Ranges": {
+                "description": "Indicates that the server supports range requests",
+                "schema": {
+                  "type": "string",
+                  "example": "bytes"
+                }
+              },
+              "Content-Length": {
+                "description": "Size of the chunk being returned",
+                "schema": {
+                  "type": "number"
+                }
+              }
+            },
+            "content": {
+              "audio/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Library or Track not found"
+          },
+          "416": {
+            "description": "Requested Range Not Satisfiable"
+          }
+        },
+        "tags": [
+          "StreamingCore"
+        ]
+      }
+    },
+    "/streaming/{id}/hls/playlist.m3u8": {
+      "get": {
+        "operationId": "getHLSPlaylist",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "StreamingCore"
+        ]
+      }
+    },
+    "/streaming/{id}/hls/segment/{segmentId}": {
+      "get": {
+        "operationId": "getHLSSegment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "segmentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "StreamingCore"
+        ]
+      }
+    },
     "/language": {
       "get": {
         "operationId": "getLanguageIds",
@@ -610,7 +744,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Session"
+                  "$ref": "#/components/schemas/StreamInstance"
                 }
               }
             }
@@ -619,140 +753,6 @@
         "summary": "",
         "tags": [
           "Tracks"
-        ]
-      }
-    },
-    "/audio-sessions/{id}/stream": {
-      "get": {
-        "operationId": "getStream",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Range",
-            "required": false,
-            "in": "header",
-            "description": "Byte range for seeking (e.g., bytes=0-1024)",
-            "schema": {
-              "type": "string",
-              "example": "bytes=0-1024"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Returns the full audio file when no range is requested",
-            "content": {
-              "audio/*": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "206": {
-            "description": "Partial content when a valid range is provided",
-            "headers": {
-              "Content-Range": {
-                "description": "The range of bytes sent and the total size of the file",
-                "schema": {
-                  "type": "string",
-                  "example": "bytes 0-99/3539613"
-                }
-              },
-              "Accept-Ranges": {
-                "description": "Indicates that the server supports range requests",
-                "schema": {
-                  "type": "string",
-                  "example": "bytes"
-                }
-              },
-              "Content-Length": {
-                "description": "Size of the chunk being returned",
-                "schema": {
-                  "type": "number"
-                }
-              }
-            },
-            "content": {
-              "audio/*": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Library or Track not found"
-          },
-          "416": {
-            "description": "Requested Range Not Satisfiable"
-          }
-        },
-        "tags": [
-          "AudioSessions"
-        ]
-      }
-    },
-    "/audio-sessions/{id}/hls/playlist.m3u8": {
-      "get": {
-        "operationId": "getHLSPlaylist",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "AudioSessions"
-        ]
-      }
-    },
-    "/audio-sessions/{id}/hls/segment/{segmentId}": {
-      "get": {
-        "operationId": "getHLSSegment",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "segmentId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "AudioSessions"
         ]
       }
     },
@@ -1038,7 +1038,7 @@
             "nullable": true,
             "type": "array",
             "items": {
-              "type": "object"
+              "$ref": "#/components/schemas/Track"
             }
           }
         },
@@ -1354,7 +1354,7 @@
           "keys"
         ]
       },
-      "Session": {
+      "StreamInstance": {
         "type": "object",
         "properties": {
           "id": {

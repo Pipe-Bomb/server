@@ -53,6 +53,7 @@ export class ArtistsService {
 		private readonly tasksService: TasksService,
 		private readonly externalUrlsService: ExternalUrlsService,
 		private readonly attributeSourcesService: AttributeSourcesService,
+		private readonly trackManagerService: TrackManagerService,
 		private readonly dataSource: DataSource,
 	) {
 		this.tasksService.registerSystemTask({
@@ -184,9 +185,19 @@ export class ArtistsService {
 		});
 
 		if (artist && options.withTracks) {
-			artist.tracks = await this.trackArtistsRepository.find({
+			const tracks = await this.trackManagerService.find({
+				where: {
+					artists: {
+						artistUuid: artist.uuid,
+					},
+				},
+				take: options.withTracks,
+			});
+
+			const trackArtists = await this.trackArtistsRepository.find({
 				where: {
 					artistUuid: artist.uuid,
+					trackUuid: In(tracks.map((track) => track.uuid)),
 				},
 				relations: {
 					track: {
@@ -198,8 +209,17 @@ export class ArtistsService {
 						},
 					},
 				},
-				take: options.withTracks,
 			});
+
+			const uniqueMap = new Map<string, DBTrackArtist>();
+
+			for (const trackArtist of trackArtists) {
+				if (!uniqueMap.has(trackArtist.trackUuid)) {
+					uniqueMap.set(trackArtist.trackUuid, trackArtist);
+				}
+			}
+
+			artist.tracks = Array.from(uniqueMap.values());
 		}
 
 		return artist;
