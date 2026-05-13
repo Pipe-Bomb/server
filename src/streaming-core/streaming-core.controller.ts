@@ -173,7 +173,7 @@ export class StreamingCoreController {
 		res.setHeader("Content-Type", instance.getMimeType(segmentId));
 
 		if (Buffer.isBuffer(segment)) {
-			return segment;
+			return new StreamableFile(segment);
 		}
 		return new StreamableFile(segment);
 	}

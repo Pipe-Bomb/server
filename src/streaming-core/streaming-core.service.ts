@@ -24,7 +24,6 @@ export class StreamingCoreService {
 			}
 		})();
 		this.instances.set(id, instance);
-		console.log("Creating instance:", id);
 		return instance;
 	}
 
