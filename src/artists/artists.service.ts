@@ -29,6 +29,7 @@ import { ArtistIdentificationResult } from "./interface/artist-identification-re
 import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
 import { randomUUID } from "crypto";
 import { DBArtistAttribute } from "src/attributes/entities/artist-attribute.entity";
+import { ArtistIdentityTarget } from "./enum/artist-identity-target.enum";
 
 @Injectable()
 export class ArtistsService {
@@ -90,18 +91,21 @@ export class ArtistsService {
 		pluginId: string,
 		identifierId: string,
 		identityValue: string,
+		target: ArtistIdentityTarget,
 		createIfMissing?: false,
 	): Promise<string | null>;
 	async resolveArtist(
 		pluginId: string,
 		identifierId: string,
 		identityValue: string,
+		target: ArtistIdentityTarget,
 		createIfMissing: true,
 	): Promise<string>;
 	async resolveArtist(
 		pluginId: string,
 		identifierId: string,
 		identityValue: string,
+		target: ArtistIdentityTarget,
 		createIfMissing: boolean = false,
 	): Promise<string | null> {
 		const existingIdentity = await this.identitiesRepository.findOne({
@@ -126,6 +130,7 @@ export class ArtistsService {
 				pluginId,
 				identifierId,
 				identity: identityValue,
+				target,
 				ordinal: 0,
 			});
 			await manager.save(newIdentity);
@@ -172,6 +177,7 @@ export class ArtistsService {
 			withTracks?: number;
 			withTrackAttributes?: boolean;
 			withTrackArtists?: boolean;
+			withAlbums?: number;
 		} = {},
 	) {
 		const artist = await this.artistsRepository.findOne({
@@ -184,7 +190,11 @@ export class ArtistsService {
 			},
 		});
 
-		if (artist && options.withTracks) {
+		if (!artist) {
+			return null;
+		}
+
+		if (options.withTracks) {
 			const tracks = await this.trackManagerService.find({
 				where: {
 					artists: {
@@ -335,6 +345,14 @@ export class ArtistsService {
 		runId: string,
 		onProgress?: (completed: number, total: number) => void,
 	) {
+		console.log(
+			this.orderedIdentifiers.map((identifier) => ({
+				plugin: identifier.plugin.package.name,
+				id: identifier.identifier.id,
+				identifier: identifier.identifier,
+			})),
+		);
+
 		const CHUNK_SIZE = 30;
 		const MAX_THREADS = 1;
 
@@ -371,6 +389,7 @@ export class ArtistsService {
 					increasePool();
 
 					if (!activeThreads) {
+						console.log("RESOLVING 2");
 						resolve();
 					}
 					return;
@@ -425,6 +444,7 @@ export class ArtistsService {
 						} else {
 							allChunksLoaded = true;
 							if (!activeThreads) {
+								console.log("RESOLVING 1");
 								resolve();
 							}
 						}
@@ -436,290 +456,11 @@ export class ArtistsService {
 		});
 	}
 
-	// public async identifyArtist(
-	// 	artist: DBArtist,
-	// 	identificationSession: string,
-	// ): Promise<ArtistIdentificationResult> {
-	// 	let allIdentities = (await this.findIdentities(artist)).map((identity) =>
-	// 		identity.toIdentity(),
-	// 	);
-
-	// 	// const deleteConditions: FindOptionsWhere<DBArtistIdentity>[] = [];
-	// 	const newEntries: DBArtistIdentity[] = [];
-
-	// 	if (!this.orderedIdentifiers.length) {
-	// 		this.logger.warn(
-	// 			`Cannot identity Artist "${artist.uuid}" because no Artist Identifiers are registered`,
-	// 		);
-	// 		return {
-	// 			identities: [],
-	// 			mergedArtists: [artist.uuid],
-	// 		};
-	// 	}
-
-	// 	for (const { identifier, plugin } of this.orderedIdentifiers) {
-	// 		const helper = await this.getInformationHelper(artist, (id, pluginId) =>
-	// 			allIdentities.filter(
-	// 				(identity) =>
-	// 					identity.identifierId == id &&
-	// 					(!pluginId || identity.pluginId == pluginId),
-	// 			),
-	// 		);
-	// 		const newIdentities = await identifier.identify(
-	// 			helper,
-	// 			new Logger(`PLUGIN ${plugin.package.name}`),
-	// 		);
-	// 		allIdentities = allIdentities.filter(
-	// 			(identity) =>
-	// 				identity.identifierId != identifier.id ||
-	// 				identity.pluginId != plugin.package.name,
-	// 		);
-	// 		if (newIdentities?.length) {
-	// 			allIdentities.push(
-	// 				...newIdentities.map((value) => ({
-	// 					pluginId: plugin.package.name,
-	// 					identifierId: identifier.id,
-	// 					value,
-	// 				})),
-	// 			);
-	// 			newEntries.push(
-	// 				...newIdentities.map((identity, ordinal) =>
-	// 					this.identitiesRepository.create({
-	// 						artistUuid: artist.uuid,
-	// 						pluginId: plugin.package.name,
-	// 						identifierId: identifier.id,
-	// 						identity,
-	// 						ordinal,
-	// 					}),
-	// 				),
-	// 			);
-	// 		}
-
-	// 		// deleteConditions.push({
-	// 		// 	artistUuid: artist.uuid,
-	// 		// 	pluginId: plugin.package.name,
-	// 		// 	identifierId: identifier.id,
-	// 		// });
-	// 	}
-
-	// 	// console.log("Delete conditions:", deleteConditions);
-
-	// 	// await this.identitiesRepository.delete(deleteConditions);
-
-	// 	if (!newEntries.length) {
-	// 		await this.artistsRepository.update(
-	// 			{
-	// 				uuid: artist.uuid,
-	// 			},
-	// 			{
-	// 				lastIdentificationSession: identificationSession,
-	// 			},
-	// 		);
-	// 		return {
-	// 			identities: [],
-	// 			mergedArtists: [artist.uuid],
-	// 		};
-	// 	}
-
-	// 	const matchConditions: FindOptionsWhere<DBArtistIdentity>[] =
-	// 		newEntries.map((newEntry) => ({
-	// 			pluginId: newEntry.pluginId,
-	// 			identifierId: newEntry.identifierId,
-	// 			identity: newEntry.identity,
-	// 		}));
-
-	// 	const existingArtistIdentities = await this.identitiesRepository.find({
-	// 		where: matchConditions,
-	// 		relations: {
-	// 			artist: true,
-	// 		},
-	// 	});
-
-	// 	const existingArtistMap = new Map<string, DBArtist>();
-	// 	for (const identity of existingArtistIdentities) {
-	// 		if (identity.artist) {
-	// 			existingArtistMap.set(identity.artist.uuid, identity.artist);
-	// 		}
-	// 	}
-
-	// 	const existingArtists = Array.from(existingArtistMap.values());
-
-	// 	return this.dataSource.transaction<ArtistIdentificationResult>(
-	// 		async (tm) => {
-	// 			const artistsRepo = tm.getRepository(DBArtist);
-	// 			const identitiesRepo = tm.getRepository(DBArtistIdentity);
-	// 			const trackArtistsRepo = tm.getRepository(DBTrackArtist);
-	// 			const attributeSourcesRepo = tm.getRepository(DBArtistAttribute);
-
-	// 			if (existingArtists.length > 1) {
-	// 				this.logger.log(
-	// 					`Found ${existingArtists.length} artists to combine!`,
-	// 				);
-	// 				existingArtists.sort((a, b) => a.dateAdded - b.dateAdded);
-	// 				this.logger.log(existingArtists, existingArtistIdentities);
-
-	// 				const masterArtist = existingArtists[0]!;
-	// 				const allArtistIds = existingArtists.map((artist) => artist.uuid);
-	// 				const removedArtistIds = allArtistIds.slice(1);
-
-	// 				// combine identities
-	// 				const allIdentities = await identitiesRepo.findBy({
-	// 					artistUuid: In(allArtistIds),
-	// 				});
-	// 				const ordinalCount: Record<string, number> = {};
-	// 				const masterIdentities: DBArtistIdentity[] = [];
-	// 				const getOrdinal = (identity: DBArtistIdentity) => {
-	// 					const id = `${identity.pluginId}:${identity.identifierId}`;
-	// 					if (id in ordinalCount) {
-	// 						ordinalCount[id]++;
-	// 						return ordinalCount[id];
-	// 					} else {
-	// 						ordinalCount[id] = 1;
-	// 						return 1;
-	// 					}
-	// 				};
-	// 				for (const identity of newEntries) {
-	// 					const migratedIdentity = identitiesRepo.create({
-	// 						...identity,
-	// 						artistUuid: masterArtist.uuid,
-	// 					});
-	// 					migratedIdentity.ordinal = getOrdinal(migratedIdentity);
-	// 					masterIdentities.push(migratedIdentity);
-	// 				}
-
-	// 				for (const identity of allIdentities) {
-	// 					// replaced by latest run of identifiers
-	// 					if (
-	// 						masterIdentities.some(
-	// 							(i) =>
-	// 								i.artistUuid == identity.artistUuid &&
-	// 								i.pluginId == identity.pluginId &&
-	// 								i.identifierId == identity.identifierId,
-	// 						)
-	// 					) {
-	// 						continue;
-	// 					}
-
-	// 					// exact match to an existing identity
-	// 					if (
-	// 						masterIdentities.some(
-	// 							(i) =>
-	// 								i.pluginId == identity.pluginId &&
-	// 								i.identifierId == identity.identifierId &&
-	// 								i.identity == identity.identity,
-	// 						)
-	// 					) {
-	// 						continue;
-	// 					}
-
-	// 					const migratedIdentity = identitiesRepo.create({
-	// 						...identity,
-	// 						artistUuid: masterArtist.uuid,
-	// 					});
-
-	// 					migratedIdentity.ordinal = getOrdinal(migratedIdentity);
-	// 					masterIdentities.push(migratedIdentity);
-	// 				}
-
-	// 				await identitiesRepo.delete({
-	// 					artistUuid: In(allArtistIds),
-	// 				});
-	// 				await identitiesRepo.insert(masterIdentities);
-
-	// 				// combine track artists
-	// 				const allTrackArtists = await trackArtistsRepo.findBy({
-	// 					artistUuid: In(allArtistIds),
-	// 				});
-
-	// 				const newTrackArtists: Record<string, DBTrackArtist> = {};
-	// 				for (const trackArtist of allTrackArtists) {
-	// 					const id = `${trackArtist.pluginId}:${trackArtist.identifierId}:${trackArtist.trackUuid}`;
-
-	// 					if (id in newTrackArtists) {
-	// 						const existingTrackArtist = newTrackArtists[id];
-	// 						if (existingTrackArtist.joinPhrase && !trackArtist.joinPhrase) {
-	// 							continue;
-	// 						}
-	// 					}
-
-	// 					newTrackArtists[id] = trackArtistsRepo.create({
-	// 						...trackArtist,
-	// 						artistUuid: masterArtist.uuid,
-	// 					});
-	// 				}
-
-	// 				console.log("Master artist:", masterArtist);
-	// 				console.log("Track Artists:", newTrackArtists);
-
-	// 				await trackArtistsRepo.delete({
-	// 					artistUuid: In(allArtistIds),
-	// 				});
-	// 				await trackArtistsRepo.insert(Object.values(newTrackArtists));
-
-	// 				await attributeSourcesRepo.update(
-	// 					{
-	// 						entityId: In(removedArtistIds),
-	// 					},
-	// 					{
-	// 						entityId: masterArtist.uuid,
-	// 						entityRelationId: masterArtist.uuid,
-	// 					},
-	// 				);
-
-	// 				await artistsRepo.delete({
-	// 					uuid: In(removedArtistIds),
-	// 				});
-	// 				await artistsRepo.update(
-	// 					{
-	// 						uuid: masterArtist.uuid,
-	// 					},
-	// 					{
-	// 						lastIdentificationSession: identificationSession,
-	// 					},
-	// 				);
-
-	// 				for (const entry of newEntries) {
-	// 					entry.artistUuid = masterArtist.uuid;
-	// 				}
-
-	// 				return {
-	// 					mergedArtists: allArtistIds,
-	// 					identities: masterIdentities,
-	// 				};
-	// 			} else {
-	// 				await artistsRepo.update(
-	// 					{
-	// 						uuid: artist.uuid,
-	// 					},
-	// 					{
-	// 						lastIdentificationSession: identificationSession,
-	// 					},
-	// 				);
-	// 				await identitiesRepo.delete(
-	// 					newEntries.map((entry) => ({
-	// 						artistUuid: artist.uuid,
-	// 						pluginId: entry.pluginId,
-	// 						identifierId: entry.identifierId,
-	// 					})),
-	// 				);
-	// 				await identitiesRepo.insert(newEntries);
-
-	// 				return {
-	// 					mergedArtists: [artist.uuid],
-	// 					identities: newEntries,
-	// 				};
-	// 			}
-	// 		},
-	// 	);
-	// }
-
 	public async identifyArtist(
 		artist: DBArtist,
 		runId: string,
 	): Promise<ArtistIdentificationResult> {
-		let allIdentities = (await this.findIdentities(artist)).map((identity) =>
-			identity.toIdentity(),
-		);
+		let allIdentities = await this.findIdentities(artist);
 
 		const newEntries: DBArtistIdentity[] = [];
 
@@ -733,10 +474,20 @@ export class ArtistsService {
 		// 1. RUN IDENTIFIERS (Standard logic)
 		for (const { identifier, plugin } of this.orderedIdentifiers) {
 			const helper = await this.getInformationHelper(artist, (id, pluginId) =>
-				allIdentities.filter(
-					(i) => i.identifierId == id && (!pluginId || i.pluginId == pluginId),
-				),
+				allIdentities
+					.map((i) => i.toIdentity())
+					.filter(
+						(i) =>
+							i.identifierId == id && (!pluginId || i.pluginId == pluginId),
+					),
 			);
+			if (artist.uuid == "893a348b-3bb7-4600-8e59-0deb509cbc24") {
+				this.logger.error(
+					"RUNNING IDENTIFIER:",
+					plugin.package.name,
+					identifier.id,
+				);
+			}
 			const newIdentities = await identifier.identify(
 				helper,
 				new Logger(`PLUGIN ${plugin.package.name}`),
@@ -744,29 +495,34 @@ export class ArtistsService {
 
 			allIdentities = allIdentities.filter(
 				(i) =>
-					i.identifierId != identifier.id || i.pluginId != plugin.package.name,
+					i.identifierId != identifier.id ||
+					i.pluginId != plugin.package.name ||
+					i.target != ArtistIdentityTarget.ARTIST,
 			);
 
+			if (identifier.id == "musicbrainz_artist_id") {
+				console.log("NEW ARTIST ID:", newIdentities);
+			}
+
 			if (newIdentities?.length) {
-				allIdentities.push(
-					...newIdentities.map((value) => ({
+				for (const [ordinal, identity] of newIdentities.entries()) {
+					const newIdentity = this.identitiesRepository.create({
+						artistUuid: artist.uuid,
 						pluginId: plugin.package.name,
 						identifierId: identifier.id,
-						value,
-					})),
-				);
-				newEntries.push(
-					...newIdentities.map((identity, ordinal) =>
-						this.identitiesRepository.create({
-							artistUuid: artist.uuid,
-							pluginId: plugin.package.name,
-							identifierId: identifier.id,
-							identity,
-							ordinal,
-						}),
-					),
-				);
+						identity,
+						target: ArtistIdentityTarget.ARTIST,
+						ordinal,
+					});
+
+					allIdentities.push(newIdentity);
+					newEntries.push(newIdentity);
+				}
 			}
+		}
+
+		if (artist.uuid == "893a348b-3bb7-4600-8e59-0deb509cbc24") {
+			this.logger.error("CHRIS LAKE:", newEntries);
 		}
 
 		if (!newEntries.length) {

@@ -11,6 +11,8 @@ import { ArtistsService } from "src/artists/artists.service";
 import { LoadedIdentifier } from "./interface/loaded-identifier";
 import { orderIdentifiers } from "./identifiers.util";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
+import { AlbumsService } from "src/albums/albums.service";
+import { ArtistIdentityTarget } from "src/artists/enum/artist-identity-target.enum";
 
 @Injectable()
 export class IdentifiersService {
@@ -25,6 +27,7 @@ export class IdentifiersService {
 		@InjectRepository(DBIdentity)
 		private readonly identitiesRepository: Repository<DBIdentity>,
 		private readonly artistsService: ArtistsService,
+		private readonly albumsService: AlbumsService,
 	) {}
 
 	public register(identifier: TrackIdentifier, plugin: LoadedPlugin) {
@@ -50,6 +53,9 @@ export class IdentifiersService {
 
 		if (identifier.target == "artist") {
 			this.artistsService.registerTrackIdentifier(identifier, plugin);
+		}
+		if (identifier.target == "album") {
+			this.albumsService.registerTrackIdentifier(identifier, plugin);
 		}
 
 		this.logger.log(
@@ -97,6 +103,7 @@ export class IdentifiersService {
 								plugin.package.name,
 								identifier.id,
 								value,
+								ArtistIdentityTarget.TRACK,
 								true,
 							);
 							artistUuids.push(artistUuid);
@@ -108,8 +115,31 @@ export class IdentifiersService {
 							identifier.id,
 						);
 					}
+
+					if (identifier.target == "album") {
+						const albumUuids: string[] = [];
+						for (const value of identities) {
+							const albumUuid = await this.albumsService.resolveAlbum(
+								plugin.package.name,
+								identifier.id,
+								value,
+							);
+							albumUuids.push(albumUuid);
+						}
+						await this.albumsService.setTrackLinks(
+							track,
+							albumUuids,
+							plugin.package.name,
+							identifier.id,
+						);
+					}
 				} else {
 					await this.artistsService.clearTrackLinks(
+						track,
+						plugin.package.name,
+						identifier.id,
+					);
+					await this.albumsService.clearTrackLinks(
 						track,
 						plugin.package.name,
 						identifier.id,

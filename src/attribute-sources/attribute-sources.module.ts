@@ -6,10 +6,15 @@ import { DBArtistAttribute } from "src/attributes/entities/artist-attribute.enti
 import { DBTrackAttribute } from "src/attributes/entities/track-attribute.entity";
 import { TasksModule } from "src/tasks/tasks.module";
 import { ResourcesModule } from "src/resources/resources.module";
+import { DBAlbumAttribute } from "src/attributes/entities/album-attribute.entity";
 
 @Module({
 	imports: [
-		TypeOrmModule.forFeature([DBTrackAttribute, DBArtistAttribute]),
+		TypeOrmModule.forFeature([
+			DBTrackAttribute,
+			DBArtistAttribute,
+			DBAlbumAttribute,
+		]),
 		TasksModule,
 		ResourcesModule,
 	],

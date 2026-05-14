@@ -1,5 +1,5 @@
 import {Readable} from "stream";
-import { ArtistInformationHelper, TrackInformationHelper } from "./information-helper";
+import { AlbumInformationHelper, ArtistInformationHelper, TrackInformationHelper } from "./information-helper";
 import { Logger } from "./logger";
 
 export interface IdentifierDependency {
@@ -8,6 +8,7 @@ export interface IdentifierDependency {
 }
 
 export type TrackIdentifierTarget = "track" | "artist" | "album";
+export type AlbumIdentifierTarget = "artist" | "album";
 
 export interface Identifier {
     public readonly id: string;
@@ -23,6 +24,11 @@ export interface TrackIdentifier extends Identifier {
 }
 
 export interface ArtistIdentifier extends Identifier {
-    
     identify(helper: ArtistInformationHelper, logger: Logger): Promise<string[] | null>;
+}
+
+export interface AlbumIdentifier extends Identifier {
+    public readonly target: AlbumIdentifierTarget;
+
+    identify(helper: AlbumInformationHelper, logger: Logger): Promise<string[] | null>;
 }

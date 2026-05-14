@@ -81,7 +81,7 @@ export class LibrariesController {
 
 		const result = await this.librariesService.findTracks(handler, {
 			amount: dto.pageSize,
-			offset: dto.pageSize * dto.page,
+			offset: dto.pageSize * (dto.page - 1),
 			withAttributes: true,
 			withArtists: true,
 		});

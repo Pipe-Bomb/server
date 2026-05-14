@@ -51,3 +51,20 @@ export interface ArtistInformationHelper {
 		multiple?: false,
 	): Identity | null;
 }
+
+export interface AlbumInformationHelper {
+	getAlbumUuid(): string;
+	getIdentity(
+		id: string,
+		pluginId: string | null,
+		multiple: true,
+	): Promise<Identity[] | null>;
+	getIdentity(
+		id: string,
+		pluginId?: string | null,
+		multiple?: false,
+	): Promise<Identity | null>;
+
+	// getArtists(): Promise<ArtistInformationHelper[]>;
+	// getTracks(): Promise<TrackInformationHelper[]>;
+}

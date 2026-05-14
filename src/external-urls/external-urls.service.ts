@@ -1,5 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { ArtistExternalUrlHelper, ExternalUrl, ExternalUrlSource } from "@sdk";
+import {
+	AlbumExternalUrlHelper,
+	ArtistExternalUrlHelper,
+	ExternalUrl,
+	ExternalUrlSource,
+} from "@sdk";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { LoadedExternalUrlSource } from "./interface/loaded-external-url-source.interface";
 import { IconsService } from "src/icons/icons.service";
@@ -76,5 +81,9 @@ export class ExternalUrlsService {
 
 	public getArtistUrls(helper: ArtistExternalUrlHelper) {
 		return this.get((source) => source.getArtistUrls(helper));
+	}
+
+	public getAlbumUrls(helper: AlbumExternalUrlHelper) {
+		return this.get((source) => source.getAlbumUrls(helper));
 	}
 }

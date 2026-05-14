@@ -1,6 +1,10 @@
 import { AttributeSource } from "./attribute-source";
 import { ExternalUrlSource } from "./external-url-source";
-import { ArtistIdentifier, TrackIdentifier } from "./identifier";
+import {
+	AlbumIdentifier,
+	ArtistIdentifier,
+	TrackIdentifier,
+} from "./identifier";
 import { LibraryHandler } from "./library-handler";
 import { Logger } from "./logger";
 import { Task } from "./task";
@@ -12,6 +16,7 @@ export interface PluginApiContext {
 	registerLibraryHandler(libraryHandler: LibraryHandler): void;
 	registerTrackIdentifier(identifier: TrackIdentifier): void;
 	registerArtistIdentifier(identifier: ArtistIdentifier): void;
+	registerAlbumIdentifier(identifier: AlbumIdentifier): void;
 	registerAttributeSource(attributeSource: AttributeSource): void;
 	requestTempDirectory(): Promise<string>;
 	registerTask(task: Task): void;

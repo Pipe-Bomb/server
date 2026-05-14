@@ -14,6 +14,10 @@ import { ArtistsService } from "src/artists/artists.service";
 import { ResourcesService } from "src/resources/resources.service";
 import { DBArtist } from "src/artists/entity/artist.entity";
 import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
+import { DBAlbum } from "src/albums/entity/album.entity";
+import { DBAlbumAttribute } from "./entities/album-attribute.entity";
+import { AlbumsService } from "src/albums/albums.service";
+import { ArtistIdentityTarget } from "src/artists/enum/artist-identity-target.enum";
 
 @Injectable()
 export class AttributesService {
@@ -23,12 +27,23 @@ export class AttributesService {
 		private readonly attributeSourcesService: AttributeSourcesService,
 		private readonly tasksService: TasksService,
 		private readonly artistsService: ArtistsService,
+		private readonly albumsService: AlbumsService,
 	) {
 		this.tasksService.registerSystemTask({
 			id: "attribute-all-artists",
 			resumable: false,
 			run: async (context) => {
 				await this.attributeAllArtists((completed, total) =>
+					context.update(completed / total),
+				);
+			},
+		});
+
+		this.tasksService.registerSystemTask({
+			id: "attribute-all-albums",
+			resumable: false,
+			run: async (context) => {
+				await this.attributeAllAlbums((completed, total) =>
 					context.update(completed / total),
 				);
 			},
@@ -73,6 +88,7 @@ export class AttributesService {
 						artist.pluginId,
 						artist.identifierId,
 						artist.identifierValue,
+						ArtistIdentityTarget.TRACK,
 					);
 					if (!artistUuid) {
 						this.logger.warn(
@@ -103,7 +119,7 @@ export class AttributesService {
 		await this.attributeSourcesService.upsertTrackAttributes(
 			allTrackAttributes,
 		);
-		await this.attributeSourcesService.upsertArtistAttribtues(
+		await this.attributeSourcesService.upsertArtistAttributes(
 			allArtistAttributes,
 		);
 		return allTrackAttributes;
@@ -161,6 +177,98 @@ export class AttributesService {
 				onProgress?.(i * 100 + index, count);
 			}
 		}
+	}
+
+	async attributeAllAlbums(
+		onProgress?: (completed: number, total: number) => void,
+	) {
+		const count = await this.albumsService.count({});
+		onProgress?.(0, count);
+
+		for (let i = 0; true; i++) {
+			const albums = await this.albumsService.findMany({
+				amount: 100,
+				offset: 100 * i,
+			});
+
+			if (!albums.length) {
+				return;
+			}
+
+			// todo: multithread
+			for (const [index, album] of albums.entries()) {
+				await this.attributeAlbum(album);
+				onProgress?.(i * 100 + index, count);
+			}
+		}
+	}
+
+	async attributeAlbum(album: DBAlbum) {
+		const allAlbumAttributes: DBAlbumAttribute[] = [];
+		const allArtistAttributes: DBArtistAttribute[] = [];
+
+		const helper = await this.albumsService.getInformationHelper(album);
+		const sources = this.attributeSourcesService.getSources();
+
+		for (const source of sources) {
+			try {
+				const attributes = await source.source.getAlbumAttributeValues(helper);
+				const dbAttributes =
+					await this.attributeSourcesService.createAlbumAttributes(
+						album.uuid,
+						attributes.album ?? [],
+						source,
+					);
+				allAlbumAttributes.push(...dbAttributes);
+
+				if (attributes.artists?.length) {
+					for (const artist of attributes.artists) {
+						const artistUuid = await this.artistsService.resolveArtist(
+							artist.pluginId,
+							artist.identifierId,
+							artist.identifierValue,
+							ArtistIdentityTarget.ALBUM,
+						);
+						if (!artistUuid) {
+							this.logger.warn(
+								`Attribute Source "${source.source.id}" from Plugin "${source.plugin.package.name}" attempted to resolve album that didn't exist`,
+							);
+							continue;
+						}
+
+						allArtistAttributes.push(
+							...(await this.attributeSourcesService.createArtistAttributes(
+								artistUuid,
+								artist.attributes,
+								source,
+							)),
+						);
+
+						if (artist.joinPhrase) {
+							await this.albumsService.setJoinPhrase(
+								album.uuid,
+								artistUuid,
+								artist.joinPhrase,
+							);
+						}
+					}
+				}
+			} catch (e) {
+				this.logger.error(
+					`Attribute Source "${source.source.getName()}" from Plugin "${source.plugin.package.name}" failed to attribute Album "${album.uuid}":`,
+					e,
+				);
+			}
+		}
+
+		await this.attributeSourcesService.replaceAllAlbumAttributes(
+			album.uuid,
+			allAlbumAttributes,
+		);
+		await this.attributeSourcesService.upsertArtistAttributes(
+			allArtistAttributes,
+		);
+		return allAlbumAttributes;
 	}
 
 	// findTrackAttributes(tracks: DBTrack[]) {

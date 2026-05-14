@@ -14,6 +14,7 @@ import { DBTrackArtist } from "../../artists/entity/track-artist.entity";
 import { AttributeMapResponse } from "src/attributes/response/attribute-map.response";
 import { TrackArtistResponse } from "../response/track-artist.response";
 import { BasePersistentAttributeResponse } from "src/attributes/response/persistent-attribute.response";
+import { DBAlbumTrack } from "src/albums/entity/album-track.entity";
 
 @Entity("tracks")
 @Unique("IDX_pluginId_libraryId_trackId", ["pluginId", "libraryId", "trackId"])
@@ -61,6 +62,9 @@ export class DBTrack {
 
 	@OneToMany(() => DBIdentity, (identity) => identity.trackUuid)
 	identities?: DBIdentity[];
+
+	@OneToMany(() => DBAlbumTrack, (album) => album.track)
+	albums?: DBAlbumTrack[];
 
 	toResponse(
 		options: {

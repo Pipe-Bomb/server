@@ -6,6 +6,7 @@
 	"task.system.attribute-all-artists.name": "Generate All Artist Attributes",
 	"task.system.identify-all-artists.name": "Identify All Artists",
 	"task.system.cache-all-libraries.name": "Cache All Libraries",
+	"task.system.attribute-all-albums.name": "Generate All Album Attributes",
 
 	"contextmenu.track.view-info": "Track Info",
 	"contextmenu.track.play-next": "Play Next",

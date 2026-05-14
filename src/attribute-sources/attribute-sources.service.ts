@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { AttributeSource, Attribute, AttributeValue } from "@sdk";
 import { OrderedAttributeSourceDto } from "src/attributes/dto/ordered-attribute-source.dto";
+import { DBAlbumAttribute } from "src/attributes/entities/album-attribute.entity";
 import { DBArtistAttribute } from "src/attributes/entities/artist-attribute.entity";
 import { DBAttributeTemplate } from "src/attributes/entities/attribute.entity-template";
 import { DBTrackAttribute } from "src/attributes/entities/track-attribute.entity";
@@ -20,12 +21,15 @@ export class AttributeSourcesService {
 	private readonly sources: LoadedAttributeSource[] = [];
 	private readonly trackAttributes = new Set<LoadedAttribute>();
 	private readonly artistAttributes = new Set<LoadedAttribute>();
+	private readonly albumAttributes = new Set<LoadedAttribute>();
 
 	constructor(
 		@InjectRepository(DBTrackAttribute)
 		private readonly trackAttributesRepository: Repository<DBTrackAttribute>,
 		@InjectRepository(DBArtistAttribute)
 		private readonly artistAttributesRepository: Repository<DBArtistAttribute>,
+		@InjectRepository(DBAlbumAttribute)
+		private readonly albumAttributesRepository: Repository<DBAlbumAttribute>,
 		private readonly tasksService: TasksService,
 		private readonly resourcesService: ResourcesService,
 	) {}
@@ -56,6 +60,11 @@ export class AttributeSourcesService {
 			registerArtistAttributes: (attributes) => {
 				for (const attribute of attributes) {
 					this.registerArtistAttribute(loadedAttributeSource, attribute);
+				}
+			},
+			registerAlbumAttributes: (attributes) => {
+				for (const attribute of attributes) {
+					this.registerAlbumAttribute(loadedAttributeSource, attribute);
 				}
 			},
 			registerPluginTask: (task) =>
@@ -111,12 +120,23 @@ export class AttributeSourcesService {
 		this.registerAttribute(source, attribute, this.artistAttributes, "artist");
 	}
 
+	private registerAlbumAttribute(
+		source: LoadedAttributeSource,
+		attribute: Attribute,
+	) {
+		this.registerAttribute(source, attribute, this.albumAttributes, "album");
+	}
+
 	public getTrackAttributes() {
 		return Array.from(this.trackAttributes.values());
 	}
 
 	public getArtistAttributes() {
 		return Array.from(this.artistAttributes.values());
+	}
+
+	public getAlbumAttributes() {
+		return Array.from(this.albumAttributes.values());
 	}
 
 	public async createTrackAttributes(
@@ -148,6 +168,24 @@ export class AttributeSourcesService {
 			attributes,
 			source,
 			this.getArtistAttributes().filter(
+				(attribute) =>
+					attribute.source.plugin.package.name == source.plugin.package.name &&
+					attribute.source.source.id == source.source.id,
+			),
+		);
+	}
+
+	public async createAlbumAttributes(
+		albumUuid: string,
+		attributes: AttributeValue[],
+		source: LoadedAttributeSource,
+	) {
+		return this.createDBAttributes(
+			this.albumAttributesRepository,
+			albumUuid,
+			attributes,
+			source,
+			this.getAlbumAttributes().filter(
 				(attribute) =>
 					attribute.source.plugin.package.name == source.plugin.package.name &&
 					attribute.source.source.id == source.source.id,
@@ -270,13 +308,23 @@ export class AttributeSourcesService {
 		await this.artistAttributesRepository.insert(attributes);
 	}
 
+	public async replaceAllAlbumAttributes(
+		albumUuid: string,
+		attributes: DBAlbumAttribute[],
+	) {
+		await this.albumAttributesRepository.delete({
+			entityId: albumUuid,
+		});
+		await this.albumAttributesRepository.insert(attributes);
+	}
+
 	public async upsertTrackAttributes(attributes: DBTrackAttribute[]) {
 		await this.trackAttributesRepository.upsert(attributes, {
 			conflictPaths: ["pluginId", "entityId", "sourceId", "ordinal", "key"],
 		});
 	}
 
-	public async upsertArtistAttribtues(attributes: DBArtistAttribute[]) {
+	public async upsertArtistAttributes(attributes: DBArtistAttribute[]) {
 		await this.artistAttributesRepository.upsert(attributes, {
 			conflictPaths: ["pluginId", "entityId", "sourceId", "ordinal", "key"],
 		});

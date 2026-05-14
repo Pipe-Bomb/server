@@ -9,11 +9,10 @@ import { DBArtistIdentity } from "./artist-identity.entity";
 import { DBTrackArtist } from "./track-artist.entity";
 import { DBArtistAttribute } from "src/attributes/entities/artist-attribute.entity";
 import { ArtistResponse } from "../response/artist.response";
-import { toSimplifiedAttributeList } from "src/attributes/attributes.util";
-import { AttributeMapResponse } from "src/attributes/response/attribute-map.response";
 import { IdentityResponse } from "src/identifiers/response/identity.response";
 import { TrackResponse } from "src/tracks/response/track.response";
-import { BasePersistentAttributeResponse } from "src/attributes/response/persistent-attribute.response";
+import { DBAlbumArtist } from "src/albums/entity/album-artist.entity";
+import { AlbumResponse } from "src/albums/response/album.response";
 
 @Entity("artists")
 export class DBArtist {
@@ -28,6 +27,9 @@ export class DBArtist {
 
 	@OneToMany(() => DBTrackArtist, (track) => track.artist)
 	tracks?: DBTrackArtist[];
+
+	@OneToMany(() => DBAlbumArtist, (album) => album.artist)
+	albums?: DBAlbumArtist[];
 
 	@CreateDateColumn({
 		type: "integer",
@@ -53,11 +55,19 @@ export class DBArtist {
 				.map(({ track }) => track!.toResponse());
 		}
 
+		let albums: AlbumResponse[] | null = null;
+		if (this.albums) {
+			albums = this.albums
+				.filter((artist) => artist.album)
+				.map(({ album }) => album!.toResponse());
+		}
+
 		return {
 			uuid: this.uuid,
 			attributes: this.attributes ?? null,
 			identities,
 			tracks,
+			albums,
 		};
 	}
 }

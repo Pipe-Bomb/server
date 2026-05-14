@@ -20,6 +20,7 @@ import { TrackManagerModule } from "./track-manager/track-manager.module";
 import { AudioSessionsModule } from "./audio-sessions/audio-sessions.module";
 import { AudioCacheModule } from "./audio-cache/audio-cache.module";
 import { StreamingCoreModule } from "./streaming-core/streaming-core.module";
+import { AlbumsModule } from "./albums/albums.module";
 import databaseConfig from "./config/database.config";
 
 @Module({
@@ -47,6 +48,7 @@ import databaseConfig from "./config/database.config";
 		AudioSessionsModule,
 		AudioCacheModule,
 		StreamingCoreModule,
+		AlbumsModule,
 	],
 	controllers: [AppController],
 	providers: [AppService],

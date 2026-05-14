@@ -1,0 +1,19 @@
+import { ApiProperty, ApiSchema } from "@nestjs/swagger";
+import { ArtistResponse } from "src/artists/response/artist.response";
+
+@ApiSchema({ name: "AlbumArtist" })
+export class AlbumArtistResponse {
+	@ApiProperty()
+	artistUuid: string;
+
+	@ApiProperty({
+		type: () => ArtistResponse,
+	})
+	artist: ArtistResponse;
+
+	@ApiProperty({
+		type: String,
+		nullable: true,
+	})
+	joinPhrase: string | null;
+}

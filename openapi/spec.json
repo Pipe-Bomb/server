@@ -397,6 +397,109 @@
         ]
       }
     },
+    "/albums/{albumUuid}": {
+      "get": {
+        "operationId": "getAlbum",
+        "parameters": [
+          {
+            "name": "albumUuid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Album"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Albums"
+        ]
+      }
+    },
+    "/albums": {
+      "post": {
+        "operationId": "searchAlbums",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlbumsSearchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlbumsSearchResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Albums"
+        ]
+      }
+    },
+    "/albums/{albumUuid}/urls": {
+      "get": {
+        "operationId": "getAlbumExternalUrls",
+        "parameters": [
+          {
+            "name": "albumUuid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExternalUrl"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Albums"
+        ]
+      }
+    },
     "/identifiers": {
       "get": {
         "operationId": "getAllIdentifiers",
@@ -1013,6 +1116,70 @@
           "ordinal"
         ]
       },
+      "AlbumArtist": {
+        "type": "object",
+        "properties": {
+          "artistUuid": {
+            "type": "string"
+          },
+          "artist": {
+            "$ref": "#/components/schemas/Artist"
+          },
+          "joinPhrase": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "artistUuid",
+          "artist",
+          "joinPhrase"
+        ]
+      },
+      "Album": {
+        "type": "object",
+        "properties": {
+          "uuid": {
+            "type": "string"
+          },
+          "attributes": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AttributeMap"
+              }
+            ],
+            "nullable": true
+          },
+          "identities": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Identity"
+            }
+          },
+          "tracks": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Track"
+            }
+          },
+          "artists": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AlbumArtist"
+            }
+          }
+        },
+        "required": [
+          "uuid",
+          "attributes",
+          "identities",
+          "tracks",
+          "artists"
+        ]
+      },
       "Artist": {
         "type": "object",
         "properties": {
@@ -1040,13 +1207,21 @@
             "items": {
               "$ref": "#/components/schemas/Track"
             }
+          },
+          "albums": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Album"
+            }
           }
         },
         "required": [
           "uuid",
           "attributes",
           "identities",
-          "tracks"
+          "tracks",
+          "albums"
         ]
       },
       "TrackArtist": {
@@ -1289,6 +1464,38 @@
         },
         "required": [
           "sources"
+        ]
+      },
+      "AlbumsSearchDto": {
+        "type": "object",
+        "properties": {
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "pageSize",
+          "page"
+        ]
+      },
+      "AlbumsSearchResponse": {
+        "type": "object",
+        "properties": {
+          "albums": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Album"
+            }
+          }
+        },
+        "required": [
+          "albums"
         ]
       },
       "IdentifierDependency": {

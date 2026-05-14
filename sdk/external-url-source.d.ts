@@ -25,7 +25,12 @@ export interface ArtistExternalUrlHelper extends ExternalUrlHelper {
 
 export interface TrackExternalUrlHelper extends ExternalUrlHelper {}
 
+export interface AlbumExternalUrlHelper extends ExternalUrlHelper {
+	getAlbumUuid(): string;
+}
+
 export interface ExternalUrlSource {
 	getArtistUrls(helper: ArtistExternalUrlHelper): ExternalUrl[] | null;
 	getTrackUrls(helper: TrackExternalUrlHelper): ExternalUrl[] | null;
+	getAlbumUrls(helper: AlbumExternalUrlHelper): ExternalUrl[] | null;
 }

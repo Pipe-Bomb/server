@@ -1,3 +1,5 @@
+import { Identity } from "@sdk";
+import { IdentityResponse } from "src/identifiers/response/identity.response";
 import {
 	Column,
 	Entity,
@@ -6,13 +8,10 @@ import {
 	ManyToOne,
 	PrimaryColumn,
 } from "typeorm";
-import { DBArtist } from "./artist.entity";
-import { IdentityResponse } from "src/identifiers/response/identity.response";
-import { Identity } from "@sdk";
-import { ArtistIdentityTarget } from "../enum/artist-identity-target.enum";
+import { DBAlbum } from "./album.entity";
 
-@Entity("artist_identities")
-export class DBArtistIdentity {
+@Entity("album_identities")
+export class DBAlbumIdentity {
 	@PrimaryColumn({
 		type: "text",
 	})
@@ -24,17 +23,11 @@ export class DBArtistIdentity {
 	identifierId: string;
 
 	@PrimaryColumn({ type: "uuid" })
-	artistUuid: string;
+	albumUuid: string;
 
-	@PrimaryColumn({
-		type: "text",
-		enum: ArtistIdentityTarget,
-	})
-	target: ArtistIdentityTarget;
-
-	@ManyToOne(() => DBArtist, (artist) => artist.identities)
-	@JoinColumn({ name: "artistUuid" })
-	artist?: DBArtist;
+	@ManyToOne(() => DBAlbum, (album) => album.identities)
+	@JoinColumn({ name: "albumUuid" })
+	album?: DBAlbum;
 
 	@PrimaryColumn({
 		type: "integer",
@@ -52,7 +45,7 @@ export class DBArtistIdentity {
 		return {
 			pluginId: this.pluginId,
 			identityId: this.identifierId,
-			entityId: this.artistUuid,
+			entityId: this.albumUuid,
 			value: this.identity,
 			ordinal: this.ordinal,
 		};
