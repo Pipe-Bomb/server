@@ -30,6 +30,7 @@ import { AttributeSourcesService } from "src/attribute-sources/attribute-sources
 import { randomUUID } from "crypto";
 import { DBArtistAttribute } from "src/attributes/entities/artist-attribute.entity";
 import { ArtistIdentityTarget } from "./enum/artist-identity-target.enum";
+import { AlbumManagerService } from "src/album-manager/album-manager.service";
 
 @Injectable()
 export class ArtistsService {
@@ -55,6 +56,7 @@ export class ArtistsService {
 		private readonly externalUrlsService: ExternalUrlsService,
 		private readonly attributeSourcesService: AttributeSourcesService,
 		private readonly trackManagerService: TrackManagerService,
+		private readonly albumManagerService: AlbumManagerService,
 		private readonly dataSource: DataSource,
 	) {
 		this.tasksService.registerSystemTask({
@@ -178,6 +180,8 @@ export class ArtistsService {
 			withTrackAttributes?: boolean;
 			withTrackArtists?: boolean;
 			withAlbums?: number;
+			withAlbumArtists?: boolean;
+			withAlbumAttributes?: boolean;
 		} = {},
 	) {
 		const artist = await this.artistsRepository.findOne({
@@ -202,6 +206,7 @@ export class ArtistsService {
 					},
 				},
 				take: options.withTracks,
+				select: ["uuid"],
 			});
 
 			const trackArtists = await this.trackArtistsRepository.find({
@@ -230,6 +235,14 @@ export class ArtistsService {
 			}
 
 			artist.tracks = Array.from(uniqueMap.values());
+		}
+
+		if (options.withAlbums) {
+			artist.albums = await this.albumManagerService.findForArtist(artist, {
+				amount: options.withAlbums,
+				withArtists: options.withAlbumArtists,
+				withAttributes: options.withAlbumAttributes,
+			});
 		}
 
 		return artist;

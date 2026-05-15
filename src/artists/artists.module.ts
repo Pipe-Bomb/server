@@ -10,6 +10,7 @@ import { AttributeSourcesModule } from "src/attribute-sources/attribute-sources.
 import { ExternalUrlsModule } from "src/external-urls/external-urls.module";
 import { DBArtistAttribute } from "src/attributes/entities/artist-attribute.entity";
 import { TrackManagerModule } from "src/track-manager/track-manager.module";
+import { AlbumManagerModule } from "src/album-manager/album-manager.module";
 
 @Module({
 	imports: [
@@ -23,6 +24,7 @@ import { TrackManagerModule } from "src/track-manager/track-manager.module";
 		AttributeSourcesModule,
 		ExternalUrlsModule,
 		TrackManagerModule,
+		AlbumManagerModule,
 	],
 	controllers: [ArtistsController],
 	providers: [ArtistsService],

@@ -60,7 +60,7 @@ export class DBTrack {
 	@OneToMany(() => DBTrackAttribute, (attribute) => attribute.entityRelationId)
 	attributes?: DBTrackAttribute[];
 
-	@OneToMany(() => DBIdentity, (identity) => identity.trackUuid)
+	@OneToMany(() => DBIdentity, (identity) => identity.track)
 	identities?: DBIdentity[];
 
 	@OneToMany(() => DBAlbumTrack, (album) => album.track)

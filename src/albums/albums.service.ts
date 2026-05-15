@@ -29,6 +29,7 @@ import { ExternalUrlsService } from "src/external-urls/external-urls.service";
 import { ArtistsService } from "src/artists/artists.service";
 import { TasksService } from "src/tasks/tasks.service";
 import { ArtistIdentityTarget } from "src/artists/enum/artist-identity-target.enum";
+import { AlbumManagerService } from "src/album-manager/album-manager.service";
 
 @Injectable()
 export class AlbumsService {
@@ -49,6 +50,7 @@ export class AlbumsService {
 		private readonly albumArtistsRepository: Repository<DBAlbumArtist>,
 		@InjectRepository(DBAlbumTrack)
 		private readonly albumTracksRepository: Repository<DBAlbumTrack>,
+		private readonly albumManagerService: AlbumManagerService,
 		private readonly trackManagerService: TrackManagerService,
 		private readonly externalUrlsService: ExternalUrlsService,
 		private readonly artistsService: ArtistsService,
@@ -106,70 +108,6 @@ export class AlbumsService {
 			pluginId: plugin.package.name,
 		});
 		this.orderIdentifiers();
-	}
-
-	count(where: FindOptionsWhere<DBAlbum> | FindOptionsWhere<DBAlbum>[]) {
-		return this.albumsRepository.countBy(where);
-	}
-
-	findMany(options: {
-		amount: number;
-		offset?: number;
-		withAttributes?: boolean;
-		withIdentities?: boolean;
-		withArtists?: boolean;
-	}) {
-		return this.albumsRepository.find({
-			take: options.amount,
-			skip: options.offset,
-			relations: {
-				attributes: options.withAttributes,
-				identities: options.withIdentities,
-				artists: !!options.withArtists && {
-					artist: {
-						attributes: true,
-					},
-				},
-			},
-		});
-	}
-
-	async findOne(
-		uuid: string,
-		options: {
-			withAttributes?: boolean;
-			withIdentities?: boolean;
-			withArtists?: boolean;
-			withTracks?: boolean;
-			withTrackAttributes?: boolean;
-			withTrackArtists?: boolean;
-		} = {},
-	) {
-		const album = await this.albumsRepository.findOne({
-			where: {
-				uuid,
-			},
-			relations: {
-				attributes: options.withAttributes,
-				identities: options.withIdentities,
-				artists: !!options.withArtists && {
-					artist: {
-						attributes: true,
-					},
-				},
-				tracks: !!options.withTracks && {
-					track: {
-						artists: {
-							artist: {
-								attributes: true,
-							},
-						},
-					},
-				},
-			},
-		});
-
-		return album;
 	}
 
 	public async resolveAlbum(
@@ -382,10 +320,7 @@ export class AlbumsService {
 			this.logger.warn(
 				`Cannot identify Album "${album.uuid}" because no identifiers are registered`,
 			);
-			await this.albumsRepository.update(
-				{ uuid: album.uuid },
-				{ lastIdentificationRunId: runId },
-			);
+			await this.albumManagerService.setRunId(album, runId, "identity");
 			return { identities: [], mergedAlbums: [album.uuid] };
 		}
 
@@ -462,10 +397,8 @@ export class AlbumsService {
 			}
 		}
 
-		await this.albumsRepository.update(
-			{ uuid: album.uuid },
-			{ lastIdentificationRunId: runId },
-		);
+		await this.albumManagerService.setRunId(album, runId, "identity");
+
 		return {
 			identities: [],
 			mergedAlbums: [album.uuid],
@@ -498,7 +431,7 @@ export class AlbumsService {
 			},
 		];
 
-		const count = await this.count(criteria);
+		const count = await this.albumManagerService.count(criteria);
 		if (!count) {
 			return;
 		}

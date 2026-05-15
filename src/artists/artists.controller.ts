@@ -39,6 +39,8 @@ export class ArtistsController {
 			withTrackArtists: true,
 			withTrackAttributes: true,
 			withAlbums: 10,
+			withAlbumArtists: true,
+			withAlbumAttributes: true,
 		});
 		if (!artist) {
 			throw new NotFoundException("Artist not found");

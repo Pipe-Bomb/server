@@ -16,10 +16,14 @@ import {
 import { AlbumsSearchResponse } from "./response/albums-search.response";
 import { AlbumResponse } from "./response/album.response";
 import { ExternalUrlResponse } from "src/external-urls/response/external-url.response";
+import { AlbumManagerService } from "src/album-manager/album-manager.service";
 
 @Controller("albums")
 export class AlbumsController {
-	constructor(private readonly albumsService: AlbumsService) {}
+	constructor(
+		private readonly albumsService: AlbumsService,
+		private readonly albumManagerService: AlbumManagerService,
+	) {}
 
 	@Get(":albumUuid")
 	@ApiOperation({ operationId: "getAlbum" })
@@ -28,7 +32,7 @@ export class AlbumsController {
 	})
 	@ApiNotFoundResponse()
 	async getArtist(@Param("albumUuid") albumUuid: string) {
-		const album = await this.albumsService.findOne(albumUuid, {
+		const album = await this.albumManagerService.findOne(albumUuid, {
 			withArtists: true,
 			withAttributes: true,
 			withIdentities: true,
@@ -49,7 +53,7 @@ export class AlbumsController {
 	})
 	@Post()
 	async search(@Body() dto: AlbumsSearchDto): Promise<AlbumsSearchResponse> {
-		const albums = await this.albumsService.findMany({
+		const albums = await this.albumManagerService.findMany({
 			amount: dto.pageSize,
 			offset: (dto.page - 1) * dto.pageSize,
 			withAttributes: true,
@@ -71,7 +75,7 @@ export class AlbumsController {
 	async getExternalUrls(
 		@Param("albumUuid") albumUuid: string,
 	): Promise<ExternalUrlResponse[]> {
-		const album = await this.albumsService.findOne(albumUuid);
+		const album = await this.albumManagerService.findOne(albumUuid);
 		if (!album) {
 			throw new NotFoundException("Album not found");
 		}

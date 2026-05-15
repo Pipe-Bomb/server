@@ -18,6 +18,7 @@ import { DBAlbum } from "src/albums/entity/album.entity";
 import { DBAlbumAttribute } from "./entities/album-attribute.entity";
 import { AlbumsService } from "src/albums/albums.service";
 import { ArtistIdentityTarget } from "src/artists/enum/artist-identity-target.enum";
+import { AlbumManagerService } from "src/album-manager/album-manager.service";
 
 @Injectable()
 export class AttributesService {
@@ -28,6 +29,7 @@ export class AttributesService {
 		private readonly tasksService: TasksService,
 		private readonly artistsService: ArtistsService,
 		private readonly albumsService: AlbumsService,
+		private readonly albumManagerService: AlbumManagerService,
 	) {
 		this.tasksService.registerSystemTask({
 			id: "attribute-all-artists",
@@ -182,11 +184,11 @@ export class AttributesService {
 	async attributeAllAlbums(
 		onProgress?: (completed: number, total: number) => void,
 	) {
-		const count = await this.albumsService.count({});
+		const count = await this.albumManagerService.count({});
 		onProgress?.(0, count);
 
 		for (let i = 0; true; i++) {
-			const albums = await this.albumsService.findMany({
+			const albums = await this.albumManagerService.findMany({
 				amount: 100,
 				offset: 100 * i,
 			});

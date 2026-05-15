@@ -10,6 +10,7 @@ import { TrackManagerModule } from "src/track-manager/track-manager.module";
 import { ExternalUrlsModule } from "src/external-urls/external-urls.module";
 import { ArtistsModule } from "src/artists/artists.module";
 import { TasksModule } from "src/tasks/tasks.module";
+import { AlbumManagerModule } from "src/album-manager/album-manager.module";
 
 @Module({
 	imports: [
@@ -23,6 +24,7 @@ import { TasksModule } from "src/tasks/tasks.module";
 		ExternalUrlsModule,
 		ArtistsModule,
 		TasksModule,
+		AlbumManagerModule,
 	],
 	controllers: [AlbumsController],
 	providers: [AlbumsService],

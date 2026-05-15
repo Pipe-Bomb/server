@@ -37,6 +37,7 @@ export class TracksController {
 			},
 			relations: {
 				attributes: true,
+				identities: true,
 			},
 		});
 		return track?.toResponse() ?? null;
