@@ -1,34 +1,47 @@
-import {Readable} from "stream";
-import { AlbumInformationHelper, ArtistInformationHelper, TrackInformationHelper } from "./information-helper";
+import { Readable } from "stream";
+import {
+	AlbumInformationHelper,
+	ArtistInformationHelper,
+	TrackInformationHelper,
+} from "./information-helper";
 import { Logger } from "./logger";
 
 export interface IdentifierDependency {
-    pluginId: string | null;
-    sourceId: string;
+	pluginId: string | null;
+	sourceId: string;
 }
 
 export type TrackIdentifierTarget = "track" | "artist" | "album";
 export type AlbumIdentifierTarget = "artist" | "album";
 
 export interface Identifier {
-    public readonly id: string;
-    
-    getDependencies(): IdentifierDependency[];
-    getSoftDependencies(): IdentifierDependency[];
+	readonly id: string;
+
+	getDependencies(): IdentifierDependency[];
+	getSoftDependencies(): IdentifierDependency[];
 }
 
 export interface TrackIdentifier extends Identifier {
-    public readonly target: TrackIdentifierTarget;
+	readonly target: TrackIdentifierTarget;
 
-    identify(helper: TrackInformationHelper, logger: Logger): Promise<string[] | null>;
+	identify(
+		helper: TrackInformationHelper,
+		logger: Logger,
+	): Promise<string[] | null>;
 }
 
 export interface ArtistIdentifier extends Identifier {
-    identify(helper: ArtistInformationHelper, logger: Logger): Promise<string[] | null>;
+	identify(
+		helper: ArtistInformationHelper,
+		logger: Logger,
+	): Promise<string[] | null>;
 }
 
 export interface AlbumIdentifier extends Identifier {
-    public readonly target: AlbumIdentifierTarget;
+	readonly target: AlbumIdentifierTarget;
 
-    identify(helper: AlbumInformationHelper, logger: Logger): Promise<string[] | null>;
+	identify(
+		helper: AlbumInformationHelper,
+		logger: Logger,
+	): Promise<string[] | null>;
 }

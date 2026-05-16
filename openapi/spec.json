@@ -715,6 +715,51 @@
         ]
       }
     },
+    "/plugin-config": {
+      "get": {
+        "operationId": "getAllPluginConfigs",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginConfigs"
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "PluginConfig"
+        ]
+      }
+    },
+    "/plugin-config/{pluginId}": {
+      "get": {
+        "operationId": "get",
+        "parameters": [
+          {
+            "name": "pluginId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PluginConfig"
+        ]
+      }
+    },
     "/tracks/{pluginId}/{libraryId}/{trackId}": {
       "get": {
         "operationId": "getTrack",
@@ -1559,6 +1604,31 @@
         "required": [
           "id",
           "keys"
+        ]
+      },
+      "PluginConfigStub": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "PluginConfigs": {
+        "type": "object",
+        "properties": {
+          "configs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PluginConfigStub"
+            }
+          }
+        },
+        "required": [
+          "configs"
         ]
       },
       "StreamInstance": {

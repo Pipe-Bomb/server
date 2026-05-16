@@ -22,6 +22,7 @@ import { AudioCacheModule } from "./audio-cache/audio-cache.module";
 import { StreamingCoreModule } from "./streaming-core/streaming-core.module";
 import { AlbumsModule } from "./albums/albums.module";
 import { AlbumManagerModule } from "./album-manager/album-manager.module";
+import { PluginConfigModule } from "./plugin-config/plugin-config.module";
 import databaseConfig from "./config/database.config";
 
 @Module({
@@ -51,6 +52,7 @@ import databaseConfig from "./config/database.config";
 		StreamingCoreModule,
 		AlbumsModule,
 		AlbumManagerModule,
+		PluginConfigModule,
 	],
 	controllers: [AppController],
 	providers: [AppService],

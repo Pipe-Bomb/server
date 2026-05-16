@@ -10,3 +10,4 @@ export * from "./information-helper";
 export * from "./task";
 export * from "./external-url-source";
 export * from "./audio-producer";
+export * from "./config-manager";

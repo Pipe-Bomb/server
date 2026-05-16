@@ -1,5 +1,5 @@
 export interface TaskRunContext {
-	update(percentComplete: number);
+	update(percentComplete: number): void;
 	getRunId(): string;
 }
 

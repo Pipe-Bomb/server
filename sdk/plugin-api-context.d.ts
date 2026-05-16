@@ -1,4 +1,5 @@
 import { AttributeSource } from "./attribute-source";
+import { ConfigManager } from "./config-manager";
 import { ExternalUrlSource } from "./external-url-source";
 import {
 	AlbumIdentifier,
@@ -7,6 +8,7 @@ import {
 } from "./identifier";
 import { LibraryHandler } from "./library-handler";
 import { Logger } from "./logger";
+import { PluginPackage } from "./plugin";
 import { Task } from "./task";
 
 export interface PluginApiContext {
@@ -22,6 +24,7 @@ export interface PluginApiContext {
 	registerTask(task: Task): void;
 	registerLanguageDirectory(path: string): void;
 	registerIconDirectory(path: string): void;
-	registerExternalUrlSource(externalUrlSource: ExternalUrlSource);
+	registerExternalUrlSource(externalUrlSource: ExternalUrlSource): void;
 	requestCacheDirectory(): Promise<string>;
+	registerConfigManager(configManager: ConfigManager): void;
 }

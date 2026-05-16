@@ -18,6 +18,7 @@ import { AttributeSourcesService } from "src/attribute-sources/attribute-sources
 import { IconsService } from "src/icons/icons.service";
 import { ExternalUrlsService } from "src/external-urls/external-urls.service";
 import { AlbumsService } from "src/albums/albums.service";
+import { PluginConfigService } from "src/plugin-config/plugin-config.service";
 
 @Injectable()
 export class PluginsService {
@@ -37,6 +38,7 @@ export class PluginsService {
 		private readonly iconsService: IconsService,
 		private readonly externalUrlsService: ExternalUrlsService,
 		private readonly albumsService: AlbumsService,
+		private readonly pluginConfigService: PluginConfigService,
 	) {
 		this.logger.debug(`Plugin directory is "${this.pluginsDirectory}"`);
 
@@ -218,6 +220,8 @@ export class PluginsService {
 			},
 			registerExternalUrlSource: (source) =>
 				this.externalUrlsService.registerSource(source, plugin),
+			registerConfigManager: (configManager) =>
+				this.pluginConfigService.registerConfigManager(configManager, plugin),
 		};
 	}
 
