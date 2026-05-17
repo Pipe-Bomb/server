@@ -8,6 +8,7 @@ import { map, Observable } from "rxjs";
 import { AttributeSourcesService } from "./attribute-sources.service";
 import { RelativeUrl } from "src/interception/relative-url";
 import type { Request } from "express";
+import { getBaseUrl } from "src/util/request.util";
 
 export class AttributeInterceptor implements NestInterceptor {
 	constructor(
@@ -20,13 +21,9 @@ export class AttributeInterceptor implements NestInterceptor {
 	): Observable<any> | Promise<Observable<any>> {
 		const request: Request = context.switchToHttp().getRequest();
 
-		const protocol = request.get("x-forwarded-proto") ?? request.protocol;
-		const host = request.get("x-forwarded-host") ?? request.get("host");
-		const baseUrl = `${protocol}://${host}`;
-
 		return next.handle().pipe(
 			map((data) => {
-				return this.traverse(data, baseUrl);
+				return this.traverse(data, getBaseUrl(request));
 			}),
 		);
 	}
