@@ -18,6 +18,9 @@ export class TextConfigNodeResponse extends BaseConfigNodeResponse {
 	@ApiProperty()
 	name: string;
 
+	@ApiProperty()
+	value: string;
+
 	@ApiProperty({
 		nullable: true,
 		required: false,
@@ -50,7 +53,7 @@ export class SectionConfigNodeResponse extends BaseConfigNodeResponse {
 			oneOf: [
 				{ $ref: getSchemaPath(TextConfigNodeResponse) },
 				{ $ref: getSchemaPath(HeadingConfigNodeResponse) },
-				{ $ref: getSchemaPath(SectionConfigNodeResponse) },
+				{ $ref: getSchemaPath("SectionConfigNode") }, // must be string for recursion
 			],
 		},
 	})

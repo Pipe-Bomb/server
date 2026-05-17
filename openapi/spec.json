@@ -739,7 +739,7 @@
     },
     "/plugin-config/{pluginId}": {
       "get": {
-        "operationId": "get",
+        "operationId": "getPluginConfig",
         "parameters": [
           {
             "name": "pluginId",
@@ -752,9 +752,62 @@
         ],
         "responses": {
           "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginConfig"
+                }
+              }
+            }
+          },
+          "404": {
             "description": ""
           }
         },
+        "summary": "",
+        "tags": [
+          "PluginConfig"
+        ]
+      },
+      "post": {
+        "operationId": "updatePluginConfig",
+        "parameters": [
+          {
+            "name": "pluginId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PluginConfigUpdateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginConfig"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "summary": "",
         "tags": [
           "PluginConfig"
         ]
@@ -1629,6 +1682,128 @@
         },
         "required": [
           "configs"
+        ]
+      },
+      "TextConfigNode": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "text"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "placeholder": {
+            "type": "string",
+            "nullable": true,
+            "default": null
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "name",
+          "value"
+        ]
+      },
+      "HeadingConfigNode": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "heading"
+            ]
+          },
+          "size": {
+            "type": "string",
+            "enum": [
+              "sm",
+              "md",
+              "lg"
+            ]
+          },
+          "content": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "size",
+          "content"
+        ]
+      },
+      "SectionConfigNode": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "section"
+            ]
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/TextConfigNode"
+                },
+                {
+                  "$ref": "#/components/schemas/HeadingConfigNode"
+                },
+                {
+                  "$ref": "#/components/schemas/SectionConfigNode"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "type",
+          "children"
+        ]
+      },
+      "PluginConfig": {
+        "type": "object",
+        "properties": {
+          "node": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TextConfigNode"
+              },
+              {
+                "$ref": "#/components/schemas/HeadingConfigNode"
+              },
+              {
+                "$ref": "#/components/schemas/SectionConfigNode"
+              }
+            ]
+          }
+        },
+        "required": [
+          "node"
+        ]
+      },
+      "PluginConfigUpdateDto": {
+        "type": "object",
+        "properties": {
+          "values": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "values"
         ]
       },
       "StreamInstance": {

@@ -1,12 +1,26 @@
-import { Controller, Get, NotFoundException, Param } from "@nestjs/common";
+import {
+	Body,
+	Controller,
+	Get,
+	HttpCode,
+	HttpStatus,
+	NotFoundException,
+	Param,
+	Post,
+} from "@nestjs/common";
 import { PluginConfigService } from "./plugin-config.service";
-import { ApiOkResponse, ApiOperation } from "@nestjs/swagger";
+import {
+	ApiNotFoundResponse,
+	ApiOkResponse,
+	ApiOperation,
+} from "@nestjs/swagger";
 import { PluginConfigsResponse } from "./response/plugin-configs.response";
 import { ConfigNodeResponse } from "./response/config-node.response";
 import { PluginConfigResponse } from "./response/plugin-config.response";
 import { ConfigNode, HeadingConfigNode } from "@sdk";
 import { ConfigNodeType } from "./enum/config-node-type.enum";
 import { HeadingConfigNodeSize } from "./enum/heading-config-node-size.enum";
+import { PluginConfigUpdateDto } from "./dto/plugin-config-update.dto";
 
 @Controller("plugin-config")
 export class PluginConfigController {
@@ -28,13 +42,43 @@ export class PluginConfigController {
 	}
 
 	@Get(":pluginId")
-	get(@Param("pluginId") pluginId: string): PluginConfigResponse {
+	@ApiOperation({ operationId: "getPluginConfig" })
+	@ApiOkResponse({
+		type: PluginConfigResponse,
+	})
+	@ApiNotFoundResponse()
+	async get(
+		@Param("pluginId") pluginId: string,
+	): Promise<PluginConfigResponse> {
 		const config = this.pluginConfigService.find(pluginId);
 		if (!config) {
 			throw new NotFoundException("Config not found");
 		}
 
-		const rootNode = config.configManager.getConfigOptions();
+		const rootNode = await config.configManager.getConfigOptions();
+
+		return {
+			node: this.toResponse(rootNode),
+		};
+	}
+
+	@Post(":pluginId")
+	@ApiOperation({ operationId: "updatePluginConfig" })
+	@ApiOkResponse({
+		type: PluginConfigResponse,
+	})
+	@ApiNotFoundResponse()
+	@HttpCode(HttpStatus.OK)
+	async update(
+		@Param("pluginId") pluginId: string,
+		@Body() dto: PluginConfigUpdateDto,
+	): Promise<PluginConfigResponse> {
+		const config = this.pluginConfigService.find(pluginId);
+		if (!config) {
+			throw new NotFoundException("Config not found");
+		}
+
+		const rootNode = await config.configManager.update(dto.values);
 
 		return {
 			node: this.toResponse(rootNode),
@@ -60,7 +104,8 @@ export class PluginConfigController {
 				return {
 					type: ConfigNodeType.TEXT,
 					id: node.id,
-					name: node.id,
+					name: node.name,
+					value: node.value,
 					placeholder: node.placeholder ?? null,
 				};
 			case "section":
