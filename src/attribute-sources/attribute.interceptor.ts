@@ -19,7 +19,10 @@ export class AttributeInterceptor implements NestInterceptor {
 		next: CallHandler<any>,
 	): Observable<any> | Promise<Observable<any>> {
 		const request: Request = context.switchToHttp().getRequest();
-		const baseUrl = `${request.protocol}://${request.host}`;
+
+		const protocol = request.get("x-forwarded-proto") ?? request.protocol;
+		const host = request.get("x-forwarded-host") ?? request.get("host");
+		const baseUrl = `${protocol}://${host}`;
 
 		return next.handle().pipe(
 			map((data) => {

@@ -145,11 +145,14 @@ export class StreamingCoreController {
 	async getHLSPlaylist(@Param("id") id: string, @Req() req: Request) {
 		const session = this.get<HLSStreamInstance>(id, "hls");
 
-		const host = req.get("host") || req.headers.host;
+		const protocol = req.get("x-forwarded-proto") ?? req.protocol;
+		const host = req.get("x-forwarded-host") ?? req.get("host");
+
 		if (!host) {
 			throw new Error("Host not found");
 		}
-		const baseUrl = `${req.protocol}://${host}/streaming/${session.id}/hls/segment`;
+
+		const baseUrl = `${protocol}://${host}/streaming/${session.id}/hls/segment`;
 
 		const playlist = await session.getPlaylist(baseUrl);
 

@@ -15,6 +15,7 @@ import { AttributeType } from "./attributes/enum/attribute-type.enum";
 import { AttributeSourcesService } from "./attribute-sources/attribute-sources.service";
 import { AttributeInterceptor } from "./attribute-sources/attribute.interceptor";
 import { mkdir, rm } from "fs/promises";
+import { NestExpressApplication } from "@nestjs/platform-express";
 
 async function bootstrap() {
 	try {
@@ -24,8 +25,9 @@ async function bootstrap() {
 	} catch {}
 	await mkdir("temp");
 
-	const app = await NestFactory.create(AppModule);
+	const app = await NestFactory.create<NestExpressApplication>(AppModule);
 	app.enableCors();
+	app.set("trust proxy", 1);
 
 	app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
@@ -81,12 +83,6 @@ async function bootstrap() {
 
 	const docsService = app.get(DocsService);
 	docsService.setDocument(swaggerDocument);
-
-	// const nodes = await OpenAPITS(swaggerDocument as OpenAPI3, {
-	// 	exportType: true,
-	// });
-	// const content = astToString(nodes);
-	// writeFileSync("./openapi/types.d.ts", content);
 
 	await app.listen(process.env.PORT ?? 3000);
 }
