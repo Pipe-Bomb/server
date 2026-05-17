@@ -9,6 +9,7 @@ import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { LoadedExternalUrlSource } from "./interface/loaded-external-url-source.interface";
 import { IconsService } from "src/icons/icons.service";
 import { ExternalUrlResponse } from "./response/external-url.response";
+import { RelativeUrl } from "src/interception/relative-url";
 
 @Injectable()
 export class ExternalUrlsService {
@@ -65,7 +66,9 @@ export class ExternalUrlsService {
 						urls.push({
 							url: url.url,
 							name: url.name,
-							iconUrl: `/icons/${plugin.package.name}/${icon.id}`,
+							iconUrl: new RelativeUrl(
+								`/icons/${plugin.package.name}/${icon.id}`,
+							),
 						});
 					} else {
 						this.logger.warn(

@@ -6,6 +6,8 @@ import {
 } from "@nestjs/common";
 import { map, Observable } from "rxjs";
 import { AttributeSourcesService } from "./attribute-sources.service";
+import { RelativeUrl } from "src/interception/relative-url";
+import type { Request } from "express";
 
 export class AttributeInterceptor implements NestInterceptor {
 	constructor(
@@ -16,21 +18,28 @@ export class AttributeInterceptor implements NestInterceptor {
 		context: ExecutionContext,
 		next: CallHandler<any>,
 	): Observable<any> | Promise<Observable<any>> {
+		const request: Request = context.switchToHttp().getRequest();
+		const baseUrl = `${request.protocol}://${request.host}`;
+
 		return next.handle().pipe(
 			map((data) => {
-				return this.traverse(data);
+				return this.traverse(data, baseUrl);
 			}),
 		);
 	}
 
-	private traverse(node: any): any {
+	private traverse(node: any, baseUrl: string): any {
 		// 1. Handle Null or Undefined
 		if (node === null || node === undefined || node instanceof StreamableFile)
 			return node;
 
+		if (node instanceof RelativeUrl) {
+			return `${baseUrl}${node.url}`;
+		}
+
 		// 2. Handle Arrays (Recurse into each element)
 		if (Array.isArray(node)) {
-			return node.map((item) => this.traverse(item));
+			return node.map((item) => this.traverse(item, baseUrl));
 		}
 
 		// 3. Handle Objects
@@ -40,7 +49,7 @@ export class AttributeInterceptor implements NestInterceptor {
 			}
 
 			for (const key of Object.keys(node)) {
-				node[key] = this.traverse(node[key]);
+				node[key] = this.traverse(node[key], baseUrl);
 			}
 		}
 

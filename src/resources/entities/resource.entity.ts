@@ -1,6 +1,7 @@
 import path from "path";
 import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
 import { ResourceResponse } from "../response/resource.response";
+import { RelativeUrl } from "src/interception/relative-url";
 
 const RESOURCES_DIRECTORY = "./resources";
 
@@ -32,7 +33,9 @@ export class DBResource {
 			uuid: this.uuid,
 			extension: this.extension,
 			sha256: this.sha256,
-			url: `/resources/${this.uuid.substring(0, 3)}/${this.uuid}.${this.extension}`,
+			url: new RelativeUrl(
+				`/resources/${this.uuid.substring(0, 3)}/${this.uuid}.${this.extension}`,
+			),
 		};
 	}
 }

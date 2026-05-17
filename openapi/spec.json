@@ -1812,6 +1812,9 @@
           "id": {
             "type": "string"
           },
+          "baseUrl": {
+            "type": "string"
+          },
           "type": {
             "type": "string",
             "enum": [
@@ -1822,6 +1825,7 @@
         },
         "required": [
           "id",
+          "baseUrl",
           "type"
         ]
       },
