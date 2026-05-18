@@ -1,9 +1,18 @@
 import { DBArtist } from "src/artists/entity/artist.entity";
-import { Entity, PrimaryColumn, ManyToOne, JoinColumn, Column } from "typeorm";
+import {
+	Entity,
+	PrimaryColumn,
+	ManyToOne,
+	JoinColumn,
+	Column,
+	Index,
+} from "typeorm";
 import { DBAlbum } from "./album.entity";
 import { AlbumArtistResponse } from "../response/album-artist.response";
 
 @Entity("album_artists")
+@Index("albumUuid")
+@Index("artistUuid")
 export class DBAlbumArtist {
 	@PrimaryColumn({ type: "uuid" })
 	albumUuid: string;

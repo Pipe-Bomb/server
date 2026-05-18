@@ -1,4 +1,4 @@
-import { Column, JoinColumn, ManyToOne, PrimaryColumn } from "typeorm";
+import { Column, Index, JoinColumn, ManyToOne, PrimaryColumn } from "typeorm";
 import {
 	PersistentAttributeResponse,
 	PersistentBooleanAttributeResponse,
@@ -10,6 +10,7 @@ import {
 import { AttributeType } from "../enum/attribute-type.enum";
 import { DBResource } from "src/resources/entities/resource.entity";
 
+@Index("entityId")
 export abstract class DBAttributeTemplate {
 	@PrimaryColumn({
 		type: "uuid",

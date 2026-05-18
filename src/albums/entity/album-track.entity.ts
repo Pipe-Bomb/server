@@ -1,8 +1,17 @@
 import { DBTrack } from "src/tracks/entities/track.entity";
-import { Entity, PrimaryColumn, Column, ManyToOne, JoinColumn } from "typeorm";
+import {
+	Entity,
+	PrimaryColumn,
+	Column,
+	ManyToOne,
+	JoinColumn,
+	Index,
+} from "typeorm";
 import { DBAlbum } from "./album.entity";
 
 @Entity("album_tracks")
+@Index("albumUuid")
+@Index("trackUuid")
 export class DBAlbumTrack {
 	@PrimaryColumn({ type: "uuid" })
 	albumUuid: string;

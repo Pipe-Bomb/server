@@ -102,6 +102,7 @@ export class AlbumManagerService {
 			where: {
 				uuid,
 			},
+			relationLoadStrategy: "query",
 			relations: {
 				attributes: options.withAttributes,
 				identities: options.withIdentities,
