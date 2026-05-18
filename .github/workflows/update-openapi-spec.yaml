@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   update-openapi:
-    runs-on: ubuntu-latestgit
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repo + submodules
