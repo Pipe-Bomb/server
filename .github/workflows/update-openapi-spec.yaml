@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - master
+    paths-ignore:
+      - "openapi/spec.json"
+      - "openapi/**"
 
 permissions:
   contents: write
