@@ -10,7 +10,7 @@ import {
 import { AttributeType } from "../enum/attribute-type.enum";
 import { DBResource } from "src/resources/entities/resource.entity";
 
-@Index("entityId")
+@Index(["entityId"])
 export abstract class DBAttributeTemplate {
 	@PrimaryColumn({
 		type: "uuid",

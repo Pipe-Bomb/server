@@ -11,8 +11,8 @@ import { DBAlbum } from "./album.entity";
 import { AlbumArtistResponse } from "../response/album-artist.response";
 
 @Entity("album_artists")
-@Index("albumUuid")
-@Index("artistUuid")
+@Index(["albumUuid"])
+@Index(["artistUuid"])
 export class DBAlbumArtist {
 	@PrimaryColumn({ type: "uuid" })
 	albumUuid: string;

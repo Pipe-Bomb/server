@@ -10,8 +10,8 @@ import {
 import { DBAlbum } from "./album.entity";
 
 @Entity("album_tracks")
-@Index("albumUuid")
-@Index("trackUuid")
+@Index(["albumUuid"])
+@Index(["trackUuid"])
 export class DBAlbumTrack {
 	@PrimaryColumn({ type: "uuid" })
 	albumUuid: string;
