@@ -23,6 +23,8 @@ jobs:
       - name: Update submodule to latest remote commit
         run: |
           git submodule update --init --recursive
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           cd openapi
           git fetch origin
@@ -37,8 +39,7 @@ jobs:
         run: |
           cd openapi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
 
           git add spec.json
 
@@ -54,3 +55,13 @@ jobs:
           git status
           git branch
           git push origin master
+
+      - name: Update parent repo submodule pointer
+        run: |
+          git submodule update --remote openapi
+          git add openapi
+
+          git diff --cached --quiet && echo "No submodule update" && exit 0
+
+          git commit -m "chore: Update OpenAPI submodule"
+          git push
