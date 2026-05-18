@@ -84,6 +84,7 @@ export class LibrariesController {
 			offset: dto.pageSize * (dto.page - 1),
 			withAttributes: true,
 			withArtists: true,
+			withAlbums: true,
 		});
 
 		return {

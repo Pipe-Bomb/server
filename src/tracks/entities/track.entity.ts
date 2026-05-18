@@ -15,6 +15,7 @@ import { AttributeMapResponse } from "src/attributes/response/attribute-map.resp
 import { TrackArtistResponse } from "../response/track-artist.response";
 import { BasePersistentAttributeResponse } from "src/attributes/response/persistent-attribute.response";
 import { DBAlbumTrack } from "src/albums/entity/album-track.entity";
+import { AlbumResponse } from "src/albums/response/album.response";
 
 @Entity("tracks")
 @Unique("IDX_pluginId_libraryId_trackId", ["pluginId", "libraryId", "trackId"])
@@ -103,6 +104,25 @@ export class DBTrack {
 			}
 		}
 
+		const albumMap: Record<string, DBAlbumTrack> = {};
+
+		if (this.albums) {
+			for (const albumTrack of this.albums) {
+				if (!albumTrack.album) {
+					continue;
+				}
+				albumMap[albumTrack.album.uuid] = albumTrack;
+			}
+		}
+
+		const albums: AlbumResponse[] = [];
+		for (const albumTrack of Object.values(albumMap)) {
+			const album = albumTrack.album?.toResponse();
+			if (album) {
+				albums.push(album);
+			}
+		}
+
 		return {
 			id: this.trackId,
 			pluginId: this.pluginId,
@@ -111,6 +131,7 @@ export class DBTrack {
 			attributes: this.attributes ?? null,
 			identities,
 			artists: (this.artists && artists) ?? null,
+			albums: (this.albums && albums) ?? null,
 		};
 	}
 }

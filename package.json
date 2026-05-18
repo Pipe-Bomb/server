@@ -11,7 +11,6 @@
 		"format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
 		"start": "nest start",
 		"start:dev": "nest start --watch",
-		"start:plugin-dev2": "concurrently -n \"COMPILER,RUNNER\" -c \"cyan,green\" \"npm run build:watch\" \"wait-on dist/src/main.js && nodemon\"",
 		"start:plugin-dev": "concurrently -n \"COMPILER,RUNNER\" -c \"cyan,green\" \"npm run build:watch\" \"wait-on dist/src/main.js && node --watch --watch-path=dist --watch-path=./plugins dist/src/main.js\"",
 		"start:debug": "nest start --debug --watch",
 		"start:prod": "node dist/src/main",

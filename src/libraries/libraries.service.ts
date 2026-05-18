@@ -162,6 +162,7 @@ export class LibrariesService {
 			withAttributes?: boolean;
 			withIdentities?: boolean;
 			withArtists?: boolean;
+			withAlbums?: boolean;
 		},
 	): Promise<ILibraryFindResult> {
 		const { handler, plugin } = library;
@@ -178,6 +179,11 @@ export class LibrariesService {
 				},
 				identities: options.withIdentities,
 				attributes: options.withAttributes,
+				albums: options.withAlbums && {
+					album: {
+						attributes: true,
+					},
+				},
 			},
 			take: options.amount,
 			skip: options.offset,

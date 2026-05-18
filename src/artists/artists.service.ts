@@ -179,6 +179,7 @@ export class ArtistsService {
 			withTracks?: number;
 			withTrackAttributes?: boolean;
 			withTrackArtists?: boolean;
+			withTrackAlbums?: boolean;
 			withAlbums?: number;
 			withAlbumArtists?: boolean;
 			withAlbumAttributes?: boolean;
@@ -219,6 +220,11 @@ export class ArtistsService {
 						attributes: options.withTrackAttributes,
 						artists: options.withTrackArtists && {
 							artist: {
+								attributes: true,
+							},
+						},
+						albums: options.withTrackAlbums && {
+							album: {
 								attributes: true,
 							},
 						},

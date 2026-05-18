@@ -16,6 +16,7 @@ import { AttributeSourcesService } from "./attribute-sources/attribute-sources.s
 import { AttributeInterceptor } from "./attribute-sources/attribute.interceptor";
 import { mkdir, rm } from "fs/promises";
 import { NestExpressApplication } from "@nestjs/platform-express";
+import { existsSync } from "fs";
 
 async function bootstrap() {
 	try {

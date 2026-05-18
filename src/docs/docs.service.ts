@@ -1,18 +1,18 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { OpenAPIObject } from "@nestjs/swagger";
-import { mkdirSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, writeFileSync } from "fs";
 
 @Injectable()
 export class DocsService {
+	private readonly logger = new Logger("Docs Service");
 	private document: OpenAPIObject;
 
 	setDocument(doc: OpenAPIObject) {
 		this.document = doc;
 
-		mkdirSync("./openapi", {
-			recursive: true,
-		});
-		writeFileSync("./openapi/spec.json", JSON.stringify(doc, null, 2));
+		if (existsSync("./openapi")) {
+			writeFileSync("./openapi/spec.json", JSON.stringify(doc, null, 2));
+		}
 	}
 
 	getDocument(): OpenAPIObject {

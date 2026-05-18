@@ -15,6 +15,7 @@ import { AttributeMapResponse } from "../../attributes/response/attribute-map.re
 import { IdentityResponse } from "src/identifiers/response/identity.response";
 import { TrackArtistResponse } from "./track-artist.response";
 import { DBTrackAttribute } from "src/attributes/entities/track-attribute.entity";
+import { AlbumResponse } from "src/albums/response/album.response";
 
 @ApiSchema({ name: "Track" })
 @ApiExtraModels(
@@ -50,6 +51,12 @@ export class TrackResponse {
 		nullable: true,
 	})
 	artists: TrackArtistResponse[] | null;
+
+	@ApiProperty({
+		type: [AlbumResponse],
+		nullable: true,
+	})
+	albums: AlbumResponse[] | null;
 
 	@ApiProperty({
 		oneOf: [{ $ref: getSchemaPath(AttributeMapResponse) }],
