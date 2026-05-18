@@ -26,7 +26,8 @@ jobs:
 
           cd openapi
           git fetch origin
-          git checkout origin/HEAD
+          git checkout master
+          git pull origin master
       - name: Generate spec.json
         run: |
           npm ci
@@ -52,4 +53,4 @@ jobs:
           cd openapi
           git status
           git branch
-          git push origin HEAD
+          git push origin master
