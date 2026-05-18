@@ -15,7 +15,7 @@ jobs:
 
     steps:
       - name: Checkout repo + submodules
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
           token: ${{ secrets.GH_TOKEN }}
@@ -55,4 +55,6 @@ jobs:
 
       - name: Push changes
         run: |
+          git status
+          git branch
           git push
