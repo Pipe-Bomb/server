@@ -1,0 +1,58 @@
+name: Update OpenAPI Spec
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  update-openapi:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo + submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Update submodule to latest remote commit
+        run: |
+          git submodule update --init --recursive
+
+          cd openapi
+          git fetch origin
+          git checkout origin/HEAD
+
+          cd ..
+
+          git add openapi
+
+      - name: Generate spec.json
+        run: |
+          npm ci
+          npm run generate:openapi
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          cd openapi
+
+          git add spec.json
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "Update OpenAPI spec"
+
+      - name: Push changes
+        run: |
+          git push

@@ -12,6 +12,7 @@ export class DocsService {
 
 		if (existsSync("./openapi")) {
 			writeFileSync("./openapi/spec.json", JSON.stringify(doc, null, 2));
+			this.logger.log("Updated OpenAPI spec");
 		}
 	}
 

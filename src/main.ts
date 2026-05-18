@@ -77,13 +77,13 @@ async function bootstrap() {
 			},
 		},
 	};
-	// writeFileSync(
-	// 	"./openapi/spec.json",
-	// 	JSON.stringify(swaggerDocument, null, 2),
-	// );
 
 	const docsService = app.get(DocsService);
 	docsService.setDocument(swaggerDocument);
+
+	if (process.env.UPDATE_OPENAPI) {
+		process.exit(0);
+	}
 
 	await app.listen(process.env.PORT ?? 3000);
 }
