@@ -52,4 +52,4 @@ jobs:
           cd openapi
           git status
           git branch
-          git push
+          git push origin HEAD
