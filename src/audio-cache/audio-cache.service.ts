@@ -62,7 +62,6 @@ export class AudioCacheService {
 		const filePath = this.getPath(track);
 
 		if ((!type || type == "stream") && existsSync(filePath)) {
-			this.logger.debug("Using cached Audio Producer");
 			return {
 				type: "stream",
 				cacheable: false,
@@ -89,8 +88,6 @@ export class AudioCacheService {
 					}),
 			};
 		}
-
-		this.logger.debug("Using uncached Audio Producer");
 
 		return handler.getAudioProducer(
 			{
