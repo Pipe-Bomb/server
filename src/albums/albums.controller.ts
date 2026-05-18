@@ -32,7 +32,6 @@ export class AlbumsController {
 	})
 	@ApiNotFoundResponse()
 	async getAlbum(@Param("albumUuid") albumUuid: string) {
-		console.log("Getting album:", albumUuid);
 		const album = await this.albumManagerService.findOne(albumUuid, {
 			withArtists: true,
 			withAttributes: true,
@@ -41,7 +40,6 @@ export class AlbumsController {
 			withTrackArtists: true,
 			withTrackAttributes: true,
 		});
-		console.log("Received album response:", album);
 
 		if (!album) {
 			throw new NotFoundException("Album not found");

@@ -171,6 +171,7 @@ export class LibrariesService {
 				libraryId: handler.id,
 				pluginId: plugin.package.name,
 			},
+			relationLoadStrategy: "query",
 			relations: {
 				artists: options.withArtists && {
 					artist: {

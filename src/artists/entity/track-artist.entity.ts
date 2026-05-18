@@ -14,6 +14,8 @@ import { TrackArtistResponse } from "src/tracks/response/track-artist.response";
 @Index(["trackUuid", "artistUuid", "pluginId", "identifierId"], {
 	unique: true,
 })
+@Index(["trackUuid"])
+@Index(["artistUuid"])
 export class DBTrackArtist {
 	@PrimaryColumn({ type: "uuid" })
 	trackUuid: string;

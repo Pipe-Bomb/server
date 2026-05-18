@@ -6,12 +6,12 @@ import {
 	JoinColumn,
 	ManyToOne,
 	PrimaryColumn,
-	Unique,
 } from "typeorm";
 import { IdentityResponse } from "../response/identity.response";
 
 // todo: rename to DBTrackIdentity
 @Entity("identities")
+@Index(["trackUuid"])
 export class DBIdentity {
 	@PrimaryColumn({
 		type: "text",

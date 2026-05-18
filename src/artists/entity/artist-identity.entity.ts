@@ -12,6 +12,7 @@ import { Identity } from "@sdk";
 import { ArtistIdentityTarget } from "../enum/artist-identity-target.enum";
 
 @Entity("artist_identities")
+@Index(["artistUuid"])
 export class DBArtistIdentity {
 	@PrimaryColumn({
 		type: "text",
