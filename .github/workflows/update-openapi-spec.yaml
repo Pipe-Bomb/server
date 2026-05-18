@@ -27,11 +27,6 @@ jobs:
           cd openapi
           git fetch origin
           git checkout origin/HEAD
-
-          cd ..
-
-          git add openapi
-
       - name: Generate spec.json
         run: |
           npm ci
@@ -52,9 +47,9 @@ jobs:
           fi
 
           git commit -m "Update OpenAPI spec"
-
       - name: Push changes
         run: |
+          cd openapi
           git status
           git branch
           git push
