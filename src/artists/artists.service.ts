@@ -189,6 +189,7 @@ export class ArtistsService {
 			where: {
 				uuid,
 			},
+			relationLoadStrategy: "query",
 			relations: {
 				attributes: options.withAttributes,
 				identities: options.withIdentities,
@@ -269,6 +270,7 @@ export class ArtistsService {
 		return this.artistsRepository.find({
 			take: options.amount,
 			skip: options.offset,
+			relationLoadStrategy: "query",
 			relations: {
 				attributes: options.withAttributes,
 				identities: options.withIdentities,
