@@ -30,6 +30,7 @@ export class AlbumManagerService {
 			where: options.where,
 			take: options.amount,
 			skip: options.offset,
+			relationLoadStrategy: "query",
 			relations: {
 				attributes: options.withAttributes,
 				identities: options.withIdentities,

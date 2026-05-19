@@ -2,6 +2,8 @@ import {
 	Body,
 	Controller,
 	Get,
+	HttpCode,
+	HttpStatus,
 	NotFoundException,
 	Param,
 	Post,
@@ -69,6 +71,7 @@ export class LibrariesController {
 	@ApiOkResponse({
 		type: LibraryFindResponse,
 	})
+	@HttpCode(HttpStatus.OK)
 	async search(
 		@Param("pluginId") pluginId: string,
 		@Param("libraryId") libraryId: string,

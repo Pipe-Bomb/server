@@ -23,6 +23,7 @@ import { StreamingCoreModule } from "./streaming-core/streaming-core.module";
 import { AlbumsModule } from "./albums/albums.module";
 import { AlbumManagerModule } from "./album-manager/album-manager.module";
 import { PluginConfigModule } from "./plugin-config/plugin-config.module";
+import { SearchModule } from "./search/search.module";
 import databaseConfig from "./config/database.config";
 
 @Module({
@@ -53,6 +54,7 @@ import databaseConfig from "./config/database.config";
 		AlbumsModule,
 		AlbumManagerModule,
 		PluginConfigModule,
+		SearchModule,
 	],
 	controllers: [AppController],
 	providers: [AppService],
