@@ -4,6 +4,7 @@ import {
 	ArtistExternalUrlHelper,
 	ExternalUrl,
 	ExternalUrlSource,
+	TrackExternalUrlHelper,
 } from "@sdk";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { LoadedExternalUrlSource } from "./interface/loaded-external-url-source.interface";
@@ -88,5 +89,9 @@ export class ExternalUrlsService {
 
 	public getAlbumUrls(helper: AlbumExternalUrlHelper) {
 		return this.get((source) => source.getAlbumUrls(helper));
+	}
+
+	public getTrackUrls(helper: TrackExternalUrlHelper) {
+		return this.get((source) => source.getTrackUrls(helper));
 	}
 }

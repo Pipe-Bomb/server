@@ -1,6 +1,10 @@
 import { Controller, Get, NotFoundException, Param } from "@nestjs/common";
 import { TracksService } from "./tracks.service";
-import { ApiOkResponse, ApiOperation } from "@nestjs/swagger";
+import {
+	ApiNotFoundResponse,
+	ApiOkResponse,
+	ApiOperation,
+} from "@nestjs/swagger";
 import { IdentifiersService } from "src/identifiers/identifiers.service";
 import { IdentityResponse } from "src/identifiers/response/identity.response";
 import { TrackResponse } from "./response/track.response";
@@ -8,6 +12,7 @@ import { LibrariesService } from "src/libraries/libraries.service";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { AudioSessionsService } from "src/audio-sessions/audio-sessions.service";
 import { StreamInstanceResponse } from "src/streaming-core/response/session.response";
+import { ExternalUrlResponse } from "src/external-urls/response/external-url.response";
 
 @Controller("tracks")
 export class TracksController {
@@ -24,6 +29,7 @@ export class TracksController {
 	@ApiOkResponse({
 		type: TrackResponse,
 	})
+	@ApiNotFoundResponse()
 	async findOne(
 		@Param("pluginId") pluginId: string,
 		@Param("libraryId") libraryId: string,
@@ -38,6 +44,16 @@ export class TracksController {
 			relations: {
 				attributes: true,
 				identities: true,
+				artists: {
+					artist: {
+						attributes: true,
+					},
+				},
+				albums: {
+					album: {
+						attributes: true,
+					},
+				},
 			},
 		});
 		return track?.toResponse() ?? null;
@@ -48,6 +64,7 @@ export class TracksController {
 	@ApiOkResponse({
 		type: [IdentityResponse],
 	})
+	@ApiNotFoundResponse()
 	async getIdentities(
 		@Param("pluginId") pluginId: string,
 		@Param("libraryId") libraryId: string,
@@ -72,6 +89,7 @@ export class TracksController {
 	@ApiOkResponse({
 		type: StreamInstanceResponse,
 	})
+	@ApiNotFoundResponse()
 	async getAudioInfo(
 		@Param("pluginId") pluginId: string,
 		@Param("libraryId") libraryId: string,
@@ -99,5 +117,30 @@ export class TracksController {
 
 		const session = await this.audioSessionsService.createSession(track);
 		return session.toResponse();
+	}
+
+	@Get(":pluginId/:libraryId/:trackId/urls")
+	@ApiOperation({ operationId: "getTrackExternalUrls" })
+	@ApiOkResponse({
+		type: [ExternalUrlResponse],
+	})
+	@ApiNotFoundResponse()
+	async getExternalUrls(
+		@Param("pluginId") pluginId: string,
+		@Param("libraryId") libraryId: string,
+		@Param("trackId") trackId: string,
+	): Promise<ExternalUrlResponse[]> {
+		const track = await this.trackManagerService.findOne({
+			where: {
+				pluginId,
+				libraryId,
+				trackId,
+			},
+		});
+		if (!track) {
+			throw new NotFoundException("Track not found");
+		}
+
+		return this.tracksService.getExternalUrls(track);
 	}
 }

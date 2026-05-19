@@ -8,6 +8,7 @@ import {
 	PrimaryColumn,
 } from "typeorm";
 import { IdentityResponse } from "../response/identity.response";
+import { Identity } from "@sdk";
 
 // todo: rename to DBTrackIdentity
 @Entity("identities")
@@ -49,6 +50,14 @@ export class DBIdentity {
 			entityId: this.trackUuid,
 			value: this.identity,
 			ordinal: this.ordinal,
+		};
+	}
+
+	toIdentity(): Identity {
+		return {
+			identifierId: this.identifierId,
+			pluginId: this.pluginId,
+			value: this.identity,
 		};
 	}
 }

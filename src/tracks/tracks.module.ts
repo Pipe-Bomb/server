@@ -7,6 +7,7 @@ import { IdentifiersModule } from "src/identifiers/identifiers.module";
 import { LibrariesModule } from "src/libraries/libraries.module";
 import { TrackManagerModule } from "src/track-manager/track-manager.module";
 import { AudioSessionsModule } from "src/audio-sessions/audio-sessions.module";
+import { ExternalUrlsModule } from "src/external-urls/external-urls.module";
 
 @Module({
 	imports: [
@@ -15,6 +16,7 @@ import { AudioSessionsModule } from "src/audio-sessions/audio-sessions.module";
 		LibrariesModule,
 		TrackManagerModule,
 		AudioSessionsModule,
+		ExternalUrlsModule,
 	],
 	controllers: [TracksController],
 	providers: [TracksService],
