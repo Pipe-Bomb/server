@@ -5,6 +5,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { DBArtist } from "src/artists/entity/artist.entity";
 import { TrackManagerModule } from "src/track-manager/track-manager.module";
 import { AlbumManagerModule } from "src/album-manager/album-manager.module";
+import { EphemeralModule } from "src/ephemeral/ephemeral.module";
 
 @Module({
 	imports: [

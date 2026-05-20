@@ -19,17 +19,15 @@ export class AudioSessionsService {
 		private readonly audioCacheService: AudioCacheService,
 	) {}
 
-	async createSession(track: DBTrack) {
-		const library = this.librariesService.findLibrary(
-			track.pluginId,
-			track.libraryId,
-		);
+	async createSession(pluginId: string, libraryId: string, trackId: string) {
+		const library = this.librariesService.findLibrary(pluginId, libraryId);
 		if (!library) {
 			throw new NotFoundException("Library not found");
 		}
 		const producer = await this.audioCacheService.getAudioProducer(
 			library.handler,
-			track,
+			pluginId,
+			trackId,
 			null,
 		);
 

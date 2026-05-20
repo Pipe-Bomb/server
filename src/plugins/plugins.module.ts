@@ -11,6 +11,7 @@ import { IconsModule } from "src/icons/icons.module";
 import { ExternalUrlsModule } from "src/external-urls/external-urls.module";
 import { AlbumsModule } from "src/albums/albums.module";
 import { PluginConfigModule } from "src/plugin-config/plugin-config.module";
+import { EphemeralModule } from "src/ephemeral/ephemeral.module";
 
 @Module({
 	imports: [
@@ -24,6 +25,7 @@ import { PluginConfigModule } from "src/plugin-config/plugin-config.module";
 		ExternalUrlsModule,
 		AlbumsModule,
 		PluginConfigModule,
+		EphemeralModule,
 	],
 	controllers: [PluginsController],
 	providers: [PluginsService],

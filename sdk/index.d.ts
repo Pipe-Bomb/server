@@ -11,3 +11,4 @@ export * from "./task";
 export * from "./external-url-source";
 export * from "./audio-producer";
 export * from "./config-manager";
+export * from "./ephemeral-source";

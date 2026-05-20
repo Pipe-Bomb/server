@@ -14,6 +14,8 @@ export class ResourceResponse {
 	@ApiProperty()
 	extension: string;
 
-	@ApiProperty()
-	sha256: string;
+	@ApiProperty({
+		nullable: true,
+	})
+	sha256: string | null;
 }

@@ -34,12 +34,12 @@ export class AudioCacheService {
 		// });
 	}
 
-	private getPath(track: DBTrack) {
-		const hash = createHash("sha256").update(track.trackId).digest("hex");
+	private getPath(pluginId: string, libraryId: string, trackId: string) {
+		const hash = createHash("sha256").update(trackId).digest("hex");
 		return path.join(
 			"audio-cache",
-			track.pluginId,
-			track.libraryId,
+			pluginId,
+			libraryId,
 			hash.substring(0, 3),
 			hash,
 		);
@@ -56,10 +56,11 @@ export class AudioCacheService {
 
 	async getAudioProducer(
 		handler: LibraryHandler,
-		track: DBTrack,
+		pluginId: string,
+		trackId: string,
 		type: AudioProducerType | null,
 	): Promise<AudioProducer | null> {
-		const filePath = this.getPath(track);
+		const filePath = this.getPath(pluginId, handler.id, trackId);
 
 		if ((!type || type == "stream") && existsSync(filePath)) {
 			return {
@@ -89,27 +90,22 @@ export class AudioCacheService {
 			};
 		}
 
-		return handler.getAudioProducer(
-			{
-				id: track.trackId,
-				title: track.title,
-			},
-			type,
-		);
+		return handler.getAudioProducer(trackId, type);
 	}
 
 	async cacheTrack(library: LoadedLibraryHandler, track: DBTrack) {
-		const filePath = this.getPath(track);
+		const filePath = this.getPath(
+			track.pluginId,
+			track.libraryId,
+			track.trackId,
+		);
 		const fileDir = path.dirname(filePath);
 		if (existsSync(filePath)) {
 			return false;
 		}
 
 		const producer = await library.handler.getAudioProducer(
-			{
-				id: track.trackId,
-				title: track.title,
-			},
+			track.trackId,
 			null,
 		);
 

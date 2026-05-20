@@ -201,7 +201,8 @@ export class LibrariesService {
 				getAudioProducer: async (type?: AudioProducerType) => {
 					const producer = await this.audioCacheService.getAudioProducer(
 						handler,
-						track,
+						track.pluginId,
+						track.trackId,
 						type ?? null,
 					);
 

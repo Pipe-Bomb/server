@@ -10,7 +10,7 @@ export type AttributeType =
 	| "integer"
 	| "decimal"
 	| "boolean"
-	| "buffer"; // todo: change to enum when properly packaged for plugins
+	| "buffer";
 
 export interface Attribute {
 	key: string;
@@ -18,12 +18,12 @@ export interface Attribute {
 	supportsMultiple: boolean;
 }
 
-export interface BufferAttribute {
+export interface BufferAttributeValue {
 	extension: string;
-	data: Buffer;
+	buffer: Buffer | (() => Promise<Buffer>);
 }
 
 export interface AttributeValue {
 	key: string;
-	value: string | number | boolean | BufferAttribute;
+	value: string | number | boolean | BufferAttributeValue;
 }

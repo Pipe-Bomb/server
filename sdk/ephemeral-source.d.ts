@@ -1,0 +1,38 @@
+import { AttributeValue } from "./attribute";
+import { AttributeSource } from "./attribute-source";
+import { Track } from "./audio-types";
+import { TrackIdentifier } from "./identifier";
+import { LibraryHandler } from "./library-handler";
+
+export interface EphemeralSourceApiContext {
+	// useTrackIdentifier(trackIdentifier: TrackIdentifier): void;
+	useAttributeSource(attributeSource: AttributeSource): void;
+}
+
+export interface EphemeralSourceSearchOptions {
+	query: string;
+}
+
+export interface EphemeralTrack extends Track {
+	attributes: AttributeValue[] | null;
+}
+
+export interface EphemeralSourceSearchResults {
+	tracks: EphemeralTrack[];
+}
+
+export interface EphemeralSource {
+	readonly id: string;
+
+	enable(
+		ephemeralSourceApiContext: EphemeralSourceApiContext,
+	): void | Promise<void>;
+
+	getName(): string;
+
+	getLibraryHandler(): LibraryHandler;
+
+	search(
+		options: EphemeralSourceSearchOptions,
+	): Promise<EphemeralSourceSearchResults>;
+}

@@ -1,5 +1,5 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsBoolean, IsOptional, IsString } from "class-validator";
+import { ApiProperty } from "@nestjs/swagger";
+import { IsBoolean, IsString, ValidateIf } from "class-validator";
 
 export class SearchDto {
 	@IsBoolean()
@@ -20,10 +20,11 @@ export class SearchDto {
 	})
 	withArtists: boolean;
 
-	@IsOptional()
+	@ValidateIf((_, value) => value !== null)
 	@IsString()
-	@ApiPropertyOptional({
+	@ApiProperty({
 		type: "string",
+		nullable: true,
 	})
-	query?: string;
+	query: string | null;
 }

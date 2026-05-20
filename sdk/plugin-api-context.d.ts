@@ -1,5 +1,6 @@
 import { AttributeSource } from "./attribute-source";
 import { ConfigManager } from "./config-manager";
+import { EphemeralSource } from "./ephemeral-source";
 import { ExternalUrlSource } from "./external-url-source";
 import {
 	AlbumIdentifier,
@@ -27,4 +28,5 @@ export interface PluginApiContext {
 	registerExternalUrlSource(externalUrlSource: ExternalUrlSource): void;
 	requestCacheDirectory(): Promise<string>;
 	registerConfigManager(configManager: ConfigManager): void;
+	registerEphemeralSource(ephemeralSource: EphemeralSource): void;
 }

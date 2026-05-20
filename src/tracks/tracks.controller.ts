@@ -100,22 +100,11 @@ export class TracksController {
 			throw new NotFoundException("Library not found");
 		}
 
-		const track = await this.trackManagerService.findOne({
-			where: {
-				pluginId,
-				libraryId,
-				trackId,
-			},
-			relations: {
-				attributes: true,
-			},
-		});
-
-		if (!track) {
-			throw new NotFoundException("Track not found");
-		}
-
-		const session = await this.audioSessionsService.createSession(track);
+		const session = await this.audioSessionsService.createSession(
+			pluginId,
+			libraryId,
+			trackId,
+		);
 		return session.toResponse();
 	}
 

@@ -212,87 +212,101 @@ export class AttributeSourcesService {
 				);
 			}
 
-			const dbAttribute = await (async () => {
-				const entity = repository.create({
-					entityId,
-					entityRelationId: entityId,
-					pluginId: source.plugin.package.name,
-					sourceId: source.source.id,
-					key: attribute.key,
-				} as DeepPartial<T>);
+			try {
+				const dbAttribute = await (async () => {
+					const entity = repository.create({
+						entityId,
+						entityRelationId: entityId,
+						pluginId: source.plugin.package.name,
+						sourceId: source.source.id,
+						key: attribute.key,
+					} as DeepPartial<T>);
 
-				const attributeType = attributeTemplate.attribute.type;
-				switch (attributeType) {
-					case "boolean":
-						if (typeof attribute.value != "boolean") {
-							throw new Error(
-								`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" is type boolean`,
+					const attributeType = attributeTemplate.attribute.type;
+					switch (attributeType) {
+						case "boolean":
+							if (typeof attribute.value != "boolean") {
+								throw new Error(
+									`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" is type boolean`,
+								);
+							}
+							entity.value_boolean = attribute.value;
+							break;
+						case "string":
+							if (typeof attribute.value != "string") {
+								throw new Error(
+									`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" is type string`,
+								);
+							}
+							entity.value_string = attribute.value;
+							break;
+						case "decimal":
+							if (typeof attribute.value != "number") {
+								throw new Error(
+									`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" is type decimal`,
+								);
+							}
+							if (attribute.value == Infinity) {
+								throw new Error(
+									`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" doesn't support Infinity`,
+								);
+							}
+							entity.value_decimal = attribute.value;
+							break;
+						case "integer":
+							if (
+								typeof attribute.value != "number" ||
+								attribute.value % 1 !== 0
+							) {
+								throw new Error(
+									`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" is type integer`,
+								);
+							}
+							entity.value_int = attribute.value;
+							break;
+						case "buffer":
+							if (
+								typeof attribute.value != "object" ||
+								!(
+									"buffer" in attribute.value &&
+									"extension" in attribute.value &&
+									(typeof attribute.value.buffer == "function" ||
+										Buffer.isBuffer(attribute.value.buffer)) &&
+									typeof attribute.value.extension == "string"
+								)
+							) {
+								throw new Error(
+									`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" is type buffer`,
+								);
+							}
+							let buffer: Buffer;
+							if (Buffer.isBuffer(attribute.value.buffer)) {
+								buffer = attribute.value.buffer;
+							} else {
+								buffer = await attribute.value.buffer();
+							}
+							entity.value_buffer = await this.resourcesService.create(
+								buffer,
+								attribute.value.extension,
 							);
-						}
-						entity.value_boolean = attribute.value;
-						break;
-					case "string":
-						if (typeof attribute.value != "string") {
-							throw new Error(
-								`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" is type string`,
-							);
-						}
-						entity.value_string = attribute.value;
-						break;
-					case "decimal":
-						if (typeof attribute.value != "number") {
-							throw new Error(
-								`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" is type decimal`,
-							);
-						}
-						if (attribute.value == Infinity) {
-							throw new Error(
-								`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" doesn't support Infinity`,
-							);
-						}
-						entity.value_decimal = attribute.value;
-						break;
-					case "integer":
-						if (
-							typeof attribute.value != "number" ||
-							attribute.value % 1 !== 0
-						) {
-							throw new Error(
-								`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" is type integer`,
-							);
-						}
-						entity.value_int = attribute.value;
-						break;
-					case "buffer":
-						if (
-							typeof attribute.value != "object" ||
-							!(
-								"data" in attribute.value &&
-								"extension" in attribute.value &&
-								Buffer.isBuffer(attribute.value.data) &&
-								typeof attribute.value.extension == "string"
-							)
-						) {
-							throw new Error(
-								`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" is type buffer`,
-							);
-						}
-						entity.value_buffer = await this.resourcesService.create(
-							attribute.value.data,
-							attribute.value.extension,
-						);
-						break;
-				}
+							break;
+					}
 
-				if (attribute.key in ordinalCount) {
-					entity.ordinal = ordinalCount[attribute.key]++;
-				} else {
-					ordinalCount[attribute.key] = 1;
-					entity.ordinal = 0;
-				}
-				return entity;
-			})();
-			result.push(dbAttribute);
+					if (attribute.key in ordinalCount) {
+						entity.ordinal = ordinalCount[attribute.key]++;
+					} else {
+						ordinalCount[attribute.key] = 1;
+						entity.ordinal = 0;
+					}
+					return entity;
+				})();
+				result.push(dbAttribute);
+			} catch (e) {
+				this.logger.error(
+					`Failed to create attribute with key "${attribute.key}":`,
+					e,
+				);
+			}
 		}
 
 		return result;

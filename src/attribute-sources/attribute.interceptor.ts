@@ -9,6 +9,7 @@ import { AttributeSourcesService } from "./attribute-sources.service";
 import { RelativeUrl } from "src/interception/relative-url";
 import type { Request } from "express";
 import { getBaseUrl } from "src/util/request.util";
+import { DBAttributeTemplate } from "src/attributes/entities/attribute.entity-template";
 
 export class AttributeInterceptor implements NestInterceptor {
 	constructor(
@@ -44,7 +45,13 @@ export class AttributeInterceptor implements NestInterceptor {
 
 		// 3. Handle Objects
 		if (typeof node === "object") {
-			if (node.attributes && Array.isArray(node.attributes)) {
+			if (
+				node.attributes &&
+				Array.isArray(node.attributes) &&
+				!node.attributes.some(
+					(attribute: any) => !(attribute instanceof DBAttributeTemplate),
+				)
+			) {
 				node.attributes = this.attributeSourcesService.toMap(node.attributes);
 			}
 

@@ -4,7 +4,7 @@ import { ApiProperty, ApiSchema } from "@nestjs/swagger";
 import { AttributeType } from "../enum/attribute-type.enum";
 import { ResourceResponse } from "src/resources/response/resource.response";
 
-export class BasePersistentAttributeResponse {
+export class BasePersistentAttributeResponse<T> {
 	// @ApiProperty()
 	// key: string;
 
@@ -16,61 +16,63 @@ export class BasePersistentAttributeResponse {
 
 	@ApiProperty()
 	sourceId: string;
+
+	values: T[];
 }
 
 @ApiSchema({ name: "StringAttribute" })
-export class PersistentStringAttributeResponse extends BasePersistentAttributeResponse {
+export class PersistentStringAttributeResponse extends BasePersistentAttributeResponse<string> {
 	@ApiProperty({ enum: [AttributeType.STRING] })
-	declare type: AttributeType.STRING;
+	override type = AttributeType.STRING;
 
 	@ApiProperty({
 		type: [String],
 	})
-	values: string[];
+	declare values: string[];
 }
 
 @ApiSchema({ name: "IntegerAttribute" })
-export class PersistentIntegerAttributeResponse extends BasePersistentAttributeResponse {
+export class PersistentIntegerAttributeResponse extends BasePersistentAttributeResponse<number> {
 	@ApiProperty({ enum: [AttributeType.INTEGER] })
-	declare type: AttributeType.INTEGER;
+	override type = AttributeType.INTEGER;
 
 	@ApiProperty({
 		type: [Number],
 	})
-	values: number[];
+	declare values: number[];
 }
 
 @ApiSchema({ name: "DecimalAttribute" })
-export class PersistentDecimalAttributeResponse extends BasePersistentAttributeResponse {
+export class PersistentDecimalAttributeResponse extends BasePersistentAttributeResponse<number> {
 	@ApiProperty({ enum: [AttributeType.DECIMAL] })
-	declare type: AttributeType.DECIMAL;
+	override type = AttributeType.DECIMAL;
 
 	@ApiProperty({
 		type: [Number],
 	})
-	values: number[];
+	declare values: number[];
 }
 
 @ApiSchema({ name: "BooleanAttribute" })
-export class PersistentBooleanAttributeResponse extends BasePersistentAttributeResponse {
+export class PersistentBooleanAttributeResponse extends BasePersistentAttributeResponse<boolean> {
 	@ApiProperty({ enum: [AttributeType.BOOLEAN] })
-	declare type: AttributeType.BOOLEAN;
+	override type = AttributeType.BOOLEAN;
 
 	@ApiProperty({
 		type: [Boolean],
 	})
-	values: boolean[];
+	declare values: boolean[];
 }
 
 @ApiSchema({ name: "BufferAttribute" })
-export class PersistentBufferAttributeResponse extends BasePersistentAttributeResponse {
+export class PersistentBufferAttributeResponse extends BasePersistentAttributeResponse<ResourceResponse> {
 	@ApiProperty({ enum: [AttributeType.BUFFER] })
-	declare type: AttributeType.BUFFER;
+	override type = AttributeType.BUFFER;
 
 	@ApiProperty({
 		type: [ResourceResponse],
 	})
-	values: ResourceResponse[];
+	declare values: ResourceResponse[];
 }
 
 export type PersistentAttributeResponse =

@@ -3,6 +3,7 @@ import { SearchService } from "./search.service";
 import { ApiOkResponse, ApiOperation } from "@nestjs/swagger";
 import { SearchDto } from "./dto/search.dto";
 import { SearchResultsResponse } from "./response/search-results.response";
+import { EphemeralService } from "src/ephemeral/ephemeral.service";
 
 @Controller("search")
 export class SearchController {
@@ -15,7 +16,7 @@ export class SearchController {
 	})
 	async search(@Body() dto: SearchDto): Promise<SearchResultsResponse> {
 		const results = await this.searchService.search({
-			query: dto.query,
+			query: dto.query ?? undefined,
 			trackAmount: dto.withTracks ? 30 : 0,
 			artistAmount: dto.withArtists ? 10 : 0,
 			albumAmount: dto.withAlbums ? 20 : 0,

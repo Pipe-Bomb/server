@@ -18,7 +18,7 @@ export interface LibraryHandler {
 	getName(): string;
 
 	getAudioProducer(
-		track: Track,
+		trackId: string,
 		type: AudioProducerType | null,
 	): Promise<AudioProducer | null>;
 

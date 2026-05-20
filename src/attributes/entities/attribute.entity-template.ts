@@ -75,31 +75,31 @@ export abstract class DBAttributeTemplate {
 
 		if (this.value_boolean !== null) {
 			attribute = new PersistentBooleanAttributeResponse();
-			attribute.type = AttributeType.BOOLEAN;
+			// attribute.type = AttributeType.BOOLEAN;
 			attribute.values = [this.value_boolean];
 		}
 
 		if (this.value_string !== null) {
 			attribute = new PersistentStringAttributeResponse();
-			attribute.type = AttributeType.STRING;
+			// attribute.type = AttributeType.STRING;
 			attribute.values = [this.value_string];
 		}
 
 		if (this.value_int !== null) {
 			attribute = new PersistentIntegerAttributeResponse();
-			attribute.type = AttributeType.INTEGER;
+			// attribute.type = AttributeType.INTEGER;
 			attribute.values = [this.value_int];
 		}
 
 		if (this.value_decimal !== null) {
 			attribute = new PersistentDecimalAttributeResponse();
-			attribute.type = AttributeType.DECIMAL;
+			// attribute.type = AttributeType.DECIMAL;
 			attribute.values = [this.value_decimal];
 		}
 
 		if (this.value_buffer !== null) {
 			attribute = new PersistentBufferAttributeResponse();
-			attribute.type = AttributeType.BUFFER;
+			// attribute.type = AttributeType.BUFFER;
 			attribute.values = [this.value_buffer.toResponse()];
 		}
 
