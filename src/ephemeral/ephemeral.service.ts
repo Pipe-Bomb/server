@@ -195,9 +195,10 @@ export class EphemeralService {
 					if (
 						typeof attribute.value != "object" ||
 						!(
-							"fetch" in attribute.value &&
+							"buffer" in attribute.value &&
 							"extension" in attribute.value &&
-							typeof attribute.value.fetch == "function" &&
+							(typeof attribute.value.buffer == "function" ||
+								Buffer.isBuffer(attribute.value.buffer)) &&
 							typeof attribute.value.extension == "string"
 						)
 					) {
