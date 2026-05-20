@@ -114,7 +114,12 @@ export class EphemeralController {
 		}
 
 		const mimeType = Mime.getType(attribute.extension);
-		const buffer = await attribute.fetch();
+		let buffer: Buffer;
+		if (Buffer.isBuffer(attribute.buffer)) {
+			buffer = attribute.buffer;
+		} else {
+			buffer = await attribute.buffer();
+		}
 
 		if (mimeType) {
 			return new StreamableFile(buffer, {
