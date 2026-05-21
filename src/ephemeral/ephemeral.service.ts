@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import {
 	AttributeValue,
 	BufferAttributeValue,
@@ -101,6 +101,8 @@ export class EphemeralService {
 		const attributeSource = this.attributeSources.get(source.source) ?? null;
 
 		const results = await source.source.search(options);
+
+		console.log(results);
 
 		return {
 			...results,

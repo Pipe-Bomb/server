@@ -16,6 +16,7 @@ import { AttributeSourcesService } from "./attribute-sources/attribute-sources.s
 import { AttributeInterceptor } from "./attribute-sources/attribute.interceptor";
 import { mkdir, rm } from "fs/promises";
 import { NestExpressApplication } from "@nestjs/platform-express";
+import cookieParser from "cookie-parser";
 
 async function bootstrap() {
 	try {
@@ -26,8 +27,12 @@ async function bootstrap() {
 	await mkdir("temp");
 
 	const app = await NestFactory.create<NestExpressApplication>(AppModule);
-	app.enableCors();
+	app.enableCors({
+		origin: "http://127.0.0.1:3001",
+		credentials: true,
+	});
 	app.set("trust proxy", 1);
+	app.use(cookieParser());
 
 	app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 

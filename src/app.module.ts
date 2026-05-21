@@ -25,6 +25,8 @@ import { AlbumManagerModule } from "./album-manager/album-manager.module";
 import { PluginConfigModule } from "./plugin-config/plugin-config.module";
 import { SearchModule } from "./search/search.module";
 import { EphemeralModule } from "./ephemeral/ephemeral.module";
+import { UsersModule } from "./users/users.module";
+import { SecretsModule } from "./secrets/secrets.module";
 import databaseConfig from "./config/database.config";
 
 @Module({
@@ -57,6 +59,8 @@ import databaseConfig from "./config/database.config";
 		PluginConfigModule,
 		SearchModule,
 		EphemeralModule,
+		UsersModule,
+		SecretsModule,
 	],
 	controllers: [AppController],
 	providers: [AppService],

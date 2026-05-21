@@ -1,5 +1,5 @@
 import { AttributeValue } from "./attribute";
-import { AttributeSource } from "./attribute-source";
+import { ArtistAttributes, AttributeSource } from "./attribute-source";
 import { Track } from "./audio-types";
 import { TrackIdentifier } from "./identifier";
 import { LibraryHandler } from "./library-handler";
@@ -15,6 +15,7 @@ export interface EphemeralSourceSearchOptions {
 
 export interface EphemeralTrack extends Track {
 	attributes: AttributeValue[] | null;
+	artists: ArtistAttributes[] | null;
 }
 
 export interface EphemeralSourceSearchResults {

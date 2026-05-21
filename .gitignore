@@ -7,6 +7,7 @@
 /plugin-cache
 /audio-cache
 /.widevine
+/.secrets
 
 # Logs
 logs
@@ -16,6 +17,8 @@ pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
+
+*.sqlite*
 
 # OS
 .DS_Store

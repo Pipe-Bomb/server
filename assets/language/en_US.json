@@ -10,5 +10,12 @@
 
 	"contextmenu.track.view-info": "Track Info",
 	"contextmenu.track.play-next": "Play Next",
-	"contextmenu.track.add-to-queue": "Add to Queue"
+	"contextmenu.track.add-to-queue": "Add to Queue",
+
+	"login.title.login": "Log In",
+	"login.title.signup": "Create Account",
+	"login.switch.login": "Switch to Log In",
+	"login.switch.signup": "Switch to Sign Up",
+	"login.action.login": "Log In",
+	"login.action.signup": "Sign Up"
 }
