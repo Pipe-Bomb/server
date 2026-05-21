@@ -6,11 +6,10 @@ import { DBAlbum } from "./entity/album.entity";
 import { DBAlbumIdentity } from "./entity/album-identity.entity";
 import { DBAlbumArtist } from "./entity/album-artist.entity";
 import { DBAlbumTrack } from "./entity/album-track.entity";
-import { TrackManagerModule } from "src/track-manager/track-manager.module";
 import { ExternalUrlsModule } from "src/external-urls/external-urls.module";
-import { ArtistsModule } from "src/artists/artists.module";
 import { TasksModule } from "src/tasks/tasks.module";
 import { AlbumManagerModule } from "src/album-manager/album-manager.module";
+import { ArtistManagerModule } from "src/artist-manager/artist-manager.module";
 
 @Module({
 	imports: [
@@ -20,9 +19,8 @@ import { AlbumManagerModule } from "src/album-manager/album-manager.module";
 			DBAlbumArtist,
 			DBAlbumTrack,
 		]),
-		TrackManagerModule,
 		ExternalUrlsModule,
-		ArtistsModule,
+		ArtistManagerModule,
 		TasksModule,
 		AlbumManagerModule,
 	],

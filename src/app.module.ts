@@ -27,6 +27,7 @@ import { SearchModule } from "./search/search.module";
 import { EphemeralModule } from "./ephemeral/ephemeral.module";
 import { UsersModule } from "./users/users.module";
 import { SecretsModule } from "./secrets/secrets.module";
+import { ArtistManagerModule } from "./artist-manager/artist-manager.module";
 import databaseConfig from "./config/database.config";
 
 @Module({
@@ -61,6 +62,7 @@ import databaseConfig from "./config/database.config";
 		EphemeralModule,
 		UsersModule,
 		SecretsModule,
+		ArtistManagerModule,
 	],
 	controllers: [AppController],
 	providers: [AppService],

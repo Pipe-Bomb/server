@@ -1,18 +1,17 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { TrackIdentifier, IdentifierDependency } from "sdk/identifier";
+import { TrackIdentifier } from "sdk/identifier";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { DBIdentity } from "./entities/identity.entity";
 import { Repository } from "typeorm";
 import { DBTrack } from "src/tracks/entities/track.entity";
 import { LoadedLibraryHandler } from "src/libraries/interface/loaded-library.interface";
 import { IdentifierResponse } from "./response/identifier.response";
-import { ArtistsService } from "src/artists/artists.service";
 import { LoadedIdentifier } from "./interface/loaded-identifier";
 import { orderIdentifiers } from "./identifiers.util";
-import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { AlbumsService } from "src/albums/albums.service";
-import { ArtistIdentityTarget } from "src/artists/enum/artist-identity-target.enum";
+import { ArtistIdentityTarget } from "src/artist-manager/enum/artist-identity-target.enum";
+import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
 
 @Injectable()
 export class IdentifiersService {
@@ -26,7 +25,7 @@ export class IdentifiersService {
 	constructor(
 		@InjectRepository(DBIdentity)
 		private readonly identitiesRepository: Repository<DBIdentity>,
-		private readonly artistsService: ArtistsService,
+		private readonly artistManagerService: ArtistManagerService,
 		private readonly albumsService: AlbumsService,
 	) {}
 
@@ -52,7 +51,7 @@ export class IdentifiersService {
 		);
 
 		if (identifier.target == "artist") {
-			this.artistsService.registerTrackIdentifier(identifier, plugin);
+			this.artistManagerService.registerTrackIdentifier(identifier, plugin);
 		}
 		if (identifier.target == "album") {
 			this.albumsService.registerTrackIdentifier(identifier, plugin);
@@ -99,7 +98,7 @@ export class IdentifiersService {
 					if (identifier.target == "artist") {
 						const artistUuids: string[] = [];
 						for (const value of identities) {
-							const artistUuid = await this.artistsService.resolveArtist(
+							const artistUuid = await this.artistManagerService.resolveArtist(
 								plugin.package.name,
 								identifier.id,
 								value,
@@ -108,7 +107,7 @@ export class IdentifiersService {
 							);
 							artistUuids.push(artistUuid);
 						}
-						await this.artistsService.setTrackLinks(
+						await this.artistManagerService.setTrackLinks(
 							track,
 							artistUuids,
 							plugin.package.name,
@@ -134,7 +133,7 @@ export class IdentifiersService {
 						);
 					}
 				} else {
-					await this.artistsService.clearTrackLinks(
+					await this.artistManagerService.clearTrackLinks(
 						track,
 						plugin.package.name,
 						identifier.id,

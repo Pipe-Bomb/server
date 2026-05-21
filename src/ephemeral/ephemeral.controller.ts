@@ -6,7 +6,6 @@ import {
 	NotFoundException,
 	Param,
 	Post,
-	Res,
 	StreamableFile,
 } from "@nestjs/common";
 import { EphemeralService } from "./ephemeral.service";
@@ -20,8 +19,8 @@ import { EphemeralTrack } from "@sdk";
 import { EphemeralTrackResponse } from "./response/ephemeral-track.response";
 import { PersistentAttributeResponse } from "src/attributes/response/persistent-attribute.response";
 import Mime from "mime";
-import type { Response } from "express";
 import path from "path";
+import { TrackArtistResponse } from "src/tracks/response/track-artist.response";
 
 @Controller("ephemeral")
 export class EphemeralController {
@@ -72,14 +71,27 @@ export class EphemeralController {
 		if (!results.attributeSource) {
 			return {
 				tracks: results.tracks.map((track) =>
-					this.toTrackResponse(track, source, null),
+					this.toTrackResponse(track, source, null, null),
 				),
 			};
 		}
 
+		const trackArtists = results.tracks.flatMap((track) => track.artists ?? []);
+		const allArtistUuids =
+			await this.ephemeralService.resolveArtists(trackArtists);
+
 		const attributeSource = results.attributeSource;
-		const possibleAttributes = this.attributeSourcesService
+		const possibleTrackAttributes = this.attributeSourcesService
 			.getTrackAttributes()
+			.filter(
+				(attribute) =>
+					attribute.source.plugin.package.name ==
+						attributeSource.plugin.package.name &&
+					attribute.source.source.id == attributeSource.source.id,
+			);
+
+		const possibleArtistAttributes = this.attributeSourcesService
+			.getArtistAttributes()
 			.filter(
 				(attribute) =>
 					attribute.source.plugin.package.name ==
@@ -91,10 +103,35 @@ export class EphemeralController {
 			const attributes = this.ephemeralService.createEphemeralAttributes(
 				track.attributes ?? [],
 				attributeSource,
-				possibleAttributes,
+				possibleTrackAttributes,
 			);
 
-			return this.toTrackResponse(track, source, attributes);
+			const artists = (track.artists ?? []).map((trackArtist) => {
+				const index = trackArtists.indexOf(trackArtist);
+				const artistUuid = allArtistUuids[index]!;
+
+				const artist: TrackArtistResponse = {
+					artistUuid,
+					joinPhrase: trackArtist.joinPhrase ?? null,
+					artist: {
+						uuid: artistUuid,
+						attributes: this.ephemeralService.createEphemeralAttributes(
+							trackArtist.attributes,
+							attributeSource,
+							possibleArtistAttributes,
+						),
+						albums: null,
+						identities: null,
+						tracks: null,
+					},
+				};
+
+				return artist;
+			});
+
+			console.log(artists);
+
+			return this.toTrackResponse(track, source, attributes, artists);
 		});
 
 		return {
@@ -134,6 +171,7 @@ export class EphemeralController {
 		track: EphemeralTrack,
 		source: LoadedEphemeralSource,
 		attributes: Record<string, PersistentAttributeResponse> | null,
+		artists: TrackArtistResponse[] | null,
 	): EphemeralTrackResponse {
 		return {
 			id: track.id,
@@ -141,6 +179,7 @@ export class EphemeralController {
 			pluginId: source.plugin.package.name,
 			libraryId: source.source.getLibraryHandler().id,
 			attributes,
+			artists,
 		};
 	}
 }

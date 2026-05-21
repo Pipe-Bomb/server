@@ -8,8 +8,8 @@ export class IdentityResponse {
 	@ApiProperty()
 	identityId: string;
 
-	@ApiProperty()
-	entityId: string;
+	// @ApiProperty()
+	// entityId: string;
 
 	@ApiProperty()
 	value: string;

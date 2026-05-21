@@ -14,6 +14,7 @@ import {
 	PersistentBufferAttributeResponse,
 	PersistentAttributeResponse,
 } from "src/attributes/response/persistent-attribute.response";
+import { TrackArtistResponse } from "src/tracks/response/track-artist.response";
 
 @ApiSchema({ name: "EphemeralTrack" })
 @ApiExtraModels(
@@ -49,4 +50,10 @@ export class EphemeralTrackResponse {
 		nullable: true,
 	})
 	attributes: Record<string, PersistentAttributeResponse> | null;
+
+	@ApiProperty({
+		type: [TrackArtistResponse],
+		nullable: true,
+	})
+	artists: TrackArtistResponse[] | null;
 }

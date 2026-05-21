@@ -28,8 +28,9 @@ import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { ExternalUrlsService } from "src/external-urls/external-urls.service";
 import { ArtistsService } from "src/artists/artists.service";
 import { TasksService } from "src/tasks/tasks.service";
-import { ArtistIdentityTarget } from "src/artists/enum/artist-identity-target.enum";
+import { ArtistIdentityTarget } from "src/artist-manager/enum/artist-identity-target.enum";
 import { AlbumManagerService } from "src/album-manager/album-manager.service";
+import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
 
 @Injectable()
 export class AlbumsService {
@@ -51,9 +52,8 @@ export class AlbumsService {
 		@InjectRepository(DBAlbumTrack)
 		private readonly albumTracksRepository: Repository<DBAlbumTrack>,
 		private readonly albumManagerService: AlbumManagerService,
-		private readonly trackManagerService: TrackManagerService,
 		private readonly externalUrlsService: ExternalUrlsService,
-		private readonly artistsService: ArtistsService,
+		private readonly artistManagerService: ArtistManagerService,
 		private readonly tasksService: TasksService,
 		private readonly dataSource: DataSource,
 	) {
@@ -360,7 +360,7 @@ export class AlbumsService {
 					if (identifier.target == "artist") {
 						const artistUuids: string[] = [];
 						for (const value of identities) {
-							const artistUuid = await this.artistsService.resolveArtist(
+							const artistUuid = await this.artistManagerService.resolveArtist(
 								plugin.package.name,
 								identifier.id,
 								value,

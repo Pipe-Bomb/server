@@ -1,5 +1,5 @@
 import { ApiProperty, ApiSchema } from "@nestjs/swagger";
-import { ArtistResponse } from "src/artists/response/artist.response";
+import { ArtistResponse } from "src/artist-manager/response/artist.response";
 
 @ApiSchema({ name: "AlbumArtist" })
 export class AlbumArtistResponse {

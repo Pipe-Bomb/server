@@ -3,13 +3,13 @@ import { IdentifiersController } from "./identifiers.controller";
 import { IdentifiersService } from "./identifiers.service";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { DBIdentity } from "./entities/identity.entity";
-import { ArtistsModule } from "src/artists/artists.module";
 import { AlbumsModule } from "src/albums/albums.module";
+import { ArtistManagerModule } from "src/artist-manager/artist-manager.module";
 
 @Module({
 	imports: [
 		TypeOrmModule.forFeature([DBIdentity]),
-		ArtistsModule,
+		ArtistManagerModule,
 		AlbumsModule,
 	],
 	controllers: [IdentifiersController],

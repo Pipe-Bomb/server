@@ -45,7 +45,6 @@ export class DBAlbumIdentity {
 		return {
 			pluginId: this.pluginId,
 			identityId: this.identifierId,
-			entityId: this.albumUuid,
 			value: this.identity,
 			ordinal: this.ordinal,
 		};

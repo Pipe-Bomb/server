@@ -1,24 +1,20 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { TrackAttributionHelper } from "@sdk";
-import { LoadedAttributeSource } from "./interface/loaded-attribute-source.interface";
 import { DBTrack } from "src/tracks/entities/track.entity";
-import { In, Repository } from "typeorm";
 import { DBAttributeTemplate } from "./entities/attribute.entity-template";
 import { DBTrackAttribute } from "./entities/track-attribute.entity";
 import { PersistentAttributeResponse } from "./response/persistent-attribute.response";
 import { TasksService } from "src/tasks/tasks.service";
-import { AttributeSourceResponse } from "./response/attribute-source.response";
 import { DBArtistAttribute } from "./entities/artist-attribute.entity";
 import { LoadedLibraryHandler } from "src/libraries/interface/loaded-library.interface";
-import { ArtistsService } from "src/artists/artists.service";
-import { ResourcesService } from "src/resources/resources.service";
-import { DBArtist } from "src/artists/entity/artist.entity";
+import { DBArtist } from "src/artist-manager/entity/artist.entity";
 import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
 import { DBAlbum } from "src/albums/entity/album.entity";
 import { DBAlbumAttribute } from "./entities/album-attribute.entity";
 import { AlbumsService } from "src/albums/albums.service";
-import { ArtistIdentityTarget } from "src/artists/enum/artist-identity-target.enum";
+import { ArtistIdentityTarget } from "src/artist-manager/enum/artist-identity-target.enum";
 import { AlbumManagerService } from "src/album-manager/album-manager.service";
+import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
 
 @Injectable()
 export class AttributesService {
@@ -27,7 +23,7 @@ export class AttributesService {
 	constructor(
 		private readonly attributeSourcesService: AttributeSourcesService,
 		private readonly tasksService: TasksService,
-		private readonly artistsService: ArtistsService,
+		private readonly artistManagerService: ArtistManagerService,
 		private readonly albumsService: AlbumsService,
 		private readonly albumManagerService: AlbumManagerService,
 	) {
@@ -86,7 +82,7 @@ export class AttributesService {
 
 			if (attributes.artists?.length) {
 				for (const artist of attributes.artists) {
-					const artistUuid = await this.artistsService.resolveArtist(
+					const artistUuid = await this.artistManagerService.resolveArtist(
 						artist.pluginId,
 						artist.identifierId,
 						artist.identifierValue,
@@ -108,7 +104,7 @@ export class AttributesService {
 					);
 
 					if (artist.joinPhrase) {
-						await this.artistsService.setJoinPhrase(
+						await this.artistManagerService.setJoinPhrase(
 							track.uuid,
 							artistUuid,
 							artist.joinPhrase,
@@ -130,7 +126,7 @@ export class AttributesService {
 	async attributeArtist(artist: DBArtist) {
 		const allAttributes: DBArtistAttribute[] = [];
 
-		const helper = await this.artistsService.getInformationHelper(artist);
+		const helper = await this.artistManagerService.getInformationHelper(artist);
 		const sources = this.attributeSourcesService.getSources();
 
 		for (const source of sources) {
@@ -160,11 +156,11 @@ export class AttributesService {
 	async attributeAllArtists(
 		onProgress?: (completed: number, total: number) => void,
 	) {
-		const count = await this.artistsService.count({});
+		const count = await this.artistManagerService.count({});
 		onProgress?.(0, count);
 
 		for (let i = 0; true; i++) {
-			const artists = await this.artistsService.findMany({
+			const artists = await this.artistManagerService.findMany({
 				amount: 100,
 				offset: 100 * i,
 			});
@@ -225,7 +221,7 @@ export class AttributesService {
 
 				if (attributes.artists?.length) {
 					for (const artist of attributes.artists) {
-						const artistUuid = await this.artistsService.resolveArtist(
+						const artistUuid = await this.artistManagerService.resolveArtist(
 							artist.pluginId,
 							artist.identifierId,
 							artist.identifierValue,

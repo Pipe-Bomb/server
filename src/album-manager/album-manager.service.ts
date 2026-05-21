@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DBAlbumArtist } from "src/albums/entity/album-artist.entity";
 import { DBAlbum } from "src/albums/entity/album.entity";
-import { DBArtist } from "src/artists/entity/artist.entity";
+import { DBArtist } from "src/artist-manager/entity/artist.entity";
 import { DeepPartial, FindOptionsWhere, In, Repository } from "typeorm";
 
 @Injectable()
