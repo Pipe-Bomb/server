@@ -228,9 +228,9 @@ export class ArtistManagerService {
 		return artist;
 	}
 
-	findIdentities(artist: DBArtist) {
+	findIdentities(artist: DBArtist | string) {
 		return this.identitiesRepository.findBy({
-			artistUuid: artist.uuid,
+			artistUuid: typeof artist == "string" ? artist : artist.uuid,
 		});
 	}
 

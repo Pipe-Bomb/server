@@ -1,17 +1,8 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsNotEmpty, IsString } from "class-validator";
+import { EphemeralSourceDto } from "./ephemeral-source.dto";
 
-export class EphemeralSearchDto {
-	@IsString()
-	@IsNotEmpty()
-	@ApiProperty()
-	pluginId: string;
-
-	@IsString()
-	@IsNotEmpty()
-	@ApiProperty()
-	sourceId: string;
-
+export class EphemeralSearchDto extends EphemeralSourceDto {
 	@IsString()
 	@IsNotEmpty()
 	@ApiProperty()

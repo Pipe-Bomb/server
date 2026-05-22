@@ -1,11 +1,11 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import {
 	ArtistAttributes,
-	ArtistIdentifier,
 	AttributeValue,
 	BufferAttributeValue,
 	EphemeralSource,
 	EphemeralSourceSearchOptions,
+	EphemeralTrack,
 } from "@sdk";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { LoadedEphemeralSource } from "./interface/loaded-ephemeral-source.interface";
@@ -25,8 +25,10 @@ import { randomUUID } from "crypto";
 import { RelativeUrl } from "src/interception/relative-url";
 import { ArtistIdentityTarget } from "src/artist-manager/enum/artist-identity-target.enum";
 import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
-import { LoadedIdentifier } from "src/identifiers/interface/loaded-identifier";
 import { ArtistResponse } from "src/artist-manager/response/artist.response";
+import { EphemeralTrackResponse } from "./response/ephemeral-track.response";
+import { TrackArtistResponse } from "src/tracks/response/track-artist.response";
+import { DBArtistIdentity } from "src/artist-manager/entity/artist-identity.entity";
 
 @Injectable()
 export class EphemeralService {
@@ -39,7 +41,7 @@ export class EphemeralService {
 		EphemeralSource,
 		LoadedAttributeSource
 	>();
-	private readonly artistIdentifiers = new Map<string, EphemeralSource>();
+	private readonly artistIdentifiers = new Map<string, LoadedEphemeralSource>();
 	private readonly proxiedBufferAttributes = new Map<
 		string,
 		BufferAttributeValue
@@ -52,17 +54,21 @@ export class EphemeralService {
 
 	registerEphemeralSource(source: EphemeralSource, plugin: LoadedPlugin) {
 		const pluginIdentifiers = this.sources.get(plugin.package.name);
+		const loadedEphemeralSource: LoadedEphemeralSource = {
+			source,
+			plugin,
+		};
 		if (pluginIdentifiers) {
 			if (pluginIdentifiers.has(source.id)) {
 				throw new Error(
 					`Plugin has already registered Ephemeral Source with ID "${source.id}"`,
 				);
 			}
-			pluginIdentifiers.set(source.id, { source, plugin });
+			pluginIdentifiers.set(source.id, loadedEphemeralSource);
 		} else {
 			this.sources.set(
 				plugin.package.name,
-				new Map([[source.id, { source, plugin }]]),
+				new Map([[source.id, loadedEphemeralSource]]),
 			);
 		}
 
@@ -94,7 +100,7 @@ export class EphemeralService {
 					);
 				}
 
-				this.artistIdentifiers.set(key, source);
+				this.artistIdentifiers.set(key, loadedEphemeralSource);
 			},
 		});
 
@@ -167,6 +173,67 @@ export class EphemeralService {
 		});
 	}
 
+	getEphemeralSourceByArtistIdentity(pluginId: string, identityId: string) {
+		return this.artistIdentifiers.get(`${pluginId}:${identityId}`) ?? null;
+	}
+
+	getArtistIdentifiers(source: LoadedEphemeralSource) {
+		const identifiers: string[] = [];
+		for (const [key, matchingSource] of this.artistIdentifiers) {
+			if (source == matchingSource) {
+				const [_pluginId, identifierId] = key.split(":");
+				identifiers.push(identifierId);
+			}
+		}
+
+		return identifiers;
+	}
+
+	async getEphemeralArtistContent(
+		source: LoadedEphemeralSource,
+		identityId: string,
+		identity: string,
+	) {
+		const content = await source.source.resolveArtistContent(
+			identityId,
+			identity,
+		);
+
+		if (!content) {
+			return null;
+		}
+
+		const attributeSource = this.attributeSources.get(source.source) ?? null;
+
+		let tracks: EphemeralTrackResponse[] | null = null;
+
+		if (content.tracks) {
+			tracks = await this.toTracksResponse(
+				content.tracks,
+				source,
+				attributeSource,
+			);
+		}
+
+		return {
+			source,
+			tracks,
+		};
+	}
+
+	getEphemeralArtistSources(identities: DBArtistIdentity[]) {
+		const ephemeralSources = new Set<LoadedEphemeralSource>();
+		for (const identity of identities) {
+			const source = this.artistIdentifiers.get(
+				`${identity.pluginId}:${identity.identifierId}`,
+			);
+			if (source) {
+				ephemeralSources.add(source);
+			}
+		}
+		return Array.from(ephemeralSources);
+	}
+
 	async resolveEphemeralArtist(
 		pluginId: string,
 		identityId: string,
@@ -177,12 +244,12 @@ export class EphemeralService {
 			return null;
 		}
 
-		const artist = await source.resolveArtist(identityId, identity);
+		const artist = await source.source.resolveArtist(identityId, identity);
 		if (!artist) {
 			return null;
 		}
 
-		const attributeSource = this.attributeSources.get(source) ?? null;
+		const attributeSource = this.attributeSources.get(source.source) ?? null;
 		const possibleArtistAttributes = this.attributeSourcesService
 			.getArtistAttributes()
 			.filter(
@@ -212,6 +279,95 @@ export class EphemeralService {
 						possibleArtistAttributes,
 					)
 				: null,
+		};
+	}
+
+	async toTracksResponse(
+		tracks: EphemeralTrack[],
+		ephemeralSource: LoadedEphemeralSource,
+		attributeSource: LoadedAttributeSource | null,
+	): Promise<EphemeralTrackResponse[]> {
+		if (!attributeSource) {
+			return tracks.map((track) =>
+				this.toTrackResponse(track, ephemeralSource, null, null),
+			);
+		}
+
+		const trackArtists = tracks.flatMap((track) => track.artists ?? []);
+		const allArtistUuids = await this.resolveArtists(trackArtists);
+
+		const possibleTrackAttributes = this.attributeSourcesService
+			.getTrackAttributes()
+			.filter(
+				(attribute) =>
+					attribute.source.plugin.package.name ==
+						attributeSource.plugin.package.name &&
+					attribute.source.source.id == attributeSource.source.id,
+			);
+
+		const possibleArtistAttributes = this.attributeSourcesService
+			.getArtistAttributes()
+			.filter(
+				(attribute) =>
+					attribute.source.plugin.package.name ==
+						attributeSource.plugin.package.name &&
+					attribute.source.source.id == attributeSource.source.id,
+			);
+
+		return tracks.map((track) => {
+			const attributes = this.createEphemeralAttributes(
+				track.attributes ?? [],
+				attributeSource,
+				possibleTrackAttributes,
+			);
+
+			const artists = (track.artists ?? []).map((trackArtist) => {
+				const index = trackArtists.indexOf(trackArtist);
+				const artistUuid = allArtistUuids[index]!;
+
+				const artist: TrackArtistResponse = {
+					artistUuid,
+					joinPhrase: trackArtist.joinPhrase ?? null,
+					artist: {
+						uuid: artistUuid,
+						attributes: this.createEphemeralAttributes(
+							trackArtist.attributes,
+							attributeSource,
+							possibleArtistAttributes,
+						),
+						albums: null,
+						identities: [
+							{
+								pluginId: trackArtist.pluginId,
+								identityId: trackArtist.identifierId,
+								value: trackArtist.identifierValue,
+								ordinal: 0,
+							},
+						],
+						tracks: null,
+					},
+				};
+
+				return artist;
+			});
+
+			return this.toTrackResponse(track, ephemeralSource, attributes, artists);
+		});
+	}
+
+	toTrackResponse(
+		track: EphemeralTrack,
+		source: LoadedEphemeralSource,
+		attributes: Record<string, PersistentAttributeResponse> | null,
+		artists: TrackArtistResponse[] | null,
+	): EphemeralTrackResponse {
+		return {
+			id: track.id,
+			title: track.title,
+			pluginId: source.plugin.package.name,
+			libraryId: source.source.getLibraryHandler().id,
+			attributes,
+			artists,
 		};
 	}
 

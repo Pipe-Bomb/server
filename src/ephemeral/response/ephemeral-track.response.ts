@@ -4,7 +4,6 @@ import {
 	ApiSchema,
 	getSchemaPath,
 } from "@nestjs/swagger";
-import { DBTrackAttribute } from "src/attributes/entities/track-attribute.entity";
 import { AttributeMapResponse } from "src/attributes/response/attribute-map.response";
 import {
 	PersistentStringAttributeResponse,

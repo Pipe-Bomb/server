@@ -26,6 +26,10 @@ export interface EphemeralSourceSearchResults {
 	tracks: EphemeralTrack[];
 }
 
+export interface EphemeralArtistContent {
+	tracks: EphemeralTrack[] | null;
+}
+
 export interface EphemeralSource {
 	readonly id: string;
 
@@ -45,4 +49,9 @@ export interface EphemeralSource {
 		identifierId: string,
 		identity: string,
 	): Promise<EphemeralArtist | null>;
+
+	resolveArtistContent(
+		identifierid: string,
+		identity: string,
+	): Promise<EphemeralArtistContent | null>;
 }
