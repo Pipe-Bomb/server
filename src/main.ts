@@ -17,6 +17,11 @@ import { AttributeInterceptor } from "./attribute-sources/attribute.interceptor"
 import { mkdir, rm } from "fs/promises";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import cookieParser from "cookie-parser";
+import * as DotEnv from "dotenv";
+
+DotEnv.config({
+	quiet: true,
+});
 
 async function bootstrap() {
 	try {
@@ -28,7 +33,7 @@ async function bootstrap() {
 
 	const app = await NestFactory.create<NestExpressApplication>(AppModule);
 	app.enableCors({
-		origin: "http://127.0.0.1:3001",
+		origin: process.env.CORS || "http://127.0.0.1:3001",
 		credentials: true,
 	});
 	app.set("trust proxy", 1);
