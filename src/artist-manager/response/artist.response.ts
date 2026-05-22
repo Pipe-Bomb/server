@@ -2,19 +2,26 @@ import { ApiProperty, ApiSchema, getSchemaPath } from "@nestjs/swagger";
 import { AlbumResponse } from "src/albums/response/album.response";
 import { DBArtistAttribute } from "src/attributes/entities/artist-attribute.entity";
 import { AttributeMapResponse } from "src/attributes/response/attribute-map.response";
+import { PersistentAttributeResponse } from "src/attributes/response/persistent-attribute.response";
 import { IdentityResponse } from "src/identifiers/response/identity.response";
 import { TrackResponse } from "src/tracks/response/track.response";
 
 @ApiSchema({ name: "Artist" })
 export class ArtistResponse {
-	@ApiProperty()
-	uuid: string;
+	@ApiProperty({
+		nullable: true,
+		type: "string",
+	})
+	uuid: string | null;
 
 	@ApiProperty({
 		oneOf: [{ $ref: getSchemaPath(AttributeMapResponse) }],
 		nullable: true,
 	})
-	attributes: DBArtistAttribute[] | null;
+	attributes:
+		| DBArtistAttribute[]
+		| null
+		| Record<string, PersistentAttributeResponse>;
 
 	@ApiProperty({
 		type: [IdentityResponse],

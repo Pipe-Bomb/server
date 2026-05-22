@@ -1,4 +1,4 @@
-import { DBArtist } from "src/artists/entity/artist.entity";
+import { DBArtist } from "src/artist-manager/entity/artist.entity";
 import {
 	Entity,
 	PrimaryColumn,

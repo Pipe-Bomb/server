@@ -12,6 +12,7 @@ import { ExternalUrlsModule } from "src/external-urls/external-urls.module";
 import { AlbumsModule } from "src/albums/albums.module";
 import { PluginConfigModule } from "src/plugin-config/plugin-config.module";
 import { EphemeralModule } from "src/ephemeral/ephemeral.module";
+import { ArtistManagerModule } from "src/artist-manager/artist-manager.module";
 
 @Module({
 	imports: [
@@ -20,7 +21,7 @@ import { EphemeralModule } from "src/ephemeral/ephemeral.module";
 		TasksModule,
 		LanguageModule,
 		AttributeSourcesModule,
-		ArtistsModule,
+		ArtistManagerModule,
 		IconsModule,
 		ExternalUrlsModule,
 		AlbumsModule,

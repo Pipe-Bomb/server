@@ -9,7 +9,7 @@ import {
 import { DBArtist } from "./artist.entity";
 import { IdentityResponse } from "src/identifiers/response/identity.response";
 import { Identity } from "@sdk";
-import { ArtistIdentityTarget } from "../enum/artist-identity-target.enum";
+import { ArtistIdentityTarget } from "../../artist-manager/enum/artist-identity-target.enum";
 
 @Entity("artist_identities")
 @Index(["artistUuid"])
@@ -53,7 +53,6 @@ export class DBArtistIdentity {
 		return {
 			pluginId: this.pluginId,
 			identityId: this.identifierId,
-			entityId: this.artistUuid,
 			value: this.identity,
 			ordinal: this.ordinal,
 		};

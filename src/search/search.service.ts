@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { AlbumManagerService } from "src/album-manager/album-manager.service";
 import { DBAlbum } from "src/albums/entity/album.entity";
-import { DBArtist } from "src/artists/entity/artist.entity";
+import { DBArtist } from "src/artist-manager/entity/artist.entity";
 import { DBAttributeTemplate } from "src/attributes/entities/attribute.entity-template";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { DBTrack } from "src/tracks/entities/track.entity";

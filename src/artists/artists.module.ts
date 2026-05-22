@@ -2,29 +2,18 @@ import { Module } from "@nestjs/common";
 import { ArtistsService } from "./artists.service";
 import { ArtistsController } from "./artists.controller";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { DBArtist } from "./entity/artist.entity";
-import { DBArtistIdentity } from "./entity/artist-identity.entity";
-import { DBTrackArtist } from "./entity/track-artist.entity";
 import { TasksModule } from "src/tasks/tasks.module";
-import { AttributeSourcesModule } from "src/attribute-sources/attribute-sources.module";
-import { ExternalUrlsModule } from "src/external-urls/external-urls.module";
-import { DBArtistAttribute } from "src/attributes/entities/artist-attribute.entity";
-import { TrackManagerModule } from "src/track-manager/track-manager.module";
-import { AlbumManagerModule } from "src/album-manager/album-manager.module";
+import { ArtistManagerModule } from "src/artist-manager/artist-manager.module";
+import { DBArtist } from "src/artist-manager/entity/artist.entity";
+import { EphemeralService } from "src/ephemeral/ephemeral.service";
+import { EphemeralModule } from "src/ephemeral/ephemeral.module";
 
 @Module({
 	imports: [
-		TypeOrmModule.forFeature([
-			DBArtist,
-			DBArtistIdentity,
-			DBTrackArtist,
-			DBArtistAttribute,
-		]),
+		TypeOrmModule.forFeature([DBArtist]),
 		TasksModule,
-		AttributeSourcesModule,
-		ExternalUrlsModule,
-		TrackManagerModule,
-		AlbumManagerModule,
+		ArtistManagerModule,
+		EphemeralModule,
 	],
 	controllers: [ArtistsController],
 	providers: [ArtistsService],

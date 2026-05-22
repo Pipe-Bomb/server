@@ -20,6 +20,7 @@ import { ExternalUrlsService } from "src/external-urls/external-urls.service";
 import { AlbumsService } from "src/albums/albums.service";
 import { PluginConfigService } from "src/plugin-config/plugin-config.service";
 import { EphemeralService } from "src/ephemeral/ephemeral.service";
+import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
 
 @Injectable()
 export class PluginsService {
@@ -35,7 +36,7 @@ export class PluginsService {
 		private readonly tasksService: TasksService,
 		private readonly languagesService: LanguageService,
 		private readonly attributeSourcesService: AttributeSourcesService,
-		private readonly artistsService: ArtistsService,
+		private readonly artistManagerService: ArtistManagerService,
 		private readonly iconsService: IconsService,
 		private readonly externalUrlsService: ExternalUrlsService,
 		private readonly albumsService: AlbumsService,
@@ -201,7 +202,7 @@ export class PluginsService {
 			registerTrackIdentifier: (identifier) =>
 				this.identifiersService.register(identifier, plugin),
 			registerArtistIdentifier: (identifier) =>
-				this.artistsService.registerIdentifier(identifier, plugin),
+				this.artistManagerService.registerIdentifier(identifier, plugin),
 			registerAlbumIdentifier: (identifier) =>
 				this.albumsService.registerIdentifier(identifier, plugin),
 			registerTask: (task) =>

@@ -7,13 +7,10 @@ import {
 } from "typeorm";
 import { TrackResponse } from "../response/track.response";
 import { DBTrackAttribute } from "src/attributes/entities/track-attribute.entity";
-import { toSimplifiedAttributeList } from "src/attributes/attributes.util";
 import { DBIdentity } from "src/identifiers/entities/identity.entity";
 import { IdentityResponse } from "src/identifiers/response/identity.response";
-import { DBTrackArtist } from "../../artists/entity/track-artist.entity";
-import { AttributeMapResponse } from "src/attributes/response/attribute-map.response";
+import { DBTrackArtist } from "../../artist-manager/entity/track-artist.entity";
 import { TrackArtistResponse } from "../response/track-artist.response";
-import { BasePersistentAttributeResponse } from "src/attributes/response/persistent-attribute.response";
 import { DBAlbumTrack } from "src/albums/entity/album-track.entity";
 import { AlbumResponse } from "src/albums/response/album.response";
 

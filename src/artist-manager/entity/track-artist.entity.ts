@@ -7,7 +7,7 @@ import {
 	Index,
 } from "typeorm";
 import { DBTrack } from "src/tracks/entities/track.entity";
-import { DBArtist } from "src/artists/entity/artist.entity";
+import { DBArtist } from "src/artist-manager/entity/artist.entity";
 import { TrackArtistResponse } from "src/tracks/response/track-artist.response";
 
 @Entity("track_artists")
