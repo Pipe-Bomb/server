@@ -31,6 +31,7 @@ export class UsersController {
 
 	private setAuthCookie(response: Response, jwt: string) {
 		response.cookie("auth_token", jwt, {
+			domain: process.env.COOKIE_DOMAIN,
 			httpOnly: true,
 			secure: process.env.NODE_ENV == "production",
 			sameSite: "lax",
