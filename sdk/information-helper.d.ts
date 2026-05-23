@@ -7,8 +7,8 @@ import {
 
 export interface Identity {
 	pluginId: string;
-	identifierId: string;
-	value: string;
+	identityId: string;
+	identity: string;
 }
 
 export interface LibraryTrackInformationHelper {

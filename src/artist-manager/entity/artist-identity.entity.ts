@@ -60,9 +60,9 @@ export class DBArtistIdentity {
 
 	toIdentity(): Identity {
 		return {
-			identifierId: this.identifierId,
+			identityId: this.identifierId,
 			pluginId: this.pluginId,
-			value: this.identity,
+			identity: this.identity,
 		};
 	}
 }

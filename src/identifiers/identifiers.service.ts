@@ -12,6 +12,7 @@ import { orderIdentifiers } from "./identifiers.util";
 import { AlbumsService } from "src/albums/albums.service";
 import { ArtistIdentityTarget } from "src/artist-manager/enum/artist-identity-target.enum";
 import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
+import { AlbumManagerService } from "src/album-manager/album-manager.service";
 
 @Injectable()
 export class IdentifiersService {
@@ -26,7 +27,7 @@ export class IdentifiersService {
 		@InjectRepository(DBIdentity)
 		private readonly identitiesRepository: Repository<DBIdentity>,
 		private readonly artistManagerService: ArtistManagerService,
-		private readonly albumsService: AlbumsService,
+		private readonly albumManagerService: AlbumManagerService,
 	) {}
 
 	public register(identifier: TrackIdentifier, plugin: LoadedPlugin) {
@@ -54,7 +55,7 @@ export class IdentifiersService {
 			this.artistManagerService.registerTrackIdentifier(identifier, plugin);
 		}
 		if (identifier.target == "album") {
-			this.albumsService.registerTrackIdentifier(identifier, plugin);
+			this.albumManagerService.registerTrackIdentifier(identifier, plugin);
 		}
 
 		this.logger.log(
@@ -118,14 +119,15 @@ export class IdentifiersService {
 					if (identifier.target == "album") {
 						const albumUuids: string[] = [];
 						for (const value of identities) {
-							const albumUuid = await this.albumsService.resolveAlbum(
+							const albumUuid = await this.albumManagerService.resolveAlbum(
 								plugin.package.name,
 								identifier.id,
 								value,
+								true,
 							);
 							albumUuids.push(albumUuid);
 						}
-						await this.albumsService.setTrackLinks(
+						await this.albumManagerService.setTrackLinks(
 							track,
 							albumUuids,
 							plugin.package.name,
@@ -138,7 +140,7 @@ export class IdentifiersService {
 						plugin.package.name,
 						identifier.id,
 					);
-					await this.albumsService.clearTrackLinks(
+					await this.albumManagerService.clearTrackLinks(
 						track,
 						plugin.package.name,
 						identifier.id,

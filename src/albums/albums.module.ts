@@ -4,25 +4,18 @@ import { AlbumsController } from "./albums.controller";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { DBAlbum } from "./entity/album.entity";
 import { DBAlbumIdentity } from "./entity/album-identity.entity";
-import { DBAlbumArtist } from "./entity/album-artist.entity";
-import { DBAlbumTrack } from "./entity/album-track.entity";
-import { ExternalUrlsModule } from "src/external-urls/external-urls.module";
 import { TasksModule } from "src/tasks/tasks.module";
 import { AlbumManagerModule } from "src/album-manager/album-manager.module";
 import { ArtistManagerModule } from "src/artist-manager/artist-manager.module";
+import { EphemeralModule } from "src/ephemeral/ephemeral.module";
 
 @Module({
 	imports: [
-		TypeOrmModule.forFeature([
-			DBAlbum,
-			DBAlbumIdentity,
-			DBAlbumArtist,
-			DBAlbumTrack,
-		]),
-		ExternalUrlsModule,
+		TypeOrmModule.forFeature([DBAlbum, DBAlbumIdentity]),
 		ArtistManagerModule,
 		TasksModule,
 		AlbumManagerModule,
+		EphemeralModule,
 	],
 	controllers: [AlbumsController],
 	providers: [AlbumsService],

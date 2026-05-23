@@ -2,6 +2,7 @@ import { AttributeValue, Attribute } from "./attribute";
 import {
 	AlbumInformationHelper,
 	ArtistInformationHelper,
+	Identity,
 	TrackAttributionHelper,
 } from "./information-helper";
 import { Logger } from "./logger";
@@ -15,23 +16,29 @@ export interface AttributeSourceApiContext {
 	getLogger(): Logger;
 }
 
-export interface TrackAttributes {
-	track: AttributeValue[] | null;
-	artists: ArtistAttributes[] | null;
+export interface TrackMetadata {
+	attributes: AttributeValue[] | null;
+	artists: IdentifiableTrackArtistMetadata[] | null;
 }
 
-export interface AlbumAttributes {
-	album: AttributeValue[] | null;
-	artists: ArtistAttributes[] | null;
+export interface AlbumMetadata {
+	attributes: AttributeValue[] | null;
+	artists: IdentifiableTrackArtistMetadata[] | null;
 }
 
-export interface ArtistAttributes {
-	pluginId: string;
-	identifierId: string;
-	identifierValue: string;
-	attributes: AttributeValue[];
+export interface ArtistMetadata {
+	attributes: AttributeValue[] | null;
+}
+
+export interface TrackArtistMetadata extends ArtistMetadata {
 	joinPhrase?: string | null;
 }
+
+export type IdentifiableArtistMetadata = ArtistMetadata & Identity;
+
+export type IdentifiableTrackArtistMetadata = TrackArtistMetadata & Identity;
+
+export type IdentifiableAlbumMetadata = AlbumMetadata & Identity;
 
 export interface AttributeSource {
 	readonly id: string;
@@ -42,13 +49,13 @@ export interface AttributeSource {
 
 	getTrackAttributeValues(
 		helper: TrackAttributionHelper,
-	): Promise<TrackAttributes>;
+	): Promise<TrackMetadata>;
 
 	getArtistAttributeValues(
 		helper: ArtistInformationHelper,
-	): Promise<AttributeValue[]>;
+	): Promise<ArtistMetadata>;
 
 	getAlbumAttributeValues(
 		helper: AlbumInformationHelper,
-	): Promise<AlbumAttributes>;
+	): Promise<AlbumMetadata>;
 }

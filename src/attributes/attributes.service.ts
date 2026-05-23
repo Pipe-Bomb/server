@@ -24,7 +24,6 @@ export class AttributesService {
 		private readonly attributeSourcesService: AttributeSourcesService,
 		private readonly tasksService: TasksService,
 		private readonly artistManagerService: ArtistManagerService,
-		private readonly albumsService: AlbumsService,
 		private readonly albumManagerService: AlbumManagerService,
 	) {
 		this.tasksService.registerSystemTask({
@@ -65,13 +64,13 @@ export class AttributesService {
 				getCompletedAttributeKeys: () => Array.from(completedAttributes),
 			};
 
-			const attributes =
+			const trackMeta =
 				await source.source.getTrackAttributeValues(attributionHelper);
 
 			const dbAttributes =
 				await this.attributeSourcesService.createTrackAttributes(
 					track.uuid,
-					attributes.track ?? [],
+					trackMeta.attributes ?? [],
 					source,
 				);
 
@@ -80,12 +79,12 @@ export class AttributesService {
 				completedAttributes.add(dbAttribute.key);
 			}
 
-			if (attributes.artists?.length) {
-				for (const artist of attributes.artists) {
+			if (trackMeta.artists?.length) {
+				for (const artist of trackMeta.artists) {
 					const artistUuid = await this.artistManagerService.resolveArtist(
 						artist.pluginId,
-						artist.identifierId,
-						artist.identifierValue,
+						artist.identityId,
+						artist.identity,
 						ArtistIdentityTarget.TRACK,
 					);
 					if (!artistUuid) {
@@ -98,7 +97,7 @@ export class AttributesService {
 					allArtistAttributes.push(
 						...(await this.attributeSourcesService.createArtistAttributes(
 							artistUuid,
-							artist.attributes,
+							artist.attributes ?? [],
 							source,
 						)),
 					);
@@ -131,11 +130,11 @@ export class AttributesService {
 
 		for (const source of sources) {
 			try {
-				const attributes = await source.source.getArtistAttributeValues(helper);
+				const artistMeta = await source.source.getArtistAttributeValues(helper);
 				const dbAttributes =
 					await this.attributeSourcesService.createArtistAttributes(
 						artist.uuid,
-						attributes,
+						artistMeta.attributes ?? [],
 						source,
 					);
 				allAttributes.push(...dbAttributes);
@@ -205,26 +204,26 @@ export class AttributesService {
 		const allAlbumAttributes: DBAlbumAttribute[] = [];
 		const allArtistAttributes: DBArtistAttribute[] = [];
 
-		const helper = await this.albumsService.getInformationHelper(album);
+		const helper = await this.albumManagerService.getInformationHelper(album);
 		const sources = this.attributeSourcesService.getSources();
 
 		for (const source of sources) {
 			try {
-				const attributes = await source.source.getAlbumAttributeValues(helper);
+				const albumMeta = await source.source.getAlbumAttributeValues(helper);
 				const dbAttributes =
 					await this.attributeSourcesService.createAlbumAttributes(
 						album.uuid,
-						attributes.album ?? [],
+						albumMeta.attributes ?? [],
 						source,
 					);
 				allAlbumAttributes.push(...dbAttributes);
 
-				if (attributes.artists?.length) {
-					for (const artist of attributes.artists) {
+				if (albumMeta.artists?.length) {
+					for (const artist of albumMeta.artists) {
 						const artistUuid = await this.artistManagerService.resolveArtist(
 							artist.pluginId,
-							artist.identifierId,
-							artist.identifierValue,
+							artist.identityId,
+							artist.identity,
 							ArtistIdentityTarget.ALBUM,
 						);
 						if (!artistUuid) {
@@ -237,13 +236,13 @@ export class AttributesService {
 						allArtistAttributes.push(
 							...(await this.attributeSourcesService.createArtistAttributes(
 								artistUuid,
-								artist.attributes,
+								artist.attributes ?? [],
 								source,
 							)),
 						);
 
 						if (artist.joinPhrase) {
-							await this.albumsService.setJoinPhrase(
+							await this.albumManagerService.setJoinPhrase(
 								album.uuid,
 								artistUuid,
 								artist.joinPhrase,

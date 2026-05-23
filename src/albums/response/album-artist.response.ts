@@ -3,8 +3,11 @@ import { ArtistResponse } from "src/artist-manager/response/artist.response";
 
 @ApiSchema({ name: "AlbumArtist" })
 export class AlbumArtistResponse {
-	@ApiProperty()
-	artistUuid: string;
+	@ApiProperty({
+		type: "string",
+		nullable: true,
+	})
+	artistUuid: string | null;
 
 	@ApiProperty({
 		type: () => ArtistResponse,

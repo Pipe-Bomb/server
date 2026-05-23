@@ -1,32 +1,42 @@
 import { AttributeValue } from "./attribute";
-import { ArtistAttributes, AttributeSource } from "./attribute-source";
-import { Track } from "./audio-types";
+import {
+	AlbumMetadata,
+	ArtistMetadata,
+	AttributeSource,
+	IdentifiableAlbumMetadata,
+	IdentifiableTrackArtistMetadata,
+} from "./attribute-source";
 import { LibraryHandler } from "./library-handler";
 
 export interface EphemeralSourceApiContext {
-	// useTrackIdentifier(trackIdentifier: TrackIdentifier): void;
 	useAttributeSource(attributeSource: AttributeSource): void;
 	resolveArtistIdentifier(identifierId: string): void;
+	resolveAlbumIdentifier(identifierId: string): void;
 }
 
 export interface EphemeralSourceSearchOptions {
 	query: string;
 }
 
-export interface EphemeralTrack extends Track {
+export interface EphemeralTrack {
+	id: string;
+	title: string;
 	attributes: AttributeValue[] | null;
-	artists: ArtistAttributes[] | null;
-}
-
-export interface EphemeralArtist {
-	attributes: AttributeValue[];
+	artists: IdentifiableTrackArtistMetadata[] | null;
 }
 
 export interface EphemeralSourceSearchResults {
 	tracks: EphemeralTrack[];
+	artists: IdentifiableTrackArtistMetadata[];
+	albums: IdentifiableAlbumMetadata[];
 }
 
 export interface EphemeralArtistContent {
+	tracks: EphemeralTrack[] | null;
+	albums: IdentifiableAlbumMetadata[] | null;
+}
+
+export interface EphemeralAlbumContent {
 	tracks: EphemeralTrack[] | null;
 }
 
@@ -46,12 +56,22 @@ export interface EphemeralSource {
 	): Promise<EphemeralSourceSearchResults>;
 
 	resolveArtist(
-		identifierId: string,
+		identityId: string,
 		identity: string,
-	): Promise<EphemeralArtist | null>;
+	): Promise<ArtistMetadata | null>;
 
 	resolveArtistContent(
-		identifierid: string,
+		identityId: string,
 		identity: string,
 	): Promise<EphemeralArtistContent | null>;
+
+	resolveAlbum(
+		identityId: string,
+		identity: string,
+	): Promise<AlbumMetadata | null>;
+
+	resolveAlbumContent(
+		identityId: string,
+		identity: string,
+	): Promise<EphemeralAlbumContent | null>;
 }

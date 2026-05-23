@@ -21,7 +21,7 @@ export class TracksService {
 			getIdentity: (id, pluginId, multiple) => {
 				const matches = identities.filter(
 					(identity) =>
-						identity.identifierId == id &&
+						identity.identityId == id &&
 						(!pluginId || pluginId == identity.pluginId),
 				);
 				if (!matches.length) {

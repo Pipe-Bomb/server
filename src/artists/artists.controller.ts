@@ -99,7 +99,6 @@ export class ArtistsController {
 		isArray: true,
 	})
 	@ApiNotFoundResponse()
-	@HttpCode(HttpStatus.OK)
 	async getArtistEphemeralSources(
 		@Param("artistUuid") artistUuid: string,
 	): Promise<EphemeralSourceResponse[]> {
@@ -134,17 +133,15 @@ export class ArtistsController {
 		@Param("artistUuid") artistUuid: string,
 		@Body() dto: EphemeralSourceDto,
 	) {
-		const identities =
-			await this.artistManagerService.findIdentities(artistUuid);
-
 		const source = this.ephemeralService.find(dto.pluginId, dto.sourceId);
-
 		if (!source) {
 			throw new NotFoundException("Source does not exist");
 		}
 
+		const identities =
+			await this.artistManagerService.findIdentities(artistUuid);
+
 		const identifiers = this.ephemeralService.getArtistIdentifiers(source);
-		console.log(identifiers);
 
 		const matchingIdentities = identities.filter(
 			(identity) =>
@@ -183,7 +180,7 @@ export class ArtistsController {
 	@ApiOkResponse({
 		type: ArtistEphemeralContentResponse,
 	})
-	@ApiNotFoundResponse()
+	@ApiBadRequestResponse()
 	@HttpCode(HttpStatus.OK)
 	async getArtistEphemeralContentByIdentity(
 		@Param("pluginId") pluginId: string,
@@ -196,7 +193,7 @@ export class ArtistsController {
 		);
 
 		if (!source) {
-			throw new NotFoundException("Artist not handled by Source");
+			throw new BadRequestException("Artist not handled by Source");
 		}
 
 		const content = await this.ephemeralService.getEphemeralArtistContent(
@@ -206,7 +203,7 @@ export class ArtistsController {
 		);
 
 		if (!content) {
-			throw new NotFoundException("Artist not handled by Source");
+			throw new BadRequestException("Artist not handled by Source");
 		}
 
 		return {

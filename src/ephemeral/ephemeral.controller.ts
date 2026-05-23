@@ -70,8 +70,20 @@ export class EphemeralController {
 			results.attributeSource,
 		);
 
+		const artists = await this.ephemeralService.toArtistsResponse(
+			results.artists,
+			results.attributeSource,
+		);
+
+		const albums = await this.ephemeralService.toAlbumsResponse(
+			results.albums,
+			results.attributeSource,
+		);
+
 		return {
 			tracks,
+			artists,
+			albums,
 		};
 	}
 

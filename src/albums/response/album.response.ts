@@ -4,17 +4,24 @@ import { AttributeMapResponse } from "src/attributes/response/attribute-map.resp
 import { IdentityResponse } from "src/identifiers/response/identity.response";
 import { TrackResponse } from "src/tracks/response/track.response";
 import { AlbumArtistResponse } from "./album-artist.response";
+import { PersistentAttributeResponse } from "src/attributes/response/persistent-attribute.response";
 
 @ApiSchema({ name: "Album" })
 export class AlbumResponse {
-	@ApiProperty()
-	uuid: string;
+	@ApiProperty({
+		type: "string",
+		nullable: true,
+	})
+	uuid: string | null;
 
 	@ApiProperty({
 		oneOf: [{ $ref: getSchemaPath(AttributeMapResponse) }],
 		nullable: true,
 	})
-	attributes: DBAlbumAttribute[] | null;
+	attributes:
+		| DBAlbumAttribute[]
+		| null
+		| Record<string, PersistentAttributeResponse>;
 
 	@ApiProperty({
 		type: () => [IdentityResponse],

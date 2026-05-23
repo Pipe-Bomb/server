@@ -356,8 +356,7 @@ export class ArtistManagerService {
 				allIdentities
 					.map((i) => i.toIdentity())
 					.filter(
-						(i) =>
-							i.identifierId == id && (!pluginId || i.pluginId == pluginId),
+						(i) => i.identityId == id && (!pluginId || i.pluginId == pluginId),
 					),
 			);
 			if (artist.uuid == "893a348b-3bb7-4600-8e59-0deb509cbc24") {
