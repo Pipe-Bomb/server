@@ -1,4 +1,5 @@
 import { ApiProperty, ApiSchema } from "@nestjs/swagger";
+import { AlbumResponse } from "src/albums/response/album.response";
 import { EphemeralSourceResponse } from "src/ephemeral/response/ephemeral-source.response";
 import { EphemeralTrackResponse } from "src/ephemeral/response/ephemeral-track.response";
 
@@ -13,4 +14,9 @@ export class ArtistEphemeralContentResponse {
 		type: [EphemeralTrackResponse],
 	})
 	tracks: EphemeralTrackResponse[];
+
+	@ApiProperty({
+		type: [AlbumResponse],
+	})
+	albums: AlbumResponse[];
 }

@@ -5,6 +5,7 @@ import {
 	Get,
 	HttpCode,
 	HttpStatus,
+	Logger,
 	NotFoundException,
 	Param,
 	Post,
@@ -26,13 +27,18 @@ import { EphemeralService } from "src/ephemeral/ephemeral.service";
 import { EphemeralSourceDto } from "src/ephemeral/dto/ephemeral-source.dto";
 import { ArtistEphemeralContentResponse } from "./response/artist-ephemeral-content.response";
 import { EphemeralSourceResponse } from "src/ephemeral/response/ephemeral-source.response";
+import { randomUUID } from "crypto";
+import { AttributesService } from "src/attributes/attributes.service";
 
 @Controller("artists")
 export class ArtistsController {
+	private readonly logger = new Logger("Artists Controller");
+
 	constructor(
 		private readonly artistsService: ArtistsService,
 		private readonly artistManagerService: ArtistManagerService,
 		private readonly ephemeralService: EphemeralService,
+		private readonly attributesService: AttributesService,
 	) {}
 
 	@Get(":artistUuid")
@@ -57,6 +63,34 @@ export class ArtistsController {
 			throw new NotFoundException("Artist not found");
 		}
 		return artist.toResponse();
+	}
+
+	@Post(":artistUuid")
+	@ApiOperation({ operationId: "updateArtistMetadata" })
+	@HttpCode(HttpStatus.OK)
+	@ApiOkResponse({
+		type: ArtistResponse,
+	})
+	@ApiNotFoundResponse()
+	async updateArtistMetadata(@Param("artistUuid") artistUuid: string) {
+		const artist = await this.artistManagerService.findOne(artistUuid);
+		if (!artist) {
+			throw new NotFoundException("Artist not found");
+		}
+
+		const start = Date.now();
+		this.logger.log(`Updating metadata for ${artist.uuid}`);
+		const identificationResult = await this.artistManagerService.identifyArtist(
+			artist,
+			randomUUID(),
+		);
+		this.logger.log(`Found ${identificationResult.identities} identities`);
+		await this.attributesService.attributeArtist(artist);
+		this.logger.log(
+			`Finished metadata update in ${Math.round((Date.now() - start) / 100) / 10}s`,
+		);
+
+		return this.getArtist(artist.uuid);
 	}
 
 	@Get(":pluginId/:identifierId/:identity")
@@ -132,7 +166,7 @@ export class ArtistsController {
 	async getArtistEphemeralContent(
 		@Param("artistUuid") artistUuid: string,
 		@Body() dto: EphemeralSourceDto,
-	) {
+	): Promise<ArtistEphemeralContentResponse> {
 		const source = this.ephemeralService.find(dto.pluginId, dto.sourceId);
 		if (!source) {
 			throw new NotFoundException("Source does not exist");
@@ -172,6 +206,7 @@ export class ArtistsController {
 				name: content.source.source.getName(),
 			},
 			tracks: content.tracks ?? [],
+			albums: content.albums ?? [],
 		};
 	}
 
@@ -213,6 +248,7 @@ export class ArtistsController {
 				name: content.source.source.getName(),
 			},
 			tracks: content.tracks ?? [],
+			albums: content.albums ?? [],
 		};
 	}
 

@@ -236,7 +236,6 @@ export class EphemeralService {
 		const attributeSource = this.attributeSources.get(source.source) ?? null;
 
 		let tracks: EphemeralTrackResponse[] | null = null;
-
 		if (content.tracks) {
 			tracks = await this.toTracksResponse(
 				content.tracks,
@@ -245,9 +244,15 @@ export class EphemeralService {
 			);
 		}
 
+		let albums: AlbumResponse[] | null = null;
+		if (content.albums) {
+			albums = await this.toAlbumsResponse(content.albums, attributeSource);
+		}
+
 		return {
 			source,
 			tracks,
+			albums,
 		};
 	}
 
