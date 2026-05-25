@@ -41,6 +41,7 @@
 		"music-metadata": "^11.12.3",
 		"reflect-metadata": "^0.2.2",
 		"rxjs": "^7.8.1",
+		"sharp": "^0.34.5",
 		"typeorm": "^0.3.28"
 	},
 	"devDependencies": {
@@ -54,6 +55,7 @@
 		"@types/fluent-ffmpeg": "^2.1.28",
 		"@types/jest": "^30.0.0",
 		"@types/node": "^24.0.0",
+		"@types/sharp": "^0.31.1",
 		"@types/supertest": "^7.0.0",
 		"concurrently": "^9.2.1",
 		"cross-env": "^10.1.0",

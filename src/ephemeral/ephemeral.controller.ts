@@ -6,10 +6,11 @@ import {
 	NotFoundException,
 	Param,
 	Post,
+	Query,
 	StreamableFile,
 } from "@nestjs/common";
 import { EphemeralService } from "./ephemeral.service";
-import { ApiOkResponse, ApiOperation } from "@nestjs/swagger";
+import { ApiOkResponse, ApiOperation, ApiQuery } from "@nestjs/swagger";
 import { EphemeralSourceResponse } from "./response/ephemeral-source.response";
 import { LoadedEphemeralSource } from "./interface/loaded-ephemeral-source.interface";
 import { EphemeralSearchDto } from "./dto/ephemeral-search.dto";
@@ -17,12 +18,14 @@ import { AttributeSourcesService } from "src/attribute-sources/attribute-sources
 import { EphemeralSearchResultsResponse } from "./response/ephemeral-search-results.response";
 import Mime from "mime";
 import path from "path";
+import { ResourcesService } from "src/resources/resources.service";
 
 @Controller("ephemeral")
 export class EphemeralController {
 	constructor(
 		private readonly ephemeralService: EphemeralService,
 		private readonly attributeSourcesService: AttributeSourcesService,
+		private readonly resourcesService: ResourcesService,
 	) {}
 
 	@Get()
@@ -88,7 +91,21 @@ export class EphemeralController {
 	}
 
 	@Get("attribute-buffer/:file")
-	async getAttributeBuffer(@Param("file") file: string) {
+	@ApiQuery({
+		name: "width",
+		required: false,
+		type: "integer",
+	})
+	@ApiQuery({
+		name: "height",
+		required: false,
+		type: "integer",
+	})
+	async getAttributeBuffer(
+		@Param("file") file: string,
+		@Query("width") widthStr?: string,
+		@Query("height") heightStr?: string,
+	) {
 		const extension = path.extname(file);
 		const uuid = path.basename(file, extension);
 
@@ -106,12 +123,25 @@ export class EphemeralController {
 			buffer = await attribute.buffer();
 		}
 
-		if (mimeType) {
-			return new StreamableFile(buffer, {
-				type: mimeType,
+		if (!mimeType) {
+			throw new BadRequestException();
+		}
+
+		const width = this.resourcesService.sanitizeDimension(widthStr);
+		const height = this.resourcesService.sanitizeDimension(heightStr);
+
+		if (width || height) {
+			const resized = await this.resourcesService.resizeImage(buffer, {
+				width,
+				height,
+			});
+			return new StreamableFile(resized, {
+				type: "image/webp",
 			});
 		}
 
-		throw new BadRequestException();
+		return new StreamableFile(buffer, {
+			type: mimeType,
+		});
 	}
 }
