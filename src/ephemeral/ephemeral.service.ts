@@ -33,6 +33,7 @@ import { DBArtistIdentity } from "src/artist-manager/entity/artist-identity.enti
 import { AlbumResponse } from "src/albums/response/album.response";
 import { AlbumArtistResponse } from "src/albums/response/album-artist.response";
 import { DBAlbumIdentity } from "src/albums/entity/album-identity.entity";
+import { AttributeType } from "src/attributes/enum/attribute-type.enum";
 
 @Injectable()
 export class EphemeralService {
@@ -357,6 +358,7 @@ export class EphemeralService {
 						album.attributes ?? [],
 						attributeSource,
 						possibleAlbumAttributes,
+						"album",
 					)
 				: null,
 			identities: [
@@ -414,6 +416,7 @@ export class EphemeralService {
 						artist.attributes ?? [],
 						attributeSource,
 						possibleArtistAttributes,
+						"artist",
 					)
 				: null,
 		};
@@ -453,6 +456,7 @@ export class EphemeralService {
 				album.attributes ?? [],
 				attributeSource,
 				possibleAlbumAttributes,
+				"album",
 			);
 
 			const artists = (album.artists ?? []).map((albumArtist) => {
@@ -548,6 +552,7 @@ export class EphemeralService {
 				track.attributes ?? [],
 				attributeSource,
 				possibleTrackAttributes,
+				"track",
 			);
 
 			const artists = (track.artists ?? []).map((trackArtist) => {
@@ -616,6 +621,7 @@ export class EphemeralService {
 						artist.attributes ?? [],
 						attributeSource,
 						possibleAttributes ?? [],
+						"artist",
 					)
 				: null,
 			albums: null,
@@ -651,6 +657,7 @@ export class EphemeralService {
 		attributes: AttributeValue[],
 		attributeSource: LoadedAttributeSource,
 		possibleAttributes: LoadedAttribute[],
+		type: "track" | "artist" | "album",
 	): Record<string, PersistentAttributeResponse> {
 		const attributeRecord: Record<
 			string,
@@ -667,6 +674,8 @@ export class EphemeralService {
 					`Plugin "${attributeSource.plugin.package.name}" has not registered an Attribute with key "${attribute.key}"`,
 				);
 			}
+
+			const format = this.attributeSourcesService.getFormatter(type);
 
 			function create<T>(
 				constructor: new () => BasePersistentAttributeResponse<T>,
@@ -685,9 +694,33 @@ export class EphemeralService {
 						);
 					}
 					existingAttribute.values.push(value);
+					if (existingAttribute.formatted) {
+						existingAttribute.formatted.push(
+							format(
+								attributeSource.plugin.package.name,
+								attributeSource.source.id,
+								attribute.key,
+								existingAttribute.type,
+								value as string | number | boolean,
+							),
+						);
+					}
 				} else {
 					const newAttribute = new constructor();
 					newAttribute.values = [value];
+					if (newAttribute.type == AttributeType.BUFFER) {
+						newAttribute.formatted = null;
+					} else {
+						newAttribute.formatted = [
+							format(
+								attributeSource.plugin.package.name,
+								attributeSource.source.id,
+								attribute.key,
+								newAttribute.type,
+								value as string | number | boolean,
+							),
+						];
+					}
 					attributeRecord[attribute.key] = newAttribute;
 				}
 			}

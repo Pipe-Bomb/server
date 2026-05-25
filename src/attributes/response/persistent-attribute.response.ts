@@ -17,6 +17,12 @@ export class BasePersistentAttributeResponse<T> {
 	@ApiProperty()
 	sourceId: string;
 
+	@ApiProperty({
+		type: [String],
+		nullable: true,
+	})
+	formatted: string[] | null;
+
 	values: T[];
 }
 

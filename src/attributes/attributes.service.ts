@@ -11,7 +11,6 @@ import { DBArtist } from "src/artist-manager/entity/artist.entity";
 import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
 import { DBAlbum } from "src/albums/entity/album.entity";
 import { DBAlbumAttribute } from "./entities/album-attribute.entity";
-import { AlbumsService } from "src/albums/albums.service";
 import { ArtistIdentityTarget } from "src/artist-manager/enum/artist-identity-target.enum";
 import { AlbumManagerService } from "src/album-manager/album-manager.service";
 import { ArtistManagerService } from "src/artist-manager/artist-manager.service";

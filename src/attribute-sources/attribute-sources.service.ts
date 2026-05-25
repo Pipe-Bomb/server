@@ -1,11 +1,19 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { AttributeSource, Attribute, AttributeValue } from "@sdk";
+import {
+	AttributeSource,
+	Attribute,
+	AttributeValue,
+	AttributeFormatter,
+	AttributeType,
+	AttributeValues,
+} from "@sdk";
 import { OrderedAttributeSourceDto } from "src/attributes/dto/ordered-attribute-source.dto";
 import { DBAlbumAttribute } from "src/attributes/entities/album-attribute.entity";
 import { DBArtistAttribute } from "src/attributes/entities/artist-attribute.entity";
 import { DBAttributeTemplate } from "src/attributes/entities/attribute.entity-template";
 import { DBTrackAttribute } from "src/attributes/entities/track-attribute.entity";
+import { AttributeType as AttributeTypeEnum } from "src/attributes/enum/attribute-type.enum";
 import { LoadedAttributeSource } from "src/attributes/interface/loaded-attribute-source.interface";
 import { LoadedAttribute } from "src/attributes/interface/loaded-attribute.interface";
 import { PersistentAttributeResponse } from "src/attributes/response/persistent-attribute.response";
@@ -368,14 +376,21 @@ export class AttributeSourcesService {
 
 	toMap<T extends DBAttributeTemplate>(
 		attributes: T[],
+		type: "track" | "artist" | "album" | null,
 	): Record<string, PersistentAttributeResponse>;
 	toMap<T extends DBAttributeTemplate>(
 		attributes: T[] | null,
+		type: "track" | "artist" | "album" | null,
 	): Record<string, PersistentAttributeResponse> | null;
-	toMap<T extends DBAttributeTemplate>(attributes: T[] | null) {
+	toMap<T extends DBAttributeTemplate>(
+		attributes: T[] | null,
+		type: "track" | "artist" | "album" | null,
+	) {
 		if (!attributes) {
 			return null;
 		}
+
+		const format = type && this.getFormatter(type);
 
 		const map = new Map<string, T[]>();
 
@@ -407,11 +422,27 @@ export class AttributeSourcesService {
 						)
 						.map((attribute) => attribute.toResponse());
 
+					const finalResponse = responses[0];
+
 					for (let i = 1; i < responses.length; i++) {
-						(responses[0].values as any[]).push(...responses[i].values);
+						(finalResponse.values as any[]).push(...responses[i].values);
 					}
 
-					output[key] = responses[0];
+					if (!format || finalResponse.type == AttributeTypeEnum.BUFFER) {
+						finalResponse.formatted = null;
+					} else {
+						finalResponse.formatted = finalResponse.values.map((value) =>
+							format(
+								finalResponse.pluginId,
+								finalResponse.sourceId,
+								key,
+								finalResponse.type,
+								value as string | number | boolean,
+							),
+						);
+					}
+
+					output[key] = finalResponse;
 					break;
 				}
 			}
@@ -422,5 +453,57 @@ export class AttributeSourcesService {
 
 	getSources() {
 		return [...this.sources];
+	}
+
+	getFormatter(type: "track" | "artist" | "album") {
+		const attributeSet = {
+			track: this.trackAttributes,
+			artist: this.artistAttributes,
+			album: this.albumAttributes,
+		}[type];
+
+		const formatterMap = new Map<
+			string,
+			{
+				formatter: AttributeFormatter;
+				pluginId: string;
+				sourceId: string;
+				priority: number;
+			}
+		>();
+
+		for (const { attribute, source } of attributeSet) {
+			if (attribute.type != "buffer" && attribute.formatter) {
+				const key = `${attribute.key}:${attribute.type}`;
+
+				const index = this.sources.indexOf(source);
+				const currentFormatter = formatterMap.get(key);
+				if (currentFormatter && currentFormatter.priority < index) {
+					continue;
+				}
+
+				formatterMap.set(key, {
+					formatter: attribute.formatter,
+					pluginId: source.plugin.package.name,
+					sourceId: source.source.id,
+					priority: index,
+				});
+			}
+		}
+
+		return <T extends AttributeType>(
+			_pluginId: string,
+			_sourceId: string,
+			key: string,
+			valueType: AttributeType,
+			value: AttributeValues[T],
+		) => {
+			const mapKey = `${key}:${valueType}`;
+			const formatter = formatterMap.get(mapKey);
+			if (formatter) {
+				return formatter.formatter(value);
+			}
+			return value.toString();
+		};
 	}
 }
