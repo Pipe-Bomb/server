@@ -12,6 +12,8 @@
 	"contextmenu.track.play-next": "Play Next",
 	"contextmenu.track.add-to-queue": "Add to Queue",
 
+	"contextmenu.tracklist.change-columns": "Change Columns",
+
 	"login.title.login": "Log In",
 	"login.title.signup": "Create Account",
 	"login.switch.login": "Switch to Log In",

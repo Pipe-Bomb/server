@@ -17,8 +17,6 @@ export type Attribute<T extends AttributeType = AttributeType> = {
 		key: string;
 		type: K;
 		supportsMultiple: boolean;
-		// If K is "buffer", this resolves to an empty object {},
-		// otherwise it adds the optional formatter property.
 	} & (K extends "buffer" ? {} : { formatter?: AttributeFormatter<K> });
 }[T];
 
