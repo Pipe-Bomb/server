@@ -57,6 +57,10 @@ export class AlbumManagerService {
 		return this.albumsRepository.countBy(where);
 	}
 
+	queryBuilder(alias?: string) {
+		return this.albumsRepository.createQueryBuilder(alias);
+	}
+
 	findMany(options: {
 		amount: number;
 		offset?: number;

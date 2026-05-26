@@ -21,6 +21,10 @@ export class TrackManagerService {
 		private readonly tracksRepository: Repository<DBTrack>,
 	) {}
 
+	queryBuilder(alias?: string) {
+		return this.tracksRepository.createQueryBuilder(alias);
+	}
+
 	find(options: FindManyOptions<DBTrack>) {
 		return this.tracksRepository.find(options);
 	}

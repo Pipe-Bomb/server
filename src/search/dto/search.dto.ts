@@ -1,6 +1,30 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { IsBoolean, IsString, ValidateIf } from "class-validator";
+import { ApiExtraModels, ApiProperty, getSchemaPath } from "@nestjs/swagger";
+import {
+	IsArray,
+	IsBoolean,
+	IsString,
+	ValidateIf,
+	ValidateNested,
+} from "class-validator";
+import {
+	BaseSearchAttributeDto,
+	BooleanSearchAttributeDto,
+	BufferSearchAttributeDto,
+	DecimalSearchAttributeDto,
+	IntegerSearchAttributeDto,
+	SearchAttributeDto,
+	StringSearchAttributeDto,
+} from "./search-attribute.dto";
+import { Type } from "class-transformer";
+import { AttributeType } from "src/attributes/enum/attribute-type.enum";
 
+@ApiExtraModels(
+	StringSearchAttributeDto,
+	BooleanSearchAttributeDto,
+	IntegerSearchAttributeDto,
+	DecimalSearchAttributeDto,
+	BufferSearchAttributeDto,
+)
 export class SearchDto {
 	@IsBoolean()
 	@ApiProperty({
@@ -21,10 +45,43 @@ export class SearchDto {
 	withArtists: boolean;
 
 	@ValidateIf((_, value) => value !== null)
-	@IsString()
-	@ApiProperty({
-		type: "string",
-		nullable: true,
+	@IsArray()
+	@ValidateNested({ each: true })
+	@Type(() => BaseSearchAttributeDto, {
+		keepDiscriminatorProperty: true,
+		discriminator: {
+			property: "type",
+			subTypes: [
+				{ value: StringSearchAttributeDto, name: AttributeType.STRING },
+				{ value: BooleanSearchAttributeDto, name: AttributeType.BOOLEAN },
+				{ value: IntegerSearchAttributeDto, name: AttributeType.INTEGER },
+				{ value: DecimalSearchAttributeDto, name: AttributeType.DECIMAL },
+				{ value: BufferSearchAttributeDto, name: AttributeType.BUFFER },
+			],
+		},
 	})
-	query: string | null;
+	@ApiProperty({
+		nullable: true,
+		type: "array",
+		items: {
+			oneOf: [
+				{ $ref: getSchemaPath(StringSearchAttributeDto) },
+				{ $ref: getSchemaPath(BooleanSearchAttributeDto) },
+				{ $ref: getSchemaPath(IntegerSearchAttributeDto) },
+				{ $ref: getSchemaPath(DecimalSearchAttributeDto) },
+				{ $ref: getSchemaPath(BufferSearchAttributeDto) },
+			],
+			discriminator: {
+				propertyName: "type",
+				mapping: {
+					[AttributeType.STRING]: getSchemaPath(StringSearchAttributeDto),
+					[AttributeType.BOOLEAN]: getSchemaPath(BooleanSearchAttributeDto),
+					[AttributeType.INTEGER]: getSchemaPath(IntegerSearchAttributeDto),
+					[AttributeType.DECIMAL]: getSchemaPath(DecimalSearchAttributeDto),
+					[AttributeType.BUFFER]: getSchemaPath(BufferSearchAttributeDto),
+				},
+			},
+		},
+	})
+	attributes: SearchAttributeDto[] | null;
 }
