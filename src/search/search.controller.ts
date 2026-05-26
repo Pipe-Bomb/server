@@ -15,7 +15,6 @@ export class SearchController {
 	})
 	async search(@Body() dto: SearchDto): Promise<SearchResultsResponse> {
 		const results = await this.searchService.search({
-			query: dto.query ?? undefined,
 			trackAmount: dto.withTracks ? 30 : 0,
 			artistAmount: dto.withArtists ? 10 : 0,
 			albumAmount: dto.withAlbums ? 20 : 0,
