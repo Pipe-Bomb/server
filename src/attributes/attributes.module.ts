@@ -5,6 +5,8 @@ import { TasksModule } from "src/tasks/tasks.module";
 import { AttributeSourcesModule } from "src/attribute-sources/attribute-sources.module";
 import { AlbumManagerModule } from "src/album-manager/album-manager.module";
 import { ArtistManagerModule } from "src/artist-manager/artist-manager.module";
+import { AttributeUploadService } from "./attribute-upload.service";
+import { UsersModule } from "src/users/users.module";
 
 @Module({
 	imports: [
@@ -12,9 +14,10 @@ import { ArtistManagerModule } from "src/artist-manager/artist-manager.module";
 		ArtistManagerModule,
 		AttributeSourcesModule,
 		AlbumManagerModule,
+		UsersModule,
 	],
 	controllers: [AttributesController],
-	providers: [AttributesService],
-	exports: [AttributesService],
+	providers: [AttributesService, AttributeUploadService],
+	exports: [AttributesService, AttributeUploadService],
 })
 export class AttributesModule {}

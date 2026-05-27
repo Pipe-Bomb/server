@@ -4,6 +4,8 @@ import { DBAlbum } from "src/albums/entity/album.entity";
 
 @Entity("album_attributes")
 export class DBAlbumAttribute extends DBAttributeTemplate {
-	@ManyToOne(() => DBAlbum, (album) => album.attributes)
+	@ManyToOne(() => DBAlbum, (album) => album.attributes, {
+		onDelete: "CASCADE",
+	})
 	entityRelationId: string;
 }

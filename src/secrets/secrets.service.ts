@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { randomBytes } from "crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { writeFile } from "fs/promises";
@@ -6,6 +6,7 @@ import path from "path";
 
 @Injectable()
 export class SecretsService {
+	private readonly logger = new Logger("Secrets Service");
 	private readonly secrets = new Map<string, string>();
 
 	constructor() {
@@ -30,7 +31,7 @@ export class SecretsService {
 				throw "nonexistent";
 			}
 		} catch {
-			console.log(`Generating secret "${id}"`);
+			this.logger.log(`Generating secret "${id}"`);
 			if (typeof create == "string") {
 				secret = create;
 			} else {
@@ -51,7 +52,6 @@ export class SecretsService {
 	}
 
 	set(id: string, value: string) {
-		console.log(id, value);
 		return writeFile(this.getPath(id), value);
 	}
 

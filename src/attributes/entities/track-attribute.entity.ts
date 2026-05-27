@@ -4,6 +4,8 @@ import { DBTrack } from "src/tracks/entities/track.entity";
 
 @Entity("track_attributes")
 export class DBTrackAttribute extends DBAttributeTemplate {
-	@ManyToOne(() => DBTrack, (track) => track.attributes)
+	@ManyToOne(() => DBTrack, (track) => track.attributes, {
+		onDelete: "CASCADE",
+	})
 	entityRelationId: string;
 }

@@ -8,10 +8,12 @@ import {
 	AttributeType,
 	AttributeValues,
 } from "@sdk";
+import { CustomAttributeDto } from "src/attributes/dto/custom-attribute.dto";
 import { OrderedAttributeSourceDto } from "src/attributes/dto/ordered-attribute-source.dto";
 import { DBAlbumAttribute } from "src/attributes/entities/album-attribute.entity";
 import { DBArtistAttribute } from "src/attributes/entities/artist-attribute.entity";
 import { DBAttributeTemplate } from "src/attributes/entities/attribute.entity-template";
+import { DBPlaylistAttribute } from "src/attributes/entities/playlist-attribute.entity";
 import { DBTrackAttribute } from "src/attributes/entities/track-attribute.entity";
 import { AttributeType as AttributeTypeEnum } from "src/attributes/enum/attribute-type.enum";
 import { LoadedAttributeSource } from "src/attributes/interface/loaded-attribute-source.interface";
@@ -30,6 +32,7 @@ export class AttributeSourcesService {
 	private readonly trackAttributes = new Set<LoadedAttribute>();
 	private readonly artistAttributes = new Set<LoadedAttribute>();
 	private readonly albumAttributes = new Set<LoadedAttribute>();
+	private readonly playlistAttributes = new Set<LoadedAttribute>();
 
 	constructor(
 		@InjectRepository(DBTrackAttribute)
@@ -38,6 +41,8 @@ export class AttributeSourcesService {
 		private readonly artistAttributesRepository: Repository<DBArtistAttribute>,
 		@InjectRepository(DBAlbumAttribute)
 		private readonly albumAttributesRepository: Repository<DBAlbumAttribute>,
+		@InjectRepository(DBPlaylistAttribute)
+		private readonly playlistAttributesRepository: Repository<DBPlaylistAttribute>,
 		private readonly tasksService: TasksService,
 		private readonly resourcesService: ResourcesService,
 	) {}
@@ -75,6 +80,11 @@ export class AttributeSourcesService {
 					this.registerAlbumAttribute(loadedAttributeSource, attribute);
 				}
 			},
+			registerPlaylistAttributes: (attributes) => {
+				for (const attribute of attributes) {
+					this.registerPlaylistAttribute(loadedAttributeSource, attribute);
+				}
+			},
 			registerPluginTask: (task) =>
 				this.tasksService.registerPluginTask(task, plugin),
 			getLogger: () => new Logger(`ATTRIBUTE SOURCE ${source.getName()}`),
@@ -85,28 +95,56 @@ export class AttributeSourcesService {
 		);
 	}
 
+	doSourcesMatch(
+		source1: LoadedAttributeSource | null,
+		source2: LoadedAttributeSource | null,
+	) {
+		if (!source1 && !source2) {
+			return true;
+		}
+		if (source1 && source2) {
+			if (
+				source1.plugin.package.name == source2.plugin.package.name &&
+				source1.source.id == source2.source.id
+			) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private registerAttribute(
-		source: LoadedAttributeSource,
+		source: LoadedAttributeSource | null,
 		attribute: Attribute,
 		set: Set<LoadedAttribute>,
 		debugName: string,
 	) {
 		for (const loadedAttribute of set) {
 			if (
-				loadedAttribute.source.plugin.package.name ==
-					source.plugin.package.name &&
-				loadedAttribute.source.source.id == source.source.id &&
+				this.doSourcesMatch(source, loadedAttribute.source) &&
 				loadedAttribute.attribute.key == attribute.key
 			) {
-				throw new Error(
-					`Plugin "${source.plugin.package.name}"'s Attribute Source "${source.source.id}" has already registered a "${debugName}" Attribute with key "${attribute.key}"`,
-				);
+				if (source) {
+					throw new Error(
+						`Plugin "${source.plugin.package.name}"'s Attribute Source "${source.source.id}" has already registered a "${debugName}" Attribute with key "${attribute.key}"`,
+					);
+				} else {
+					throw new Error(
+						`Custom "${debugName}" Attribute has already been registered with key "${attribute.key}"`,
+					);
+				}
 			}
 		}
 
-		this.logger.debug(
-			`Plugin "${source.plugin.package.name}"'s Attribute Source "${source.source.id}" registered "${debugName}" Attribute "${attribute.key}" (${attribute.type})`,
-		);
+		if (source) {
+			this.logger.debug(
+				`Plugin "${source.plugin.package.name}"'s Attribute Source "${source.source.id}" registered "${debugName}" Attribute "${attribute.key}" (${attribute.type})`,
+			);
+		} else {
+			this.logger.debug(
+				`Custom "${debugName}" Attribute "${attribute.key}" (${attribute.type}) registered`,
+			);
+		}
 
 		set.add({
 			attribute,
@@ -114,25 +152,37 @@ export class AttributeSourcesService {
 		});
 	}
 
-	private registerTrackAttribute(
-		source: LoadedAttributeSource,
+	registerTrackAttribute(
+		source: LoadedAttributeSource | null,
 		attribute: Attribute,
 	) {
 		this.registerAttribute(source, attribute, this.trackAttributes, "track");
 	}
 
-	private registerArtistAttribute(
-		source: LoadedAttributeSource,
+	registerArtistAttribute(
+		source: LoadedAttributeSource | null,
 		attribute: Attribute,
 	) {
 		this.registerAttribute(source, attribute, this.artistAttributes, "artist");
 	}
 
-	private registerAlbumAttribute(
-		source: LoadedAttributeSource,
+	registerAlbumAttribute(
+		source: LoadedAttributeSource | null,
 		attribute: Attribute,
 	) {
 		this.registerAttribute(source, attribute, this.albumAttributes, "album");
+	}
+
+	registerPlaylistAttribute(
+		source: LoadedAttributeSource | null,
+		attribute: Attribute,
+	) {
+		this.registerAttribute(
+			source,
+			attribute,
+			this.playlistAttributes,
+			"playlist",
+		);
 	}
 
 	public getTrackAttributes() {
@@ -147,6 +197,10 @@ export class AttributeSourcesService {
 		return Array.from(this.albumAttributes.values());
 	}
 
+	public getPlaylistAttributes() {
+		return Array.from(this.playlistAttributes.values());
+	}
+
 	public async createTrackAttributes(
 		trackId: string,
 		attributes: AttributeValue[],
@@ -157,10 +211,8 @@ export class AttributeSourcesService {
 			trackId,
 			attributes,
 			source,
-			this.getTrackAttributes().filter(
-				(attribute) =>
-					attribute.source.plugin.package.name == source.plugin.package.name &&
-					attribute.source.source.id == source.source.id,
+			this.getTrackAttributes().filter((attribute) =>
+				this.doSourcesMatch(source, attribute.source),
 			),
 		);
 	}
@@ -175,10 +227,8 @@ export class AttributeSourcesService {
 			artistUuid,
 			attributes,
 			source,
-			this.getArtistAttributes().filter(
-				(attribute) =>
-					attribute.source.plugin.package.name == source.plugin.package.name &&
-					attribute.source.source.id == source.source.id,
+			this.getArtistAttributes().filter((attribute) =>
+				this.doSourcesMatch(source, attribute.source),
 			),
 		);
 	}
@@ -193,19 +243,56 @@ export class AttributeSourcesService {
 			albumUuid,
 			attributes,
 			source,
-			this.getAlbumAttributes().filter(
-				(attribute) =>
-					attribute.source.plugin.package.name == source.plugin.package.name &&
-					attribute.source.source.id == source.source.id,
+			this.getAlbumAttributes().filter((attribute) =>
+				this.doSourcesMatch(source, attribute.source),
 			),
 		);
+	}
+
+	public async createPlaylistAttributes(
+		playlistUuid: string,
+		attributes: AttributeValue[],
+		source: LoadedAttributeSource | null,
+	) {
+		return this.createDBAttributes(
+			this.playlistAttributesRepository,
+			playlistUuid,
+			attributes,
+			source,
+			this.getPlaylistAttributes().filter((attribute) =>
+				this.doSourcesMatch(source, attribute.source),
+			),
+		);
+	}
+
+	customToAttributeValues(attributes: CustomAttributeDto[]): AttributeValue[] {
+		const output: AttributeValue[] = [];
+
+		for (const attribute of attributes) {
+			if (attribute.type == AttributeTypeEnum.BUFFER) {
+				output.push({
+					key: attribute.key,
+					value: {
+						buffer: attribute.value,
+						extension: attribute.extension,
+					},
+				});
+			} else {
+				output.push({
+					key: attribute.key,
+					value: attribute.value,
+				});
+			}
+		}
+
+		return output;
 	}
 
 	private async createDBAttributes<T extends DBAttributeTemplate>(
 		repository: Repository<T>,
 		entityId: string,
 		attributes: AttributeValue[],
-		source: LoadedAttributeSource,
+		source: LoadedAttributeSource | null,
 		possibleAttributes: LoadedAttribute[],
 	): Promise<T[]> {
 		const ordinalCount: Record<string, number> = {};
@@ -215,9 +302,15 @@ export class AttributeSourcesService {
 				(possibleAttribute) => possibleAttribute.attribute.key == attribute.key,
 			);
 			if (!attributeTemplate) {
-				throw new Error(
-					`Plugin "${source.plugin.package.name}" has not registered an Attribute with key "${attribute.key}"`,
-				);
+				if (source) {
+					throw new Error(
+						`Plugin "${source.plugin.package.name}" has not registered an Attribute with key "${attribute.key}"`,
+					);
+				} else {
+					throw new Error(
+						`Custom Attribute has not been registered with key "${attribute.key}"`,
+					);
+				}
 			}
 
 			try {
@@ -225,8 +318,8 @@ export class AttributeSourcesService {
 					const entity = repository.create({
 						entityId,
 						entityRelationId: entityId,
-						pluginId: source.plugin.package.name,
-						sourceId: source.source.id,
+						pluginId: source?.plugin.package.name ?? "",
+						sourceId: source?.source.id ?? "",
 						key: attribute.key,
 					} as DeepPartial<T>);
 
@@ -234,30 +327,54 @@ export class AttributeSourcesService {
 					switch (attributeType) {
 						case "boolean":
 							if (typeof attribute.value != "boolean") {
-								throw new Error(
-									`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" is type boolean`,
-								);
+								if (source) {
+									throw new Error(
+										`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" is type boolean`,
+									);
+								} else {
+									throw new Error(
+										`Custom Attribute with key "${attribute.key}" is type boolean`,
+									);
+								}
 							}
 							entity.value_boolean = attribute.value;
 							break;
 						case "string":
 							if (typeof attribute.value != "string") {
-								throw new Error(
-									`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" is type string`,
-								);
+								if (source) {
+									throw new Error(
+										`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" is type string`,
+									);
+								} else {
+									throw new Error(
+										`Custom Attribute with key "${attribute.key}" is type string`,
+									);
+								}
 							}
 							entity.value_string = attribute.value;
 							break;
 						case "decimal":
 							if (typeof attribute.value != "number") {
-								throw new Error(
-									`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" is type decimal`,
-								);
+								if (source) {
+									throw new Error(
+										`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" is type decimal`,
+									);
+								} else {
+									throw new Error(
+										`Custom Attribute with key "${attribute.key}" is type decimal`,
+									);
+								}
 							}
 							if (attribute.value == Infinity) {
-								throw new Error(
-									`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" doesn't support Infinity`,
-								);
+								if (source) {
+									throw new Error(
+										`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" doesn't support Infinity`,
+									);
+								} else {
+									throw new Error(
+										`Custom Attribute with key "${attribute.key}" doesn't support Infinity`,
+									);
+								}
 							}
 							entity.value_decimal = attribute.value;
 							break;
@@ -266,9 +383,26 @@ export class AttributeSourcesService {
 								typeof attribute.value != "number" ||
 								attribute.value % 1 !== 0
 							) {
-								throw new Error(
-									`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" is type integer`,
-								);
+								if (source) {
+									throw new Error(
+										`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" is type integer`,
+									);
+								} else {
+									throw new Error(
+										`Custom Attribute with key "${attribute.key}" is type integer`,
+									);
+								}
+							}
+							if (attribute.value == Infinity) {
+								if (source) {
+									throw new Error(
+										`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" doesn't support Infinity`,
+									);
+								} else {
+									throw new Error(
+										`Custom Attribute with key "${attribute.key}" doesn't support Infinity`,
+									);
+								}
 							}
 							entity.value_int = attribute.value;
 							break;
@@ -283,9 +417,15 @@ export class AttributeSourcesService {
 									typeof attribute.value.extension == "string"
 								)
 							) {
-								throw new Error(
-									`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" is type buffer`,
-								);
+								if (source) {
+									throw new Error(
+										`Plugin "${source.plugin.package.name}"'s Attribute with key "${attribute.key}" is type buffer`,
+									);
+								} else {
+									throw new Error(
+										`Custom Attribute with key "${attribute.key}" is type buffer`,
+									);
+								}
 							}
 							let buffer: Buffer;
 							if (Buffer.isBuffer(attribute.value.buffer)) {
@@ -352,6 +492,12 @@ export class AttributeSourcesService {
 		});
 	}
 
+	public async upsertPlaylistAttributes(attributes: DBPlaylistAttribute[]) {
+		await this.playlistAttributesRepository.upsert(attributes, {
+			conflictPaths: ["pluginId", "entityId", "sourceId", "ordinal", "key"],
+		});
+	}
+
 	setSourceOrder(order: OrderedAttributeSourceDto[]) {
 		const output: LoadedAttributeSource[] = [];
 		for (const entry of order) {
@@ -376,15 +522,15 @@ export class AttributeSourcesService {
 
 	toMap<T extends DBAttributeTemplate>(
 		attributes: T[],
-		type: "track" | "artist" | "album" | null,
+		type: "track" | "artist" | "album" | "playlist" | null,
 	): Record<string, PersistentAttributeResponse>;
 	toMap<T extends DBAttributeTemplate>(
 		attributes: T[] | null,
-		type: "track" | "artist" | "album" | null,
+		type: "track" | "artist" | "album" | "playlist" | null,
 	): Record<string, PersistentAttributeResponse> | null;
 	toMap<T extends DBAttributeTemplate>(
 		attributes: T[] | null,
-		type: "track" | "artist" | "album" | null,
+		type: "track" | "artist" | "album" | "playlist" | null,
 	) {
 		if (!attributes) {
 			return null;
@@ -406,46 +552,63 @@ export class AttributeSourcesService {
 		const output: Record<string, PersistentAttributeResponse> = {};
 
 		for (const [key, values] of map) {
-			for (const { source, plugin } of this.sources) {
-				if (
-					values.some(
-						(attribute) =>
-							attribute.pluginId == plugin.package.name &&
-							attribute.sourceId == source.id,
-					)
-				) {
-					const responses = values
-						.filter(
+			let finalResponse: PersistentAttributeResponse | null = null;
+
+			if (
+				values.some((attribute) => !attribute.pluginId && !attribute.sourceId)
+			) {
+				const responses = values
+					.filter((attribute) => !attribute.pluginId && !attribute.sourceId)
+					.map((attribute) => attribute.toResponse());
+				finalResponse = responses[0];
+				for (let i = 1; i < responses.length; i++) {
+					(finalResponse.values as any[]).push(...responses[i].values);
+				}
+			} else {
+				for (const { source, plugin } of this.sources) {
+					if (
+						values.some(
 							(attribute) =>
 								attribute.pluginId == plugin.package.name &&
 								attribute.sourceId == source.id,
 						)
-						.map((attribute) => attribute.toResponse());
+					) {
+						const responses = values
+							.filter(
+								(attribute) =>
+									attribute.pluginId == plugin.package.name &&
+									attribute.sourceId == source.id,
+							)
+							.map((attribute) => attribute.toResponse());
 
-					const finalResponse = responses[0];
-
-					for (let i = 1; i < responses.length; i++) {
-						(finalResponse.values as any[]).push(...responses[i].values);
+						finalResponse = responses[0];
+						for (let i = 1; i < responses.length; i++) {
+							(finalResponse.values as any[]).push(...responses[i].values);
+						}
+						break;
 					}
-
-					if (!format || finalResponse.type == AttributeTypeEnum.BUFFER) {
-						finalResponse.formatted = null;
-					} else {
-						finalResponse.formatted = finalResponse.values.map((value) =>
-							format(
-								finalResponse.pluginId,
-								finalResponse.sourceId,
-								key,
-								finalResponse.type,
-								value as string | number | boolean,
-							),
-						);
-					}
-
-					output[key] = finalResponse;
-					break;
 				}
 			}
+
+			if (!finalResponse) {
+				continue;
+			}
+
+			if (!format || finalResponse.type == AttributeTypeEnum.BUFFER) {
+				finalResponse.formatted = null;
+			} else {
+				finalResponse.formatted = finalResponse.values.map((value) =>
+					format(
+						finalResponse.pluginId,
+						finalResponse.sourceId,
+						key,
+						finalResponse.type,
+						value as string | number | boolean,
+					),
+				);
+			}
+
+			output[key] = finalResponse;
 		}
 
 		return output;
@@ -455,11 +618,12 @@ export class AttributeSourcesService {
 		return [...this.sources];
 	}
 
-	getFormatter(type: "track" | "artist" | "album") {
+	getFormatter(type: "track" | "artist" | "album" | "playlist") {
 		const attributeSet = {
 			track: this.trackAttributes,
 			artist: this.artistAttributes,
 			album: this.albumAttributes,
+			playlist: this.playlistAttributes,
 		}[type];
 
 		const formatterMap = new Map<
@@ -476,7 +640,14 @@ export class AttributeSourcesService {
 			if (attribute.type != "buffer" && attribute.formatter) {
 				const key = `${attribute.key}:${attribute.type}`;
 
-				const index = this.sources.indexOf(source);
+				let index = 0;
+				if (source) {
+					const sourceIndex = this.sources.indexOf(source);
+					if (sourceIndex >= 0) {
+						index = sourceIndex + 1;
+					}
+				}
+
 				const currentFormatter = formatterMap.get(key);
 				if (currentFormatter && currentFormatter.priority < index) {
 					continue;
@@ -484,8 +655,8 @@ export class AttributeSourcesService {
 
 				formatterMap.set(key, {
 					formatter: attribute.formatter,
-					pluginId: source.plugin.package.name,
-					sourceId: source.source.id,
+					pluginId: source?.plugin.package.name ?? "",
+					sourceId: source?.source.id ?? "",
 					priority: index,
 				});
 			}

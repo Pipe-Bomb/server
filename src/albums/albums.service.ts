@@ -93,7 +93,6 @@ export class AlbumsService {
 							);
 							artistUuids.push(artistUuid);
 						}
-						console.log("SETTING ALBUM LINKS:", artistUuids);
 						await this.albumManagerService.setArtistLinks(
 							album,
 							artistUuids,

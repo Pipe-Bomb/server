@@ -13,6 +13,7 @@ import { DBAttributeTemplate } from "src/attributes/entities/attribute.entity-te
 import { DBTrackAttribute } from "src/attributes/entities/track-attribute.entity";
 import { DBArtistAttribute } from "src/attributes/entities/artist-attribute.entity";
 import { DBAlbumAttribute } from "src/attributes/entities/album-attribute.entity";
+import { DBPlaylistAttribute } from "src/attributes/entities/playlist-attribute.entity";
 
 export class AttributeInterceptor implements NestInterceptor {
 	constructor(
@@ -27,7 +28,14 @@ export class AttributeInterceptor implements NestInterceptor {
 
 		return next.handle().pipe(
 			map((data) => {
-				return this.traverse(data, getBaseUrl(request));
+				try {
+					return this.traverse(data, getBaseUrl(request));
+				} catch (e) {
+					console.error(
+						`Error occured when traversing response (${request.method} ${request.path})`,
+					);
+					throw e;
+				}
 			}),
 		);
 	}
@@ -52,7 +60,7 @@ export class AttributeInterceptor implements NestInterceptor {
 					(attribute: any) => !(attribute instanceof DBAttributeTemplate),
 				)
 			) {
-				let type: "track" | "artist" | "album" | null = null;
+				let type: "track" | "artist" | "album" | "playlist" | null = null;
 				if (node.attributes.length) {
 					const attribute: DBAttributeTemplate = node.attributes[0];
 					if (attribute instanceof DBTrackAttribute) {
@@ -61,6 +69,8 @@ export class AttributeInterceptor implements NestInterceptor {
 						type = "artist";
 					} else if (attribute instanceof DBAlbumAttribute) {
 						type = "album";
+					} else if (attribute instanceof DBPlaylistAttribute) {
+						type = "playlist";
 					}
 				}
 

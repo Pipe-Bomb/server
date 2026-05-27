@@ -3,5 +3,5 @@ import { LoadedAttributeSource } from "./loaded-attribute-source.interface";
 
 export interface LoadedAttribute {
 	attribute: Attribute;
-	source: LoadedAttributeSource;
+	source: LoadedAttributeSource | null;
 }

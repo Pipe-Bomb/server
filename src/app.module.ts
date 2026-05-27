@@ -28,6 +28,7 @@ import { EphemeralModule } from "./ephemeral/ephemeral.module";
 import { UsersModule } from "./users/users.module";
 import { SecretsModule } from "./secrets/secrets.module";
 import { ArtistManagerModule } from "./artist-manager/artist-manager.module";
+import { PlaylistsModule } from "./playlists/playlists.module";
 import databaseConfig from "./config/database.config";
 
 @Module({
@@ -63,6 +64,7 @@ import databaseConfig from "./config/database.config";
 		UsersModule,
 		SecretsModule,
 		ArtistManagerModule,
+		PlaylistsModule,
 	],
 	controllers: [AppController],
 	providers: [AppService],

@@ -7,7 +7,6 @@ import {
 	PersistentIntegerAttributeResponse,
 	PersistentStringAttributeResponse,
 } from "../response/persistent-attribute.response";
-import { AttributeType } from "../enum/attribute-type.enum";
 import { DBResource } from "src/resources/entities/resource.entity";
 
 @Index(["entityRelationId"])
@@ -73,31 +72,31 @@ export abstract class DBAttributeTemplate {
 	toResponse(): PersistentAttributeResponse {
 		let attribute: PersistentAttributeResponse | null = null;
 
-		if (this.value_boolean !== null) {
+		if (this.value_boolean !== null && this.value_boolean !== undefined) {
 			attribute = new PersistentBooleanAttributeResponse();
 			// attribute.type = AttributeType.BOOLEAN;
 			attribute.values = [this.value_boolean];
 		}
 
-		if (this.value_string !== null) {
+		if (this.value_string !== null && this.value_string !== undefined) {
 			attribute = new PersistentStringAttributeResponse();
 			// attribute.type = AttributeType.STRING;
 			attribute.values = [this.value_string];
 		}
 
-		if (this.value_int !== null) {
+		if (this.value_int !== null && this.value_int !== undefined) {
 			attribute = new PersistentIntegerAttributeResponse();
 			// attribute.type = AttributeType.INTEGER;
 			attribute.values = [this.value_int];
 		}
 
-		if (this.value_decimal !== null) {
+		if (this.value_decimal !== null && this.value_decimal !== undefined) {
 			attribute = new PersistentDecimalAttributeResponse();
 			// attribute.type = AttributeType.DECIMAL;
 			attribute.values = [this.value_decimal];
 		}
 
-		if (this.value_buffer !== null) {
+		if (this.value_buffer !== null && this.value_buffer !== undefined) {
 			attribute = new PersistentBufferAttributeResponse();
 			// attribute.type = AttributeType.BUFFER;
 			attribute.values = [this.value_buffer.toResponse()];

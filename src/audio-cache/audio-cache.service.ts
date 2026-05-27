@@ -143,11 +143,9 @@ export class AudioCacheService {
 
 			if (instance instanceof HLSStreamInstance) {
 				const playlistUrl = `http://127.0.0.1:3000/streaming/${instance.id}/hls/playlist.m3u8`;
-				console.log(playlistUrl);
 
 				// todo: evaluate use of 320k mp3
 				const tempFile = path.join(tempDir, `temp.mp3`);
-				console.log(tempFile);
 				await new Promise<void>((resolve, reject) => {
 					console.log("Starting FFmpeg...");
 					FFmpeg(playlistUrl)

@@ -69,7 +69,6 @@ export class ArtistsService {
 					increasePool();
 
 					if (!activeThreads) {
-						console.log("RESOLVING 2");
 						resolve();
 					}
 					return;
@@ -122,7 +121,6 @@ export class ArtistsService {
 						} else {
 							allChunksLoaded = true;
 							if (!activeThreads) {
-								console.log("RESOLVING 1");
 								resolve();
 							}
 						}

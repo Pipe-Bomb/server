@@ -15,6 +15,7 @@ import { DBTrack } from "src/tracks/entities/track.entity";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { FindOptionsWhere, In, IsNull, Not } from "typeorm";
 import { AudioCacheService } from "src/audio-cache/audio-cache.service";
+import { TrackId } from "src/tracks/interface/track-id.interface";
 
 interface PluginLibraries {
 	readonly plugin: LoadedPlugin;
@@ -552,5 +553,72 @@ export class LibrariesService {
 
 			increaseTrackPool();
 		});
+	}
+
+	async resolveTracks(trackIds: TrackId[], createIfMissing = false) {
+		const pluginMap = new Map<string, Map<string, Map<string, number>>>();
+
+		for (const [index, id] of trackIds.entries()) {
+			let plugin = pluginMap.get(id.pluginId);
+			if (!plugin) {
+				if (!this.libraries.has(id.pluginId)) {
+					throw new Error("Plugin doesn't exist");
+				}
+				plugin = new Map();
+				pluginMap.set(id.pluginId, plugin);
+			}
+			let library = plugin.get(id.libraryId);
+			if (!library) {
+				const libraries = this.libraries.get(id.pluginId);
+				if (!libraries) {
+					throw new Error("Plugin doesn't exist");
+				}
+				if (!libraries.libraries.has(id.libraryId)) {
+					throw new Error("Library doesn't exist");
+				}
+				library = new Map();
+				plugin.set(id.libraryId, library);
+			}
+			if (!library.has(id.trackId)) {
+				library.set(id.trackId, index);
+			}
+		}
+
+		const output: (DBTrack | null)[] = Array(trackIds.length).fill(null);
+
+		const tracks = await this.trackManagerService.find({
+			where: trackIds.map(({ pluginId, libraryId, trackId }) => ({
+				pluginId,
+				libraryId,
+				trackId,
+			})),
+		});
+
+		for (const track of tracks) {
+			const library = pluginMap.get(track.pluginId)?.get(track.libraryId);
+			if (!library) {
+				continue;
+			}
+
+			const index = library.get(track.trackId);
+			if (index !== undefined) {
+				output[index] = track;
+				library.delete(track.trackId);
+			}
+		}
+
+		if (!createIfMissing) {
+			return output;
+		}
+
+		for (const [pluginId, libraries] of pluginMap) {
+			for (const [libraryId, library] of libraries) {
+				if (!library.size) {
+					continue;
+				}
+			}
+		}
+
+		throw new Error("Method not implemented");
 	}
 }

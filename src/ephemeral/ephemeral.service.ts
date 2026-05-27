@@ -336,9 +336,10 @@ export class EphemeralService {
 			.filter(
 				(attribute) =>
 					attributeSource &&
-					attribute.source.plugin.package.name ==
-						attributeSource.plugin.package.name &&
-					attribute.source.source.id == attributeSource.source.id,
+					this.attributeSourcesService.doSourcesMatch(
+						attribute.source,
+						attributeSource,
+					),
 			);
 
 		const artists = await this.toArtistsResponse(
@@ -394,9 +395,10 @@ export class EphemeralService {
 			.filter(
 				(attribute) =>
 					attributeSource &&
-					attribute.source.plugin.package.name ==
-						attributeSource.plugin.package.name &&
-					attribute.source.source.id == attributeSource.source.id,
+					this.attributeSourcesService.doSourcesMatch(
+						attribute.source,
+						attributeSource,
+					),
 			);
 
 		return {
@@ -435,20 +437,20 @@ export class EphemeralService {
 
 		const possibleAlbumAttributes = this.attributeSourcesService
 			.getAlbumAttributes()
-			.filter(
-				(attribute) =>
-					attribute.source.plugin.package.name ==
-						attributeSource.plugin.package.name &&
-					attribute.source.source.id == attributeSource.source.id,
+			.filter((attribute) =>
+				this.attributeSourcesService.doSourcesMatch(
+					attribute.source,
+					attributeSource,
+				),
 			);
 
 		const possibleArtistAttributes = this.attributeSourcesService
 			.getArtistAttributes()
-			.filter(
-				(attribute) =>
-					attribute.source.plugin.package.name ==
-						attributeSource.plugin.package.name &&
-					attribute.source.source.id == attributeSource.source.id,
+			.filter((attribute) =>
+				this.attributeSourcesService.doSourcesMatch(
+					attribute.source,
+					attributeSource,
+				),
 			);
 
 		return albums.map((album) => {
@@ -531,20 +533,20 @@ export class EphemeralService {
 
 		const possibleTrackAttributes = this.attributeSourcesService
 			.getTrackAttributes()
-			.filter(
-				(attribute) =>
-					attribute.source.plugin.package.name ==
-						attributeSource.plugin.package.name &&
-					attribute.source.source.id == attributeSource.source.id,
+			.filter((attribute) =>
+				this.attributeSourcesService.doSourcesMatch(
+					attribute.source,
+					attributeSource,
+				),
 			);
 
 		const possibleArtistAttributes = this.attributeSourcesService
 			.getArtistAttributes()
-			.filter(
-				(attribute) =>
-					attribute.source.plugin.package.name ==
-						attributeSource.plugin.package.name &&
-					attribute.source.source.id == attributeSource.source.id,
+			.filter((attribute) =>
+				this.attributeSourcesService.doSourcesMatch(
+					attribute.source,
+					attributeSource,
+				),
 			);
 
 		return tracks.map((track) => {
@@ -591,11 +593,11 @@ export class EphemeralService {
 
 		const possibleArtistAttributes = this.attributeSourcesService
 			.getArtistAttributes()
-			.filter(
-				(attribute) =>
-					attribute.source.plugin.package.name ==
-						attributeSource.plugin.package.name &&
-					attribute.source.source.id == attributeSource.source.id,
+			.filter((attribute) =>
+				this.attributeSourcesService.doSourcesMatch(
+					attribute.source,
+					attributeSource,
+				),
 			);
 
 		return artists.map((artist, index) =>

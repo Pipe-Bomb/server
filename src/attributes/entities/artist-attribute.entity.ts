@@ -4,6 +4,8 @@ import { DBArtist } from "src/artist-manager/entity/artist.entity";
 
 @Entity("artist_attributes")
 export class DBArtistAttribute extends DBAttributeTemplate {
-	@ManyToOne(() => DBArtist, (artist) => artist.attributes)
+	@ManyToOne(() => DBArtist, (artist) => artist.attributes, {
+		onDelete: "CASCADE",
+	})
 	entityRelationId: string;
 }

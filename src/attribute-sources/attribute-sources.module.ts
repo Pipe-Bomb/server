@@ -7,6 +7,7 @@ import { DBTrackAttribute } from "src/attributes/entities/track-attribute.entity
 import { TasksModule } from "src/tasks/tasks.module";
 import { ResourcesModule } from "src/resources/resources.module";
 import { DBAlbumAttribute } from "src/attributes/entities/album-attribute.entity";
+import { DBPlaylistAttribute } from "src/attributes/entities/playlist-attribute.entity";
 
 @Module({
 	imports: [
@@ -14,6 +15,7 @@ import { DBAlbumAttribute } from "src/attributes/entities/album-attribute.entity
 			DBTrackAttribute,
 			DBArtistAttribute,
 			DBAlbumAttribute,
+			DBPlaylistAttribute,
 		]),
 		TasksModule,
 		ResourcesModule,

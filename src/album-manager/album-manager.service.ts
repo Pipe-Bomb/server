@@ -157,7 +157,7 @@ export class AlbumManagerService {
 				},
 				tracks: !!options.withTracks && {
 					track: {
-						artists: {
+						artists: !!options.withTrackArtists && {
 							artist: {
 								attributes: true,
 							},
@@ -308,7 +308,6 @@ export class AlbumManagerService {
 		identifierId: string,
 	) {
 		await this.clearArtistLinks(album, pluginId, identifierId);
-		console.log("Setting artist links:", artistUuids, album);
 		await this.albumArtistsRepository.insert(
 			artistUuids.map((artistUuid, ordinal) => ({
 				albumUuid: album.uuid,

@@ -12,6 +12,7 @@ export interface AttributeSourceApiContext {
 	registerTrackAttributes(attributes: Attribute[]): void;
 	registerArtistAttributes(attributes: Attribute[]): void;
 	registerAlbumAttributes(attributes: Attribute[]): void;
+	registerPlaylistAttributes(attributes: Attribute[]): void;
 	registerPluginTask(task: Task): void;
 	getLogger(): Logger;
 }

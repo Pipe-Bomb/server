@@ -1,4 +1,13 @@
-import { Controller, Get } from "@nestjs/common";
+import {
+	Controller,
+	Get,
+	HttpCode,
+	HttpStatus,
+	Param,
+	Put,
+	UploadedFile,
+	UseGuards,
+} from "@nestjs/common";
 import { AttributesService } from "./attributes.service";
 import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
 import { AllAttributesResponse } from "./response/all-attributes.response";
@@ -6,12 +15,26 @@ import { LoadedAttribute } from "./interface/loaded-attribute.interface";
 import { LoadedAttributeResponse } from "./response/loaded-attribute.response";
 import { Attribute } from "@sdk";
 import { AttributeType } from "./enum/attribute-type.enum";
-import { ApiOkResponse } from "@nestjs/swagger";
+import {
+	ApiBody,
+	ApiConsumes,
+	ApiForbiddenResponse,
+	ApiNoContentResponse,
+	ApiNotFoundResponse,
+	ApiOkResponse,
+	ApiUnauthorizedResponse,
+} from "@nestjs/swagger";
+import { AttributeUploadService } from "./attribute-upload.service";
+import { AuthGuard } from "src/users/auth.guard";
+import { ReqUser } from "src/users/user.decorator";
+import { FetchUserPipe } from "src/users/user.pipe";
+import { DBUser } from "src/users/entity/user.entity";
 
 @Controller("attributes")
 export class AttributesController {
 	constructor(
 		private readonly attributesService: AttributesService,
+		private readonly attributeUploadService: AttributeUploadService,
 		private readonly attributeSourcesService: AttributeSourcesService,
 	) {}
 
@@ -31,6 +54,33 @@ export class AttributesController {
 		};
 	}
 
+	@Put("buffer/:uuid")
+	@ApiConsumes("multipart/form-data")
+	@ApiBody({
+		schema: {
+			type: "object",
+			properties: {
+				file: {
+					type: "string",
+					format: "binary",
+				},
+			},
+		},
+	})
+	@ApiNoContentResponse()
+	@ApiForbiddenResponse()
+	@ApiNotFoundResponse()
+	@ApiUnauthorizedResponse()
+	@UseGuards(AuthGuard)
+	@HttpCode(HttpStatus.NO_CONTENT)
+	async uploadAttributeBuffer(
+		@Param("uuid") uuid: string,
+		@UploadedFile() file: Express.Multer.File,
+		@ReqUser(FetchUserPipe) user: DBUser,
+	) {
+		this.attributeUploadService.resolveSession(uuid, file.buffer, user);
+	}
+
 	toResponse(attribute: LoadedAttribute): LoadedAttributeResponse {
 		const typeMap: Record<Attribute["type"], AttributeType> = {
 			boolean: AttributeType.BOOLEAN,
@@ -41,8 +91,8 @@ export class AttributesController {
 		};
 
 		return {
-			pluginId: attribute.source.plugin.package.name,
-			sourceId: attribute.source.source.id,
+			pluginId: attribute.source?.plugin.package.name ?? "",
+			sourceId: attribute.source?.source.id ?? "",
 			key: attribute.attribute.key,
 			type: typeMap[attribute.attribute.type],
 			supportsMultiple: attribute.attribute.supportsMultiple,

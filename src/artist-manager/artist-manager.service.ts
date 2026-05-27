@@ -378,10 +378,6 @@ export class ArtistManagerService {
 					i.target != ArtistIdentityTarget.ARTIST,
 			);
 
-			if (identifier.id == "musicbrainz_artist_id") {
-				console.log("NEW ARTIST ID:", newIdentities);
-			}
-
 			if (newIdentities?.length) {
 				for (const [ordinal, identity] of newIdentities.entries()) {
 					const newIdentity = this.identitiesRepository.create({
