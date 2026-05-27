@@ -113,6 +113,7 @@ export class PlaylistsService {
 				(!!options.withTracks && {
 					tracks: {
 						dateAdded: "asc",
+						ordinal: "asc",
 					},
 				}) ||
 				undefined,
@@ -125,10 +126,11 @@ export class PlaylistsService {
 		user: DBUser | null,
 	) {
 		await this.playlistTracksRepository.upsert(
-			tracks.map((track) => ({
+			tracks.map((track, ordinal) => ({
 				trackUuid: track.uuid,
 				playlistUuid: playlist.uuid,
 				addedByUuid: user?.uuid ?? null,
+				ordinal,
 			})),
 			{
 				conflictPaths: ["trackUuid", "playlistUuid"],

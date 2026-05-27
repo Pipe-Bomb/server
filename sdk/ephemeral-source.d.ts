@@ -12,18 +12,29 @@ export interface EphemeralSourceApiContext {
 	useAttributeSource(attributeSource: AttributeSource): void;
 	resolveArtistIdentifier(identifierId: string): void;
 	resolveAlbumIdentifier(identifierId: string): void;
+	useTrackIdentifier(identifierId: string): void;
 }
 
 export interface EphemeralSourceSearchOptions {
 	query: string;
 }
 
-export interface EphemeralTrack {
+export type EphemeralTrack = {
 	id: string;
 	title: string;
-	attributes: AttributeValue[] | null;
 	artists: IdentifiableTrackArtistMetadata[] | null;
-}
+} & (
+	| {
+			identityId: null;
+			identity: null;
+			attributes: null;
+	  }
+	| {
+			identityId: string;
+			identity: string;
+			attributes: AttributeValue[] | null;
+	  }
+);
 
 export interface EphemeralSourceSearchResults {
 	tracks: EphemeralTrack[];
@@ -74,4 +85,6 @@ export interface EphemeralSource {
 		identityId: string,
 		identity: string,
 	): Promise<EphemeralAlbumContent | null>;
+
+	resolveTracks(trackIds: string[]): Promise<EphemeralTrack[]>;
 }

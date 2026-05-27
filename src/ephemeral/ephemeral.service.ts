@@ -34,6 +34,12 @@ import { AlbumResponse } from "src/albums/response/album.response";
 import { AlbumArtistResponse } from "src/albums/response/album-artist.response";
 import { DBAlbumIdentity } from "src/albums/entity/album-identity.entity";
 import { AttributeType } from "src/attributes/enum/attribute-type.enum";
+import { TrackId } from "src/tracks/interface/track-id.interface";
+import { DBTrack } from "src/tracks/entities/track.entity";
+import { TrackManagerService } from "src/track-manager/track-manager.service";
+import { IdentifiersService } from "src/identifiers/identifiers.service";
+import { TrackCreationSession } from "./interface/track-creation-session.interface";
+import { TrackCreationSessionResponse } from "./response/track-creation-session.response";
 
 @Injectable()
 export class EphemeralService {
@@ -48,14 +54,18 @@ export class EphemeralService {
 	>();
 	private readonly artistIdentifiers = new Map<string, LoadedEphemeralSource>();
 	private readonly albumIdentifiers = new Map<string, LoadedEphemeralSource>();
+	private readonly trackIdentifiers = new Map<string, LoadedEphemeralSource>();
 	private readonly proxiedBufferAttributes = new Map<
 		string,
 		BufferAttributeValue
 	>();
+	private readonly creationSessions = new Map<string, TrackCreationSession>();
 
 	constructor(
 		private readonly attributeSourcesService: AttributeSourcesService,
 		private readonly artistManagerService: ArtistManagerService,
+		private readonly trackManagerService: TrackManagerService,
+		private readonly identifiersService: IdentifiersService,
 	) {}
 
 	registerEphemeralSource(source: EphemeralSource, plugin: LoadedPlugin) {
@@ -118,6 +128,32 @@ export class EphemeralService {
 				}
 
 				this.albumIdentifiers.set(key, loadedEphemeralSource);
+			},
+			useTrackIdentifier: (identifierId) => {
+				const identifier = this.identifiersService
+					.all()
+					.find(
+						(identifier) =>
+							identifier.plugin.package.name == plugin.package.name &&
+							identifier.identifier.id == identifierId,
+					);
+				if (!identifier) {
+					throw new Error("Identifier is not loaded");
+				}
+
+				if (identifier.identifier.target != "track") {
+					throw new Error(`Identifier is not of Target "track"`);
+				}
+
+				const key = `${plugin.package.name}:${identifierId}`;
+
+				if (this.trackIdentifiers.has(key)) {
+					throw new Error(
+						"Identifier is already being resolved by another Ephemeral Source",
+					);
+				}
+
+				this.trackIdentifiers.set(key, loadedEphemeralSource);
 			},
 		});
 
@@ -806,5 +842,233 @@ export class EphemeralService {
 
 	getProxiedAttribute(uuid: string) {
 		return this.proxiedBufferAttributes.get(uuid) ?? null;
+	}
+
+	async createTracks(
+		tracks: TrackId[],
+		options: {
+			playlistUuids?: string[];
+		} = {},
+	) {
+		let sessionId: string;
+		do {
+			sessionId = randomUUID();
+		} while (this.creationSessions.has(sessionId));
+
+		const session: TrackCreationSession = {
+			uuid: sessionId,
+			started: Date.now(),
+			percent: 0,
+			playlistUuids: options.playlistUuids ?? [],
+			promise: new Promise<(DBTrack | null)[]>(async (resolve, reject) => {
+				try {
+					const output: (DBTrack | null)[] = [];
+
+					const order = tracks.map(
+						(track) => `${track.pluginId}:${track.libraryId}:${track.trackId}`,
+					);
+
+					const sourceMap = new Map<
+						string,
+						{
+							source: LoadedEphemeralSource;
+							ids: Set<string>;
+							tracks: EphemeralTrack[];
+						}
+					>();
+
+					for (const track of tracks) {
+						const sourceKey = `${track.pluginId}:${track.libraryId}`;
+						const existingEntry = sourceMap.get(sourceKey);
+						if (existingEntry) {
+							existingEntry.ids.add(track.trackId);
+						} else {
+							const source = this.sources
+								.get(track.pluginId)
+								?.get(track.libraryId);
+							if (!source) {
+								throw new Error("Ephemeral Source does not exist");
+							}
+							sourceMap.set(sourceKey, {
+								source,
+								ids: new Set([track.trackId]),
+								tracks: [],
+							});
+						}
+					}
+
+					let mapCompletedEntries = 0;
+					for (const { source, ids, tracks } of sourceMap.values()) {
+						try {
+							const newTracks = await source.source.resolveTracks(
+								Array.from(ids),
+							);
+							for (const track of newTracks) {
+								if (ids.has(track.id)) {
+									tracks.push(track);
+								}
+							}
+							session.percent = (0.2 / sourceMap.size) * ++mapCompletedEntries;
+						} catch (e) {
+							this.logger.error(
+								`Ephemeral Source ${source.source.id} from Plugin "${source.plugin.package.name}" failed to resolve tracks:`,
+								e,
+							);
+						}
+					}
+
+					let completedTracks = 0;
+					for (const { source, tracks } of sourceMap.values()) {
+						if (!tracks.length) {
+							continue;
+						}
+
+						this.logger.log(`Time to insert ${tracks.length} tracks`);
+						const newTracks = await this.trackManagerService.addTracks(
+							source.plugin,
+							source.source.getLibraryHandler(),
+							tracks,
+						);
+
+						const attributeSource =
+							this.attributeSources.get(source.source) ?? null;
+						if (!attributeSource) {
+							this.logger.error(
+								`Won't Atribute new Tracks or Artists because Attribute Source is not loaded`,
+							);
+						}
+
+						for (const ephemeralTrack of tracks) {
+							const dbTrack = newTracks.find(
+								(track) => track.trackId == ephemeralTrack.id,
+							);
+							if (!dbTrack) {
+								this.logger.error(
+									`Failed to add Identity to new Track from Ephemeral Source "${source.source.id}" from Plugin "${source.plugin.package.name}" because it wasn't returned by database`,
+								);
+								completedTracks++;
+								continue;
+							}
+
+							if (ephemeralTrack.artists) {
+								const artistUuids = new Map<string, string[]>();
+
+								for (const artist of ephemeralTrack.artists) {
+									const artistUuid =
+										await this.artistManagerService.resolveArtist(
+											artist.pluginId,
+											artist.identityId,
+											artist.identity,
+											ArtistIdentityTarget.TRACK,
+											true,
+										);
+									const array = artistUuids.get(artist.identityId);
+									if (array) {
+										if (!array.includes(artistUuid)) {
+											array.push(artistUuid);
+										}
+									} else {
+										artistUuids.set(artistUuid, [artistUuid]);
+									}
+
+									if (artist.attributes?.length && attributeSource) {
+										const attributes =
+											await this.attributeSourcesService.createArtistAttributes(
+												artistUuid,
+												artist.attributes,
+												attributeSource,
+											);
+										await this.attributeSourcesService.upsertArtistAttributes(
+											attributes,
+										);
+									}
+								}
+								for (const [identityId, uuids] of artistUuids) {
+									await this.artistManagerService.setTrackLinks(
+										dbTrack,
+										uuids,
+										source.plugin.package.name,
+										identityId,
+									);
+								}
+							}
+
+							if (ephemeralTrack.identityId) {
+								const identifierKey = `${source.plugin.package.name}:${ephemeralTrack.identityId}`;
+								const matchingSource = this.trackIdentifiers.get(identifierKey);
+								if (matchingSource != source) {
+									this.logger.error(
+										`Ephemeral Source "${source.source.id}" from Plugin "${source.plugin.package.name}" attempted to use a Track Identity that it hasn't registered`,
+									);
+									completedTracks++;
+									continue;
+								}
+
+								await this.identifiersService.identifyTrackWithIdentity(
+									dbTrack,
+									{
+										pluginId: source.plugin.package.name,
+										identityId: ephemeralTrack.identityId,
+										identity: ephemeralTrack.identity,
+									},
+								);
+
+								if (ephemeralTrack.attributes?.length && attributeSource) {
+									const attributes =
+										await this.attributeSourcesService.createTrackAttributes(
+											dbTrack.uuid,
+											ephemeralTrack.attributes,
+											attributeSource,
+										);
+									await this.attributeSourcesService.upsertTrackAttributes(
+										attributes,
+									);
+								}
+							}
+
+							const index = order.indexOf(
+								`${dbTrack.pluginId}:${dbTrack.libraryId}:${dbTrack.trackId}`,
+							);
+							if (index < 0) {
+								this.logger.error(`New Track didn't match original ID`);
+								completedTracks++;
+								continue;
+							}
+							output[index] = dbTrack;
+							session.percent = 0.2 + (0.8 / order.length) * ++completedTracks;
+						}
+					}
+
+					resolve(output);
+				} catch (e) {
+					reject(e);
+				}
+			}),
+		};
+
+		this.creationSessions.set(sessionId, session);
+		session.promise.finally(() => this.creationSessions.delete(sessionId));
+		return session;
+	}
+
+	getCreationSessionsByPlaylistUuid(playlistUuid: string) {
+		const sessions: TrackCreationSession[] = [];
+
+		for (const session of this.creationSessions.values()) {
+			if (session.playlistUuids.includes(playlistUuid)) {
+				sessions.push(session);
+			}
+		}
+		return sessions;
+	}
+
+	toCreationSessionResponse(
+		session: TrackCreationSession,
+	): TrackCreationSessionResponse {
+		return {
+			uuid: session.uuid,
+			dateStarted: new Date(session.started),
+			percent: Math.min(session.percent * 100, 100),
+		};
 	}
 }

@@ -31,6 +31,12 @@ export class DBPlaylistTrack {
 	dateAdded: number;
 
 	@Column({
+		type: "int",
+		default: 0,
+	})
+	ordinal: number;
+
+	@Column({
 		type: "uuid",
 		nullable: true,
 	})

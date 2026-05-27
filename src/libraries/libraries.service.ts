@@ -555,7 +555,7 @@ export class LibrariesService {
 		});
 	}
 
-	async resolveTracks(trackIds: TrackId[], createIfMissing = false) {
+	async resolveTracks(trackIds: TrackId[]) {
 		const pluginMap = new Map<string, Map<string, Map<string, number>>>();
 
 		for (const [index, id] of trackIds.entries()) {
@@ -607,18 +607,6 @@ export class LibrariesService {
 			}
 		}
 
-		if (!createIfMissing) {
-			return output;
-		}
-
-		for (const [pluginId, libraries] of pluginMap) {
-			for (const [libraryId, library] of libraries) {
-				if (!library.size) {
-					continue;
-				}
-			}
-		}
-
-		throw new Error("Method not implemented");
+		return output;
 	}
 }

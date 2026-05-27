@@ -7,6 +7,7 @@ import {
 	Get,
 	HttpCode,
 	HttpStatus,
+	Logger,
 	NotFoundException,
 	Param,
 	Patch,
@@ -36,14 +37,19 @@ import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { In } from "typeorm";
 import { NewPlaylistTrackDto } from "./dto/new-playlist-track.dto";
 import { LibrariesService } from "src/libraries/libraries.service";
+import { EphemeralService } from "src/ephemeral/ephemeral.service";
+import { TrackCreationSessionResponse } from "src/ephemeral/response/track-creation-session.response";
 
 @Controller("playlists")
 export class PlaylistsController {
+	private readonly logger = new Logger("Playlists Controller");
+
 	constructor(
 		private readonly playlistsService: PlaylistsService,
 		private readonly attributeUploadService: AttributeUploadService,
 		private readonly trackManagerService: TrackManagerService,
 		private readonly librariesService: LibrariesService,
+		private readonly ephemeralService: EphemeralService,
 	) {}
 
 	@Put()
@@ -131,12 +137,44 @@ export class PlaylistsController {
 			throw new ForbiddenException();
 		}
 
-		const tracks = this.librariesService.resolveTracks(dto.tracks, false); // todo: set to true
-		const foundTracks = (await tracks).filter((track) => !!track);
+		const tracks = await this.librariesService.resolveTracks(dto.tracks);
 
-		if (foundTracks.length) {
-			await this.playlistsService.addTracks(playlist, foundTracks, user);
+		const missingTracks: (NewPlaylistTrackDto & { index: number })[] = [];
+		for (const [index, track] of tracks.entries()) {
+			if (!track) {
+				missingTracks.push({
+					...dto.tracks[index],
+					index,
+				});
+			}
 		}
+
+		const session = await this.ephemeralService.createTracks(missingTracks, {
+			playlistUuids: [playlist.uuid],
+		});
+
+		session.promise.then(async (newTracks) => {
+			for (const [i, track] of newTracks.entries()) {
+				const index = missingTracks[i].index;
+				tracks[index] = track;
+			}
+
+			const foundTracks = tracks.filter((track) => !!track);
+
+			if (foundTracks.length) {
+				try {
+					await this.playlistsService.addTracks(playlist, foundTracks, user);
+					this.logger.debug(
+						`Added ${foundTracks.length} Tracks to Playlist "${playlist.uuid}"`,
+					);
+				} catch (e) {
+					this.logger.error(
+						`Failed to add Tracks to Playlist "${playlist.uuid}":`,
+						e,
+					);
+				}
+			}
+		});
 
 		return this.getPlaylist(playlist.uuid, user);
 	}
@@ -163,5 +201,36 @@ export class PlaylistsController {
 		}
 
 		await this.playlistsService.delete(playlist);
+	}
+
+	@Get(":uuid/pending")
+	@ApiOperation({ operationId: "getPlaylistUpdateProgress" })
+	@UseGuards(AuthGuard)
+	@ApiOkResponse({
+		type: [TrackCreationSessionResponse],
+	})
+	@ApiUnauthorizedResponse()
+	@ApiForbiddenResponse()
+	@ApiNotFoundResponse()
+	async getPlaylistUpdateProgress(
+		@Param("uuid") uuid: string,
+		@ReqUser(FetchUserPipe) user: DBUser,
+	): Promise<TrackCreationSessionResponse[]> {
+		const playlist = await this.playlistsService.findByUuid(uuid);
+
+		if (!playlist) {
+			throw new NotFoundException("Playlist not found");
+		}
+		if (playlist.ownerUuid != user.uuid) {
+			throw new ForbiddenException();
+		}
+
+		const sessions = this.ephemeralService.getCreationSessionsByPlaylistUuid(
+			playlist.uuid,
+		);
+
+		return sessions.map((session) =>
+			this.ephemeralService.toCreationSessionResponse(session),
+		);
 	}
 }

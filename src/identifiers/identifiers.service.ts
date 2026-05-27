@@ -9,10 +9,10 @@ import { LoadedLibraryHandler } from "src/libraries/interface/loaded-library.int
 import { IdentifierResponse } from "./response/identifier.response";
 import { LoadedIdentifier } from "./interface/loaded-identifier";
 import { orderIdentifiers } from "./identifiers.util";
-import { AlbumsService } from "src/albums/albums.service";
 import { ArtistIdentityTarget } from "src/artist-manager/enum/artist-identity-target.enum";
 import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
 import { AlbumManagerService } from "src/album-manager/album-manager.service";
+import { Identity } from "@sdk";
 
 @Injectable()
 export class IdentifiersService {
@@ -60,6 +60,28 @@ export class IdentifiersService {
 
 		this.logger.log(
 			`Plugin "${plugin.package.name}" registered Identifier "${identifier.id}"`,
+		);
+	}
+
+	public async identifyTrackWithIdentity(track: DBTrack, identity: Identity) {
+		const identifier = this.identifiers
+			.get(identity.pluginId)
+			?.get(identity.identityId);
+		if (!identifier) {
+			throw new Error("Identifier does not exist");
+		}
+
+		await this.identitiesRepository.upsert(
+			{
+				pluginId: identity.pluginId,
+				identifierId: identity.identityId,
+				identity: identity.identity,
+				trackUuid: track.uuid,
+				ordinal: 0,
+			},
+			{
+				conflictPaths: ["pluginId", "identifierId", "trackUuid", "ordinal"],
+			},
 		);
 	}
 

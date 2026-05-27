@@ -88,4 +88,56 @@ export class TrackManagerService {
 			return;
 		}
 	}
+
+	async addTracks(
+		plugin: LoadedPlugin,
+		libraryHandler: LibraryHandler,
+		tracks: Track[],
+	) {
+		const ids = tracks.map((track) => track.id);
+		const output: (DBTrack | null)[] = Array(tracks.length).fill(null);
+
+		const existingTracks = await this.tracksRepository.find({
+			where: {
+				pluginId: plugin.package.name,
+				libraryId: libraryHandler.id,
+				trackId: In(ids),
+			},
+		});
+		const existingIds = existingTracks.map((track) => track.trackId);
+		for (const track of existingTracks) {
+			const index = ids.indexOf(track.trackId);
+			if (index < 0) {
+				throw new Error("Invalid track returned");
+			}
+			output[index] = track;
+		}
+
+		const toInsert = this.tracksRepository.create(
+			tracks
+				.filter((track) => !existingIds.includes(track.id))
+				.map((track) => ({
+					pluginId: plugin.package.name,
+					libraryId: libraryHandler.id,
+					trackId: track.id,
+					title: track.title,
+				})),
+		);
+
+		if (toInsert.length) {
+			for (const track of toInsert) {
+				const index = ids.indexOf(track.trackId);
+				if (index < 0) {
+					throw new Error("Invalid track created");
+				}
+				output[index] = track;
+			}
+			await this.tracksRepository.insert(toInsert);
+			this.logger.debug(
+				`Added ${toInsert.length} new Tracks to Library "${libraryHandler.id}" for Plugin "${plugin.package.name}"`,
+			);
+		}
+
+		return output as DBTrack[];
+	}
 }

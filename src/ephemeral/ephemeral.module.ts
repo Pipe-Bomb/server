@@ -4,9 +4,17 @@ import { EphemeralController } from "./ephemeral.controller";
 import { AttributeSourcesModule } from "src/attribute-sources/attribute-sources.module";
 import { ArtistManagerModule } from "src/artist-manager/artist-manager.module";
 import { ResourcesModule } from "src/resources/resources.module";
+import { TrackManagerModule } from "src/track-manager/track-manager.module";
+import { IdentifiersModule } from "src/identifiers/identifiers.module";
 
 @Module({
-	imports: [AttributeSourcesModule, ArtistManagerModule, ResourcesModule],
+	imports: [
+		AttributeSourcesModule,
+		ArtistManagerModule,
+		ResourcesModule,
+		TrackManagerModule,
+		IdentifiersModule,
+	],
 	controllers: [EphemeralController],
 	providers: [EphemeralService],
 	exports: [EphemeralService],
