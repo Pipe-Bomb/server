@@ -188,7 +188,16 @@ export class AudioCacheService {
 				await mkdir(fileDir, {
 					recursive: true,
 				});
-				await rename(tempFile, filePath);
+				try {
+					await rename(tempFile, filePath);
+				} catch (e) {
+					if ("code" in e && e.code == "EXDEV") {
+						await copyFile(tempFile, filePath);
+						await unlink(tempFile);
+					} else {
+						throw e;
+					}
+				}
 				return true;
 			}
 		} catch (e) {
