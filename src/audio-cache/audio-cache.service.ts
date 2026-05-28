@@ -4,7 +4,7 @@ import FFmpeg from "fluent-ffmpeg";
 import { createHash, randomUUID } from "crypto";
 import path from "path";
 import { createReadStream, createWriteStream, existsSync } from "fs";
-import { mkdir, rename, rm, stat } from "fs/promises";
+import { mkdir, rm, stat } from "fs/promises";
 import Mime from "mime";
 import { finished } from "stream/promises";
 import { TasksService } from "src/tasks/tasks.service";
@@ -14,6 +14,7 @@ import { StreamStreamInstance } from "src/streaming-core/stream-instance/stream.
 import { HLSStreamInstance } from "src/streaming-core/stream-instance/hls.stream-instance";
 import { AudioProducer, AudioProducerType, LibraryHandler } from "@sdk";
 import { parseStream } from "music-metadata";
+import { rename } from "fs-extra";
 
 @Injectable()
 export class AudioCacheService {
