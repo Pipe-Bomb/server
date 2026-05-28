@@ -10,6 +10,7 @@ import { AttributeSourcesModule } from "src/attribute-sources/attribute-sources.
 import { TrackManagerModule } from "src/track-manager/track-manager.module";
 import { LibrariesModule } from "src/libraries/libraries.module";
 import { EphemeralModule } from "src/ephemeral/ephemeral.module";
+import { AlbumManagerModule } from "src/album-manager/album-manager.module";
 
 @Module({
 	imports: [
@@ -20,6 +21,7 @@ import { EphemeralModule } from "src/ephemeral/ephemeral.module";
 		TrackManagerModule,
 		LibrariesModule,
 		EphemeralModule,
+		AlbumManagerModule,
 	],
 	controllers: [PlaylistsController],
 	providers: [PlaylistsService],

@@ -39,6 +39,7 @@ import { NewPlaylistTrackDto } from "./dto/new-playlist-track.dto";
 import { LibrariesService } from "src/libraries/libraries.service";
 import { EphemeralService } from "src/ephemeral/ephemeral.service";
 import { TrackCreationSessionResponse } from "src/ephemeral/response/track-creation-session.response";
+import { AlbumManagerService } from "src/album-manager/album-manager.service";
 
 @Controller("playlists")
 export class PlaylistsController {
@@ -50,6 +51,7 @@ export class PlaylistsController {
 		private readonly trackManagerService: TrackManagerService,
 		private readonly librariesService: LibrariesService,
 		private readonly ephemeralService: EphemeralService,
+		private readonly albumManagerService: AlbumManagerService,
 	) {}
 
 	@Put()
@@ -137,15 +139,74 @@ export class PlaylistsController {
 			throw new ForbiddenException();
 		}
 
-		const tracks = await this.librariesService.resolveTracks(dto.tracks);
-
+		const tracks: (DBTrack | null)[] = [];
 		const missingTracks: (NewPlaylistTrackDto & { index: number })[] = [];
-		for (const [index, track] of tracks.entries()) {
-			if (!track) {
-				missingTracks.push({
-					...dto.tracks[index],
-					index,
-				});
+
+		const resolveTracks = async (toLookup: NewPlaylistTrackDto[]) => {
+			const resolved = await this.librariesService.resolveTracks(toLookup);
+			const offset = tracks.length;
+			tracks.push(...resolved);
+
+			for (const [index, track] of resolved.entries()) {
+				if (!track) {
+					missingTracks.push({
+						...toLookup[index],
+						index: index + offset,
+					});
+				}
+			}
+		};
+
+		if (dto.tracks?.length) {
+			await resolveTracks(dto.tracks);
+		}
+
+		if (dto.albums?.length) {
+			for (const albumInfo of dto.albums) {
+				if (albumInfo.uuid) {
+					const album = await this.albumManagerService.findOne(albumInfo.uuid, {
+						withTracks: true,
+					});
+					if (!album) {
+						throw new NotFoundException("Album not found");
+					}
+					if (album.tracks) {
+						tracks.push(...album.tracks.map(({ track }) => track!));
+					}
+				} else if (
+					albumInfo.pluginId &&
+					albumInfo.identityId &&
+					albumInfo.identity
+				) {
+					const ephemeralSource =
+						this.ephemeralService.getEphemeralSourceByAlbumIdentity(
+							albumInfo.pluginId,
+							albumInfo.identityId,
+						);
+					if (!ephemeralSource) {
+						throw new NotFoundException("Ephemeral Album not found");
+					}
+					const content = await ephemeralSource.source.resolveAlbumContent(
+						albumInfo.identityId,
+						albumInfo.identity,
+					);
+					if (!content) {
+						throw new NotFoundException("Ephemeral Album not found");
+					}
+					if (content.tracks?.length) {
+						await resolveTracks(
+							content.tracks.map((track) => ({
+								pluginId: ephemeralSource.plugin.package.name,
+								libraryId: ephemeralSource.source.getLibraryHandler().id,
+								trackId: track.id,
+							})),
+						);
+					}
+				} else {
+					throw new BadRequestException(
+						"Album had no identifiable information",
+					);
+				}
 			}
 		}
 
