@@ -34,7 +34,6 @@ import {
 import { AddPlaylistTracksDto } from "./dto/add-playlist-tracks.dto";
 import { DBTrack } from "src/tracks/entities/track.entity";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
-import { In } from "typeorm";
 import { NewPlaylistTrackDto } from "./dto/new-playlist-track.dto";
 import { LibrariesService } from "src/libraries/libraries.service";
 import { EphemeralService } from "src/ephemeral/ephemeral.service";

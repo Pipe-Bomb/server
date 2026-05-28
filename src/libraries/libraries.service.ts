@@ -586,13 +586,26 @@ export class LibrariesService {
 
 		const output: (DBTrack | null)[] = Array(trackIds.length).fill(null);
 
-		const tracks = await this.trackManagerService.find({
-			where: trackIds.map(({ pluginId, libraryId, trackId }) => ({
-				pluginId,
-				libraryId,
-				trackId,
-			})),
-		});
+		const chunks: TrackId[][] = [];
+		for (const [index, trackId] of trackIds.entries()) {
+			if (chunks.length <= index) {
+				chunks[index] = [trackId];
+			} else {
+				chunks[index].push(trackId);
+			}
+		}
+
+		const tracks: DBTrack[] = [];
+		for (const chunk of chunks) {
+			const trackChunk = await this.trackManagerService.find({
+				where: chunk.map(({ pluginId, libraryId, trackId }) => ({
+					pluginId,
+					libraryId,
+					trackId,
+				})),
+			});
+			tracks.push(...trackChunk);
+		}
 
 		for (const track of tracks) {
 			const library = pluginMap.get(track.pluginId)?.get(track.libraryId);
