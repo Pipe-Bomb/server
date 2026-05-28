@@ -4,6 +4,6 @@ export interface TrackCreationSession {
 	uuid: string;
 	promise: Promise<(DBTrack | null)[]>;
 	started: number;
-	percent: number;
+	percent: number | null;
 	playlistUuids: string[];
 }

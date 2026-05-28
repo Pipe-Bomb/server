@@ -11,7 +11,10 @@ export class TrackCreationSessionResponse {
 	dateStarted: Date;
 
 	@ApiProperty({
-		type: Number,
+		minimum: 0,
+		maximum: 100,
+		nullable: true,
+		type: "number",
 	})
-	percent: number;
+	percent: number | null;
 }

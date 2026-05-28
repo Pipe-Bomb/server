@@ -858,7 +858,7 @@ export class EphemeralService {
 		const session: TrackCreationSession = {
 			uuid: sessionId,
 			started: Date.now(),
-			percent: 0,
+			percent: null,
 			playlistUuids: options.playlistUuids ?? [],
 			promise: new Promise<(DBTrack | null)[]>(async (resolve, reject) => {
 				try {
@@ -1068,7 +1068,8 @@ export class EphemeralService {
 		return {
 			uuid: session.uuid,
 			dateStarted: new Date(session.started),
-			percent: Math.min(session.percent * 100, 100),
+			percent:
+				session.percent === null ? null : Math.min(session.percent * 100, 100),
 		};
 	}
 }
