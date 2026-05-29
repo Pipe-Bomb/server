@@ -89,34 +89,104 @@ export class PlaylistsService {
 			withTrackAttributes?: boolean;
 			withTrackArtists?: boolean;
 			withOwner?: boolean;
+			withTrackCount?: number;
 		} = {},
 	) {
-		return this.playlistsRepository.findOne({
+		const playlist = await this.playlistsRepository.findOne({
 			where: {
 				uuid,
 			},
 			relations: {
 				attributes: options.withAttributes,
-				tracks: !!options.withTracks && {
-					track: {
-						artists: !!options.withTrackArtists && {
-							artist: {
-								attributes: true,
-							},
-						},
-						attributes: options.withTrackAttributes,
-					},
-				},
 				owner: options.withOwner,
 			},
-			order:
-				(!!options.withTracks && {
-					tracks: {
+		});
+
+		if (!playlist) {
+			return null;
+		}
+
+		if (options.withTracks) {
+			const [topTracks, trackCount] =
+				await this.playlistTracksRepository.findAndCount({
+					where: {
+						playlistUuid: playlist.uuid,
+					},
+					relations: {
+						track: {
+							artists: !!options.withTrackArtists && {
+								artist: {
+									attributes: true,
+								},
+							},
+							attributes: options.withTrackAttributes,
+						},
+					},
+					order: {
 						dateAdded: "asc",
 						ordinal: "asc",
 					},
-				}) ||
-				undefined,
+					take: 50,
+				});
+
+			playlist.tracks = topTracks;
+
+			return {
+				playlist,
+				trackCount,
+			};
+		}
+
+		return {
+			playlist,
+			trackCount: null,
+		};
+	}
+
+	findAllTracks(playlist: DBPlaylist) {
+		return this.playlistTracksRepository.find({
+			where: {
+				playlistUuid: playlist.uuid,
+			},
+			relations: {
+				track: true,
+			},
+			order: {
+				dateAdded: "asc",
+				ordinal: "asc",
+			},
+		});
+	}
+
+	findTracks(
+		playlist: DBPlaylist,
+		options: {
+			offset: number;
+			amount: number;
+			withTrackAttributes?: boolean;
+			withTrackArtists?: boolean;
+		},
+	) {
+		return this.playlistTracksRepository.find({
+			where: {
+				playlistUuid: playlist.uuid,
+			},
+			relations: {
+				track: {
+					artists: !!options.withTrackArtists && {
+						artist: {
+							attributes: true,
+						},
+					},
+					attributes: options.withTrackAttributes,
+				},
+			},
+			order: {
+				dateAdded: "asc",
+				ordinal: "asc",
+			},
+			take: options.amount,
+			skip: options.offset,
 		});
 	}
 

@@ -1,19 +1,19 @@
 import { Type } from "class-transformer";
 import { IsArray, ValidateIf, ValidateNested } from "class-validator";
-import { NewPlaylistTrackDto } from "./new-playlist-track.dto";
 import { ApiProperty } from "@nestjs/swagger";
 import { NewPlaylistAlbumDto } from "./new-playlist-album.dto";
+import { TrackIdDto } from "src/tracks/dto/track-id.dto";
 
 export class AddPlaylistTracksDto {
 	@ValidateIf((_, value) => value !== null)
 	@IsArray()
-	@Type(() => NewPlaylistTrackDto)
+	@Type(() => TrackIdDto)
 	@ValidateNested({ each: true })
 	@ApiProperty({
-		type: [NewPlaylistTrackDto],
+		type: [TrackIdDto],
 		nullable: true,
 	})
-	tracks: NewPlaylistTrackDto[] | null;
+	tracks: TrackIdDto[] | null;
 
 	@ValidateIf((_, value) => value !== null)
 	@IsArray()

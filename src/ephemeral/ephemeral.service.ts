@@ -682,7 +682,7 @@ export class EphemeralService {
 		artists: TrackArtistResponse[] | null,
 	): EphemeralTrackResponse {
 		return {
-			id: track.id,
+			trackId: track.id,
 			title: track.title,
 			pluginId: source.plugin.package.name,
 			libraryId: source.source.getLibraryHandler().id,

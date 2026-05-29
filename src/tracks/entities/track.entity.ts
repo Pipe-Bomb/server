@@ -121,7 +121,7 @@ export class DBTrack {
 		}
 
 		return {
-			id: this.trackId,
+			trackId: this.trackId,
 			pluginId: this.pluginId,
 			libraryId: this.libraryId,
 			title: this.title,

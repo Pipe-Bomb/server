@@ -27,7 +27,7 @@ export class EphemeralTrackResponse {
 	@ApiProperty({
 		type: String,
 	})
-	id: string;
+	trackId: string;
 
 	@ApiProperty({
 		type: String,

@@ -29,7 +29,7 @@ export class TrackResponse {
 	@ApiProperty({
 		type: String,
 	})
-	id: string;
+	trackId: string;
 
 	@ApiProperty({
 		type: String,

@@ -11,9 +11,9 @@ import {
 	NotFoundException,
 	Param,
 	Patch,
+	Post,
 	Put,
 	UseGuards,
-	UseInterceptors,
 } from "@nestjs/common";
 import { PlaylistsService } from "./playlists.service";
 import { CreatePlaylistDto } from "./dto/create-playlist.dto";
@@ -34,11 +34,14 @@ import {
 import { AddPlaylistTracksDto } from "./dto/add-playlist-tracks.dto";
 import { DBTrack } from "src/tracks/entities/track.entity";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
-import { NewPlaylistTrackDto } from "./dto/new-playlist-track.dto";
 import { LibrariesService } from "src/libraries/libraries.service";
 import { EphemeralService } from "src/ephemeral/ephemeral.service";
 import { TrackCreationSessionResponse } from "src/ephemeral/response/track-creation-session.response";
 import { AlbumManagerService } from "src/album-manager/album-manager.service";
+import { PlaylistTracksQuery } from "./dto/playlist-tracks-query.dto";
+import { PlaylistTrackResponse } from "./response/playlist-track.response";
+import { TrackIdDto } from "src/tracks/dto/track-id.dto";
+import { TrackResponse } from "src/tracks/response/track.response";
 
 @Controller("playlists")
 export class PlaylistsController {
@@ -97,22 +100,85 @@ export class PlaylistsController {
 		@Param("uuid") uuid: string,
 		@ReqUser(FetchUserPipe) user: DBUser,
 	): Promise<PlaylistResponse> {
-		const playlist = await this.playlistsService.findByUuid(uuid, {
+		const playlistInfo = await this.playlistsService.findByUuid(uuid, {
 			withAttributes: true,
 			withTracks: true,
 			withTrackArtists: true,
 			withTrackAttributes: true,
 			withOwner: true,
 		});
-
-		if (!playlist) {
+		if (!playlistInfo) {
 			throw new NotFoundException("Playlist not found");
 		}
+		const { playlist, trackCount } = playlistInfo;
+
 		if (playlist.ownerUuid != user.uuid) {
 			throw new ForbiddenException();
 		}
 
-		return playlist.toResponse();
+		return playlist.toResponse(trackCount);
+	}
+
+	@Get(":uuid/all")
+	@ApiOperation({ operationId: "getAllPlaylistTrackIds" })
+	@UseGuards(AuthGuard)
+	@ApiOkResponse({
+		type: [PlaylistTrackResponse],
+	})
+	@ApiForbiddenResponse()
+	@ApiNotFoundResponse()
+	@ApiUnauthorizedResponse()
+	async getAllPlaylistTrackIds(
+		@Param("uuid") uuid: string,
+		@ReqUser(FetchUserPipe) user: DBUser,
+	) {
+		const playlistInfo = await this.playlistsService.findByUuid(uuid);
+		if (!playlistInfo) {
+			throw new NotFoundException("Playlist not found");
+		}
+		const { playlist } = playlistInfo;
+
+		if (playlist.ownerUuid != user.uuid) {
+			throw new ForbiddenException();
+		}
+
+		const tracks = await this.playlistsService.findAllTracks(playlist);
+		return tracks.map((track) => track.toResponse());
+	}
+
+	@Post(":uuid")
+	@ApiOperation({ operationId: "getPlaylistTracks" })
+	@UseGuards(AuthGuard)
+	@ApiOkResponse({
+		type: [PlaylistTrackResponse],
+	})
+	@ApiForbiddenResponse()
+	@ApiNotFoundResponse()
+	@ApiUnauthorizedResponse()
+	@HttpCode(HttpStatus.OK)
+	async getPlaylistTracks(
+		@Param("uuid") uuid: string,
+		@ReqUser(FetchUserPipe) user: DBUser,
+		@Body() dto: PlaylistTracksQuery,
+	): Promise<PlaylistTrackResponse[]> {
+		const playlistInfo = await this.playlistsService.findByUuid(uuid);
+		if (!playlistInfo) {
+			throw new NotFoundException("Playlist not found");
+		}
+		const { playlist } = playlistInfo;
+
+		if (playlist.ownerUuid != user.uuid) {
+			throw new ForbiddenException();
+		}
+
+		const tracks = await this.playlistsService.findTracks(playlist, {
+			offset: dto.offset,
+			amount: dto.amount,
+			withTrackArtists: true,
+			withTrackAttributes: true,
+		});
+
+		return tracks.map((track) => track.toResponse()).filter((track) => !!track);
 	}
 
 	@Patch(":uuid/add")
@@ -129,19 +195,20 @@ export class PlaylistsController {
 		@ReqUser(FetchUserPipe) user: DBUser,
 		@Body() dto: AddPlaylistTracksDto,
 	): Promise<PlaylistResponse> {
-		const playlist = await this.playlistsService.findByUuid(uuid);
-
-		if (!playlist) {
+		const playlistInfo = await this.playlistsService.findByUuid(uuid);
+		if (!playlistInfo) {
 			throw new NotFoundException("Playlist not found");
 		}
+		const { playlist } = playlistInfo;
+
 		if (playlist.ownerUuid != user.uuid) {
 			throw new ForbiddenException();
 		}
 
 		const tracks: (DBTrack | null)[] = [];
-		const missingTracks: (NewPlaylistTrackDto & { index: number })[] = [];
+		const missingTracks: (TrackIdDto & { index: number })[] = [];
 
-		const resolveTracks = async (toLookup: NewPlaylistTrackDto[]) => {
+		const resolveTracks = async (toLookup: TrackIdDto[]) => {
 			const resolved = await this.librariesService.resolveTracks(toLookup);
 			const offset = tracks.length;
 			tracks.push(...resolved);
@@ -251,11 +318,12 @@ export class PlaylistsController {
 		@Param("uuid") uuid: string,
 		@ReqUser(FetchUserPipe) user: DBUser,
 	) {
-		const playlist = await this.playlistsService.findByUuid(uuid);
-
-		if (!playlist) {
+		const playlistInfo = await this.playlistsService.findByUuid(uuid);
+		if (!playlistInfo) {
 			throw new NotFoundException("Playlist not found");
 		}
+		const { playlist } = playlistInfo;
+
 		if (playlist.ownerUuid != user.uuid) {
 			throw new ForbiddenException();
 		}
@@ -276,11 +344,12 @@ export class PlaylistsController {
 		@Param("uuid") uuid: string,
 		@ReqUser(FetchUserPipe) user: DBUser,
 	): Promise<TrackCreationSessionResponse[]> {
-		const playlist = await this.playlistsService.findByUuid(uuid);
-
-		if (!playlist) {
+		const playlistInfo = await this.playlistsService.findByUuid(uuid);
+		if (!playlistInfo) {
 			throw new NotFoundException("Playlist not found");
 		}
+		const { playlist } = playlistInfo;
+
 		if (playlist.ownerUuid != user.uuid) {
 			throw new ForbiddenException();
 		}

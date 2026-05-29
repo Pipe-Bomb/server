@@ -1,4 +1,11 @@
-import { Controller, Get, NotFoundException, Param } from "@nestjs/common";
+import {
+	Body,
+	Controller,
+	Get,
+	NotFoundException,
+	Param,
+	Post,
+} from "@nestjs/common";
 import { TracksService } from "./tracks.service";
 import {
 	ApiNotFoundResponse,
@@ -13,6 +20,7 @@ import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { AudioSessionsService } from "src/audio-sessions/audio-sessions.service";
 import { StreamInstanceResponse } from "src/streaming-core/response/session.response";
 import { ExternalUrlResponse } from "src/external-urls/response/external-url.response";
+import { TrackIdsDto } from "./dto/track-ids.dto";
 
 @Controller("tracks")
 export class TracksController {
@@ -57,6 +65,37 @@ export class TracksController {
 			},
 		});
 		return track?.toResponse() ?? null;
+	}
+
+	@Post()
+	@ApiOperation({ operationId: "getTracks" })
+	@ApiOkResponse({
+		type: [TrackResponse],
+	})
+	async findMany(@Body() dto: TrackIdsDto) {
+		const tracks = await this.trackManagerService.find({
+			where: dto.tracks.map(({ pluginId, libraryId, trackId }) => ({
+				pluginId,
+				libraryId,
+				trackId,
+			})),
+			relations: {
+				attributes: true,
+				identities: true,
+				artists: {
+					artist: {
+						attributes: true,
+					},
+				},
+				albums: {
+					album: {
+						attributes: true,
+					},
+				},
+			},
+		});
+
+		return tracks.map((track) => track.toResponse());
 	}
 
 	@Get(":pluginId/:libraryId/:trackId/identities")

@@ -40,7 +40,7 @@ export class DBPlaylist {
 	@OneToMany(() => DBPlaylistTrack, (track) => track.playlist)
 	tracks?: DBPlaylistTrack[];
 
-	toResponse(): PlaylistResponse {
+	toResponse(trackCount?: number | null): PlaylistResponse {
 		return {
 			uuid: this.uuid,
 			ownerUuid: this.ownerUuid,
@@ -50,6 +50,7 @@ export class DBPlaylist {
 				this.tracks
 					?.map((track) => track.toResponse())
 					.filter((track) => !!track) ?? null,
+			trackCount: trackCount ?? null,
 		};
 	}
 }

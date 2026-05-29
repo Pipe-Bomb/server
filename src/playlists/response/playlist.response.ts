@@ -48,4 +48,10 @@ export class PlaylistResponse {
 		nullable: true,
 	})
 	tracks: PlaylistTrackResponse[] | null;
+
+	@ApiProperty({
+		type: "integer",
+		nullable: true,
+	})
+	trackCount: number | null;
 }
