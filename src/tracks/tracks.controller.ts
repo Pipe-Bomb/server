@@ -21,6 +21,7 @@ import { AudioSessionsService } from "src/audio-sessions/audio-sessions.service"
 import { StreamInstanceResponse } from "src/streaming-core/response/session.response";
 import { ExternalUrlResponse } from "src/external-urls/response/external-url.response";
 import { TrackIdsDto } from "./dto/track-ids.dto";
+import { EphemeralService } from "src/ephemeral/ephemeral.service";
 
 @Controller("tracks")
 export class TracksController {
@@ -30,6 +31,7 @@ export class TracksController {
 		private readonly librariesService: LibrariesService,
 		private readonly identifiersService: IdentifiersService,
 		private readonly audioSessionsService: AudioSessionsService,
+		private readonly ephemeralService: EphemeralService,
 	) {}
 
 	@Get(":pluginId/:libraryId/:trackId")
@@ -64,7 +66,11 @@ export class TracksController {
 				},
 			},
 		});
-		return track?.toResponse() ?? null;
+		if (track) {
+			return track.toResponse();
+		}
+
+		throw new NotFoundException("Track not found");
 	}
 
 	@Post()

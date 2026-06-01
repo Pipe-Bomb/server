@@ -8,6 +8,7 @@ import { LibrariesModule } from "src/libraries/libraries.module";
 import { TrackManagerModule } from "src/track-manager/track-manager.module";
 import { AudioSessionsModule } from "src/audio-sessions/audio-sessions.module";
 import { ExternalUrlsModule } from "src/external-urls/external-urls.module";
+import { EphemeralModule } from "src/ephemeral/ephemeral.module";
 
 @Module({
 	imports: [
@@ -17,6 +18,7 @@ import { ExternalUrlsModule } from "src/external-urls/external-urls.module";
 		TrackManagerModule,
 		AudioSessionsModule,
 		ExternalUrlsModule,
+		EphemeralModule,
 	],
 	controllers: [TracksController],
 	providers: [TracksService],

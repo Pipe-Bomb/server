@@ -385,10 +385,10 @@ export class EphemeralService {
 
 		return {
 			uuid: null,
-			artists: artists.map((artist) => ({
+			artists: artists.map((artist, index) => ({
 				artist,
 				artistUuid: artist.uuid,
-				joinPhrase: null, // todo: support join phrase
+				joinPhrase: album.artists?.[index].joinPhrase ?? null,
 			})),
 			attributes: attributeSource
 				? this.createEphemeralAttributes(
