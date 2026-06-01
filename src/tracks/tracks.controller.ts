@@ -22,6 +22,7 @@ import { StreamInstanceResponse } from "src/streaming-core/response/session.resp
 import { ExternalUrlResponse } from "src/external-urls/response/external-url.response";
 import { TrackIdsDto } from "./dto/track-ids.dto";
 import { EphemeralService } from "src/ephemeral/ephemeral.service";
+import { EphemeralTrackResponse } from "src/ephemeral/response/ephemeral-track.response";
 
 @Controller("tracks")
 export class TracksController {
@@ -44,7 +45,7 @@ export class TracksController {
 		@Param("pluginId") pluginId: string,
 		@Param("libraryId") libraryId: string,
 		@Param("trackId") trackId: string,
-	) {
+	): Promise<TrackResponse | EphemeralTrackResponse> {
 		const track = await this.trackManagerService.findOne({
 			where: {
 				pluginId,
@@ -70,7 +71,32 @@ export class TracksController {
 			return track.toResponse();
 		}
 
-		throw new NotFoundException("Track not found");
+		const ephemeralSource = this.ephemeralService.find(pluginId, libraryId);
+		if (!ephemeralSource) {
+			throw new NotFoundException("Track not found");
+		}
+
+		const resolvedTracks = await ephemeralSource.source.resolveTracks([
+			trackId,
+		]);
+		if (!resolvedTracks.length) {
+			throw new NotFoundException("Track not found");
+		}
+
+		const attributeSource = this.ephemeralService.getAttributeSource(
+			ephemeralSource.source,
+		);
+
+		const trackResponses = await this.ephemeralService.toTracksResponse(
+			[resolvedTracks[0]],
+			ephemeralSource,
+			attributeSource,
+		);
+
+		if (!trackResponses.length) {
+			throw new NotFoundException("Track not found");
+		}
+		return trackResponses[0];
 	}
 
 	@Post()
@@ -172,7 +198,7 @@ export class TracksController {
 			},
 		});
 		if (!track) {
-			throw new NotFoundException("Track not found");
+			return [];
 		}
 
 		return this.tracksService.getExternalUrls(track);

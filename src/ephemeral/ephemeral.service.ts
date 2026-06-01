@@ -256,6 +256,10 @@ export class EphemeralService {
 		return identifiers;
 	}
 
+	getAttributeSource(ephemeralSource: EphemeralSource) {
+		return this.attributeSources.get(ephemeralSource) ?? null;
+	}
+
 	async getEphemeralArtistContent(
 		source: LoadedEphemeralSource,
 		identityId: string,
@@ -270,7 +274,7 @@ export class EphemeralService {
 			return null;
 		}
 
-		const attributeSource = this.attributeSources.get(source.source) ?? null;
+		const attributeSource = this.getAttributeSource(source.source);
 
 		let tracks: EphemeralTrackResponse[] | null = null;
 		if (content.tracks) {
@@ -759,6 +763,8 @@ export class EphemeralService {
 							),
 						];
 					}
+					newAttribute.pluginId = attributeSource.plugin.package.name;
+					newAttribute.sourceId = attributeSource.source.id;
 					attributeRecord[attribute.key] = newAttribute;
 				}
 			}
