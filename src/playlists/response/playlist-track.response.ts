@@ -16,9 +16,8 @@ export class PlaylistTrackResponse {
 
 	@ApiProperty({
 		type: "boolean",
-		nullable: true,
 	})
-	addedBySystem: boolean | null;
+	addedBySystem: boolean;
 
 	@ApiProperty({
 		type: () => UserResponse,
