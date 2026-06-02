@@ -10,7 +10,7 @@ export class UserResponse {
 	username: string;
 
 	@ApiProperty({
-		type: [PlaylistResponse],
+		type: () => [PlaylistResponse],
 		nullable: true,
 	})
 	playlists: PlaylistResponse[] | null;
