@@ -41,7 +41,6 @@ import { AlbumManagerService } from "src/album-manager/album-manager.service";
 import { PlaylistTracksQuery } from "./dto/playlist-tracks-query.dto";
 import { PlaylistTrackResponse } from "./response/playlist-track.response";
 import { TrackIdDto } from "src/tracks/dto/track-id.dto";
-import { TrackResponse } from "src/tracks/response/track.response";
 
 @Controller("playlists")
 export class PlaylistsController {
@@ -105,6 +104,7 @@ export class PlaylistsController {
 			withTracks: true,
 			withTrackArtists: true,
 			withTrackAttributes: true,
+			withTrackUsers: true,
 			withOwner: true,
 		});
 		if (!playlistInfo) {
@@ -176,6 +176,7 @@ export class PlaylistsController {
 			amount: dto.amount,
 			withTrackArtists: true,
 			withTrackAttributes: true,
+			withTrackUsers: true,
 		});
 
 		return tracks.map((track) => track.toResponse()).filter((track) => !!track);

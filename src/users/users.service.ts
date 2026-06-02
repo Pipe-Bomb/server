@@ -116,9 +116,20 @@ export class UsersService {
 		}
 	}
 
-	findOne(uuid: string) {
-		return this.usersRepository.findOneBy({
-			uuid,
+	findOne(
+		uuid: string,
+		options: {
+			withPlaylists?: boolean;
+			withPlaylistAttributes?: boolean;
+		} = {},
+	) {
+		return this.usersRepository.findOne({
+			where: { uuid },
+			relations: {
+				playlists: !!options.withPlaylists && {
+					attributes: options.withPlaylistAttributes,
+				},
+			},
 		});
 	}
 }

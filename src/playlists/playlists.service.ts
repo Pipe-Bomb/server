@@ -4,10 +4,7 @@ import { DBPlaylist } from "./entity/playlist.entity";
 import { Repository } from "typeorm";
 import { DBPlaylistTrack } from "./entity/playlist-track.entity";
 import { DBUser } from "src/users/entity/user.entity";
-import {
-	ContainedCustomAttributeDto,
-	CustomAttributeDto,
-} from "src/attributes/dto/custom-attribute.dto";
+import { ContainedCustomAttributeDto } from "src/attributes/dto/custom-attribute.dto";
 import { DBPlaylistAttribute } from "src/attributes/entities/playlist-attribute.entity";
 import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
 import { DBTrack } from "src/tracks/entities/track.entity";
@@ -88,6 +85,7 @@ export class PlaylistsService {
 			withTracks?: boolean;
 			withTrackAttributes?: boolean;
 			withTrackArtists?: boolean;
+			withTrackUsers?: boolean;
 			withOwner?: boolean;
 			withTrackCount?: number;
 		} = {},
@@ -121,6 +119,7 @@ export class PlaylistsService {
 							},
 							attributes: options.withTrackAttributes,
 						},
+						addedBy: options.withTrackUsers,
 					},
 					order: {
 						dateAdded: "asc",
@@ -165,6 +164,7 @@ export class PlaylistsService {
 			amount: number;
 			withTrackAttributes?: boolean;
 			withTrackArtists?: boolean;
+			withTrackUsers?: boolean;
 		},
 	) {
 		return this.playlistTracksRepository.find({
@@ -180,6 +180,7 @@ export class PlaylistsService {
 					},
 					attributes: options.withTrackAttributes,
 				},
+				addedBy: options.withTrackUsers,
 			},
 			order: {
 				dateAdded: "asc",

@@ -32,7 +32,7 @@ export class PlaylistResponse {
 	ownerUuid: string;
 
 	@ApiProperty({
-		type: UserResponse,
+		type: () => UserResponse,
 		nullable: true,
 	})
 	owner: UserResponse | null;

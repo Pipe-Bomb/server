@@ -19,11 +19,17 @@
 	"contextmenu.tracklist.change-columns": "Change Columns",
 
 	"contextmenu.playlist.delete": "Delete Playlist",
+	"contextmenu.playlist.rename": "Rename",
+	"contextmenu.playlist.change-thumbnail": "Change Thumbnail",
 
 	"login.title.login": "Log In",
 	"login.title.signup": "Create Account",
 	"login.switch.login": "Switch to Log In",
 	"login.switch.signup": "Switch to Sign Up",
 	"login.action.login": "Log In",
-	"login.action.signup": "Sign Up"
+	"login.action.signup": "Sign Up",
+
+	"attribute.playlist_track_date_added.name": "Date Added",
+	"attribute.playlist_track_added_by.name": "Added By",
+	"attribute.playlist_track_added_by.system": "SYSTEM"
 }

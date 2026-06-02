@@ -1,5 +1,12 @@
-import { Column, Entity, Index, PrimaryGeneratedColumn } from "typeorm";
+import {
+	Column,
+	Entity,
+	Index,
+	OneToMany,
+	PrimaryGeneratedColumn,
+} from "typeorm";
 import { UserResponse } from "../response/user.response";
+import { DBPlaylist } from "src/playlists/entity/playlist.entity";
 
 @Entity("users")
 export class DBUser {
@@ -24,10 +31,15 @@ export class DBUser {
 	})
 	passwordSalt: string;
 
+	@OneToMany(() => DBPlaylist, (playlist) => playlist.owner)
+	playlists?: DBPlaylist[];
+
 	toResponse(): UserResponse {
 		return {
 			uuid: this.uuid,
 			username: this.username,
+			playlists:
+				this.playlists?.map((playlist) => playlist.toResponse()) ?? null,
 		};
 	}
 }

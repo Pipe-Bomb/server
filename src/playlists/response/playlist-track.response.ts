@@ -1,5 +1,6 @@
 import { ApiProperty, ApiSchema } from "@nestjs/swagger";
 import { TrackResponse } from "src/tracks/response/track.response";
+import { UserResponse } from "src/users/response/user.response";
 
 @ApiSchema({ name: "PlaylistTrack" })
 export class PlaylistTrackResponse {
@@ -12,4 +13,16 @@ export class PlaylistTrackResponse {
 		type: Date,
 	})
 	dateAdded: Date;
+
+	@ApiProperty({
+		type: "boolean",
+		nullable: true,
+	})
+	addedBySystem: boolean | null;
+
+	@ApiProperty({
+		type: UserResponse,
+		nullable: true,
+	})
+	addedBy: UserResponse | null;
 }

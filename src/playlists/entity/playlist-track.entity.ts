@@ -43,7 +43,7 @@ export class DBPlaylistTrack {
 	addedByUuid: string | null;
 
 	@ManyToOne(() => DBUser)
-	@JoinColumn({ name: "addedBy" })
+	@JoinColumn({ name: "addedByUuid" })
 	addedBy?: DBUser | null;
 
 	@ManyToOne(() => DBPlaylist, (playlist) => playlist.tracks, {
@@ -64,6 +64,8 @@ export class DBPlaylistTrack {
 		return {
 			track: this.track.toResponse(),
 			dateAdded: new Date(this.dateAdded),
+			addedBySystem: !this.addedByUuid,
+			addedBy: this.addedBy?.toResponse() ?? null,
 		};
 	}
 }

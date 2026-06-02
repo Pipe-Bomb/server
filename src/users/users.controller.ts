@@ -4,6 +4,8 @@ import {
 	Get,
 	HttpCode,
 	HttpStatus,
+	NotFoundException,
+	Param,
 	Post,
 	Res,
 	UseGuards,
@@ -14,6 +16,7 @@ import {
 	ApiConflictResponse,
 	ApiCreatedResponse,
 	ApiNoContentResponse,
+	ApiNotFoundResponse,
 	ApiOkResponse,
 	ApiOperation,
 	ApiUnauthorizedResponse,
@@ -101,5 +104,22 @@ export class UsersController {
 			sameSite: "lax",
 			path: "/",
 		});
+	}
+
+	@Get(":uuid")
+	@ApiOperation({ operationId: "getUser" })
+	@ApiOkResponse({
+		type: UserResponse,
+	})
+	@ApiNotFoundResponse()
+	async getUser(@Param("uuid") uuid: string) {
+		const user = await this.usersService.findOne(uuid, {
+			withPlaylists: true,
+			withPlaylistAttributes: true,
+		});
+		if (!user) {
+			throw new NotFoundException("User not found");
+		}
+		return user.toResponse();
 	}
 }
