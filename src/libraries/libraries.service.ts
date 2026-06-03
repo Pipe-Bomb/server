@@ -244,13 +244,13 @@ export class LibrariesService {
 						return identities.map((identity) => ({
 							pluginId: identity.pluginId,
 							identifierId: identity.identifierId,
-							value: identities[0].identity,
+							identity: identities[0].identity,
 						}));
 					}
 					return {
 						pluginId: identities[0].pluginId,
 						identifierId: identities[0].identifierId,
-						value: identities[0].identity,
+						identity: identities[0].identity,
 					} as any;
 				},
 			};
