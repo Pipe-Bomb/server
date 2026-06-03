@@ -167,7 +167,7 @@ export class AlbumsService {
 					activeThreads--;
 					increasePool();
 
-					if (!activeThreads) {
+					if (!activeThreads && allChunksLoaded) {
 						resolve();
 					}
 					return;

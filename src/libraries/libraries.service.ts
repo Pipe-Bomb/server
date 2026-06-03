@@ -336,7 +336,7 @@ export class LibrariesService {
 					activeThreads--;
 					increaseTrackPool();
 
-					if (!activeThreads) {
+					if (!activeThreads && allChunksLoaded) {
 						resolve();
 					}
 					return;
@@ -494,7 +494,7 @@ export class LibrariesService {
 					activeThreads--;
 					increaseTrackPool();
 
-					if (!activeThreads) {
+					if (!activeThreads && allChunksLoaded) {
 						resolve();
 					}
 					return;

@@ -68,7 +68,7 @@ export class ArtistsService {
 					activeThreads--;
 					increasePool();
 
-					if (!activeThreads) {
+					if (!activeThreads && allChunksLoaded) {
 						resolve();
 					}
 					return;
