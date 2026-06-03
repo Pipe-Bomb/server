@@ -4,7 +4,7 @@ import FFmpeg from "fluent-ffmpeg";
 import { createHash, randomUUID } from "crypto";
 import path from "path";
 import { createReadStream, createWriteStream, existsSync } from "fs";
-import { mkdir, rm, stat, rename, copyFile, unlink } from "fs/promises";
+import { mkdir, rm, stat, rename, copyFile, unlink, lstat } from "fs/promises";
 import Mime from "mime";
 import { finished } from "stream/promises";
 import { TasksService } from "src/tasks/tasks.service";
@@ -134,12 +134,19 @@ export class AudioCacheService {
 				const output = createWriteStream(tempFile);
 				input.pipe(output);
 				await finished(output);
+				const stats = await lstat(tempFile);
+				if (!stats.size) {
+					this.logger.warn(
+						"Rejected a cached audio candidate because its size was 0",
+					);
+					return false;
+				}
 				await mkdir(fileDir, {
 					recursive: true,
 				});
 				try {
 					await rename(tempFile, filePath);
-				} catch (e) {
+				} catch (e: any) {
 					if ("code" in e && e.code == "EXDEV") {
 						await copyFile(tempFile, filePath);
 						await unlink(tempFile);
@@ -190,7 +197,7 @@ export class AudioCacheService {
 				});
 				try {
 					await rename(tempFile, filePath);
-				} catch (e) {
+				} catch (e: any) {
 					if ("code" in e && e.code == "EXDEV") {
 						await copyFile(tempFile, filePath);
 						await unlink(tempFile);
