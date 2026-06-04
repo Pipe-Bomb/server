@@ -69,38 +69,31 @@ export class TrackManagerService {
 		track: Track,
 		runId: string | null,
 	) {
-		const dbTrack = await this.tracksRepository.findOneBy({
-			pluginId: plugin.package.name,
-			libraryId: libraryHandler.id,
-			trackId: track.id,
-		});
-
-		if (dbTrack) {
-			if (runId) {
-				await this.tracksRepository.update(
-					{
-						pluginId: plugin.package.name,
-						libraryId: libraryHandler.id,
-						trackId: track.id,
-					},
-					{
-						lastScanRunId: runId,
-					},
-				);
-			}
-		} else {
-			const dbTrack = this.tracksRepository.create({
-				pluginId: plugin.package.name,
-				libraryId: libraryHandler.id,
-				trackId: track.id,
-				title: track.title,
-				lastScanRunId: runId,
-			});
-			await this.tracksRepository.insert(dbTrack);
-			this.logger.debug(
-				`Added new Track "${track.id}" in Library "${libraryHandler.id}" for Plugin "${plugin.package.name}"`,
+		if (runId) {
+			await this.tracksRepository.upsert(
+				{
+					pluginId: plugin.package.name,
+					libraryId: libraryHandler.id,
+					trackId: track.id,
+					title: track.title,
+					lastScanRunId: runId,
+				},
+				{
+					conflictPaths: ["pluginId", "libraryId", "trackId"],
+					skipUpdateIfNoValuesChanged: true,
+				},
 			);
-			return;
+		} else {
+			await this.tracksRepository.upsert(
+				{
+					pluginId: plugin.package.name,
+					libraryId: libraryHandler.id,
+					trackId: track.id,
+					title: track.title,
+					lastScanRunId: null,
+				},
+				["pluginId", "libraryId", "trackId"],
+			);
 		}
 	}
 
