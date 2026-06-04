@@ -33,7 +33,9 @@ export class DBIdentity {
 	})
 	ordinal: number;
 
-	@ManyToOne(() => DBTrack, (track) => track.identities)
+	@ManyToOne(() => DBTrack, (track) => track.identities, {
+		onDelete: "CASCADE",
+	})
 	@JoinColumn({ name: "trackUuid" })
 	track?: DBTrack;
 
