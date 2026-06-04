@@ -44,6 +44,12 @@ export class DBTrack {
 		type: "uuid",
 		nullable: true,
 	})
+	lastScanRunId: string | null;
+
+	@Column({
+		type: "uuid",
+		nullable: true,
+	})
 	lastIdentificationRunId: string | null;
 
 	@Column({

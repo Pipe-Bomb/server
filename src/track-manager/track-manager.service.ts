@@ -67,6 +67,7 @@ export class TrackManagerService {
 		plugin: LoadedPlugin,
 		libraryHandler: LibraryHandler,
 		track: Track,
+		runId: string | null,
 	) {
 		const dbTrack = await this.tracksRepository.findOneBy({
 			pluginId: plugin.package.name,
@@ -74,18 +75,51 @@ export class TrackManagerService {
 			trackId: track.id,
 		});
 
-		if (!dbTrack) {
+		if (dbTrack) {
+			if (runId) {
+				await this.tracksRepository.update(
+					{
+						pluginId: plugin.package.name,
+						libraryId: libraryHandler.id,
+						trackId: track.id,
+					},
+					{
+						lastScanRunId: runId,
+					},
+				);
+			}
+		} else {
 			const dbTrack = this.tracksRepository.create({
 				pluginId: plugin.package.name,
 				libraryId: libraryHandler.id,
 				trackId: track.id,
 				title: track.title,
+				lastScanRunId: runId,
 			});
 			await this.tracksRepository.insert(dbTrack);
 			this.logger.debug(
 				`Added new Track "${track.id}" in Library "${libraryHandler.id}" for Plugin "${plugin.package.name}"`,
 			);
 			return;
+		}
+	}
+
+	async removeTracks(
+		plugin: LoadedPlugin,
+		libraryHandler: LibraryHandler,
+		trackIds: string[],
+	) {
+		const chunks: string[][] = [];
+		for (let i = 0; i * 1000 < trackIds.length; i++) {
+			chunks.push(trackIds.slice(i * 1000, (i + 1) * 1000));
+		}
+
+		for (const chunk of chunks) {
+			await this.tracksRepository.delete({
+				pluginId: plugin.package.name,
+				libraryId: libraryHandler.id,
+				trackId: In(chunk),
+			});
 		}
 	}
 
