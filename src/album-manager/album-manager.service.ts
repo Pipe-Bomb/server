@@ -440,4 +440,85 @@ export class AlbumManagerService {
 			},
 		});
 	}
+
+	async cleanIdentities() {
+		const identifiers: { pluginId: string; identityId: string }[] =
+			this.trackIdentifiers.map((identifier) => ({
+				pluginId: identifier.pluginId,
+				identityId: identifier.sourceId,
+			}));
+		for (const [pluginId, entry] of this.identifiers) {
+			for (const identityId of entry.keys()) {
+				identifiers.push({ pluginId, identityId });
+			}
+		}
+
+		if (!identifiers.length) {
+			await this.identitiesRepository.deleteAll();
+			return;
+		}
+
+		const conditionStrings: string[] = [];
+		const queryParameters: Record<string, string> = {};
+
+		for (const [index, { pluginId, identityId }] of identifiers.entries()) {
+			const pluginKey = `p_${index}`;
+			const identifierKey = `i_${index}`;
+
+			conditionStrings.push(
+				`(pluginId = :${pluginKey} AND identifierId = :${identifierKey})`,
+			);
+
+			queryParameters[pluginKey] = pluginId;
+			queryParameters[identifierKey] = identityId;
+		}
+
+		await this.identitiesRepository
+			.createQueryBuilder()
+			.delete()
+			.from(DBAlbumIdentity)
+			.where(`NOT (${conditionStrings.join(" OR ")})`, queryParameters)
+			.execute();
+
+		await this.albumArtistsRepository
+			.createQueryBuilder()
+			.delete()
+			.from(DBAlbumArtist)
+			.where(`NOT (${conditionStrings.join(" OR ")})`, queryParameters)
+			.execute();
+	}
+
+	async removeOrphanedAlbums() {
+		const subQueryBuilder = this.albumsRepository.manager.createQueryBuilder();
+
+		const hasIdentities = subQueryBuilder
+			.subQuery()
+			.select("1")
+			.from(DBAlbumIdentity, "identity")
+			.where('identity."albumUuid" = "albums".uuid')
+			.getQuery();
+
+		const hasArtists = subQueryBuilder
+			.subQuery()
+			.select("1")
+			.from(DBAlbumArtist, "artist")
+			.where('artist."albumUuid" = "albums".uuid')
+			.getQuery();
+
+		const hasTracks = subQueryBuilder
+			.subQuery()
+			.select("1")
+			.from(DBAlbumTrack, "track")
+			.where('track."albumUuid" = "albums".uuid')
+			.getQuery();
+
+		await this.albumsRepository
+			.createQueryBuilder()
+			.delete()
+			.from(DBAlbum)
+			.where(
+				`NOT EXISTS ${hasIdentities} AND NOT EXISTS ${hasArtists} AND NOT EXISTS ${hasTracks}`,
+			)
+			.execute();
+	}
 }

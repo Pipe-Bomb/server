@@ -29,6 +29,7 @@ import { UsersModule } from "./users/users.module";
 import { SecretsModule } from "./secrets/secrets.module";
 import { ArtistManagerModule } from "./artist-manager/artist-manager.module";
 import { PlaylistsModule } from "./playlists/playlists.module";
+import { SystemTasksModule } from './system-tasks/system-tasks.module';
 import databaseConfig from "./config/database.config";
 
 @Module({
@@ -65,6 +66,7 @@ import databaseConfig from "./config/database.config";
 		SecretsModule,
 		ArtistManagerModule,
 		PlaylistsModule,
+		SystemTasksModule,
 	],
 	controllers: [AppController],
 	providers: [AppService],

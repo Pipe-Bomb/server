@@ -21,6 +21,7 @@ import { Repository, DataSource, In, FindOptionsWhere } from "typeorm";
 import { DBArtistIdentity } from "./entity/artist-identity.entity";
 import { DBArtist } from "./entity/artist.entity";
 import { DBTrackArtist } from "./entity/track-artist.entity";
+import { DBAlbumArtist } from "src/albums/entity/album-artist.entity";
 
 @Injectable()
 export class ArtistManagerService {
@@ -575,5 +576,86 @@ export class ArtistManagerService {
 		return this.externalUrlsService.getArtistUrls(
 			await this.getInformationHelper(artist),
 		);
+	}
+
+	async cleanIdentities() {
+		const identifiers: { pluginId: string; identityId: string }[] =
+			this.trackIdentifiers.map((identifier) => ({
+				pluginId: identifier.pluginId,
+				identityId: identifier.sourceId,
+			}));
+		for (const [pluginId, entry] of this.identifiers) {
+			for (const identityId of entry.keys()) {
+				identifiers.push({ pluginId, identityId });
+			}
+		}
+
+		if (!identifiers.length) {
+			await this.identitiesRepository.deleteAll();
+			return;
+		}
+
+		const conditionStrings: string[] = [];
+		const queryParameters: Record<string, string> = {};
+
+		for (const [index, { pluginId, identityId }] of identifiers.entries()) {
+			const pluginKey = `p_${index}`;
+			const identifierKey = `i_${index}`;
+
+			conditionStrings.push(
+				`(pluginId = :${pluginKey} AND identifierId = :${identifierKey})`,
+			);
+
+			queryParameters[pluginKey] = pluginId;
+			queryParameters[identifierKey] = identityId;
+		}
+
+		await this.identitiesRepository
+			.createQueryBuilder()
+			.delete()
+			.from(DBArtistIdentity)
+			.where(`NOT (${conditionStrings.join(" OR ")})`, queryParameters)
+			.execute();
+
+		await this.trackArtistsRepository
+			.createQueryBuilder()
+			.delete()
+			.from(DBTrackArtist)
+			.where(`NOT (${conditionStrings.join(" OR ")})`, queryParameters)
+			.execute();
+	}
+
+	async removeOrphanedArtists() {
+		const subQueryBuilder = this.artistsRepository.manager.createQueryBuilder();
+
+		const hasIdentities = subQueryBuilder
+			.subQuery()
+			.select("1")
+			.from(DBArtistIdentity, "identity")
+			.where('identity."artistUuid" = "artists".uuid')
+			.getQuery();
+
+		const hasTracks = subQueryBuilder
+			.subQuery()
+			.select("1")
+			.from(DBTrackArtist, "track")
+			.where('track."artistUuid" = "artists".uuid')
+			.getQuery();
+
+		const hasAlbums = subQueryBuilder
+			.subQuery()
+			.select("1")
+			.from(DBAlbumArtist, "album")
+			.where('album."artistUuid" = "artists".uuid')
+			.getQuery();
+
+		await this.artistsRepository
+			.createQueryBuilder()
+			.delete()
+			.from(DBArtist)
+			.where(
+				`NOT EXISTS ${hasIdentities} AND NOT EXISTS ${hasTracks} AND NOT EXISTS ${hasAlbums}`,
+			)
+			.execute();
 	}
 }

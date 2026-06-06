@@ -204,6 +204,42 @@ export class IdentifiersService {
 		});
 	}
 
+	async clean() {
+		const identifiers: { pluginId: string; identityId: string }[] = [];
+		for (const [pluginId, entry] of this.identifiers) {
+			for (const identityId of entry.keys()) {
+				identifiers.push({ pluginId, identityId });
+			}
+		}
+
+		if (!identifiers.length) {
+			await this.identitiesRepository.deleteAll();
+			return;
+		}
+
+		const conditionStrings: string[] = [];
+		const queryParameters: Record<string, string> = {};
+
+		for (const [index, { pluginId, identityId }] of identifiers.entries()) {
+			const pluginKey = `p_${index}`;
+			const identifierKey = `i_${index}`;
+
+			conditionStrings.push(
+				`(pluginId = :${pluginKey} AND identifierId = :${identifierKey})`,
+			);
+
+			queryParameters[pluginKey] = pluginId;
+			queryParameters[identifierKey] = identityId;
+		}
+
+		await this.identitiesRepository
+			.createQueryBuilder()
+			.delete()
+			.from(DBIdentity)
+			.where(`NOT (${conditionStrings.join(" OR ")})`, queryParameters)
+			.execute();
+	}
+
 	toResponse(
 		identifier: LoadedIdentifier<TrackIdentifier>,
 	): IdentifierResponse {
