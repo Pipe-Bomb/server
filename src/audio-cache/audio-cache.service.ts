@@ -114,7 +114,8 @@ export class AudioCacheService {
 		}
 
 		if (!producer.cacheable) {
-			throw new Error("Session's Audio Producer is not cacheable");
+			this.logger.debug("Session's Audio Producer is not cacheable");
+			return false;
 		}
 
 		const instance = this.streamingCoreService.createStreamInstance(producer);
