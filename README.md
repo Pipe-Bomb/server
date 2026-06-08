@@ -1,4 +1,7 @@
-# Pipe Bomb Server
+<h1>
+    <img src="https://raw.githubusercontent.com/Pipe-Bomb/.github/refs/heads/master/assets/logos/Pipe%20Bomb%20no%20background%20w%20outline.png" width="40" />
+    Pipe Bomb Server
+</h1>
 
 The self hosted server for Pipe Bomb, which acts as a plugin host and aggregator of music metadata and libraries. Built on the NestJS framework.
 
