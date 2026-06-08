@@ -85,6 +85,10 @@ External Url Sources take an Identity for a track, artist or album and return a 
 | [Chromaprint](https://github.com/pipe-bomb/chromaprint-plugin) | Generates AcoustID Chromaprints for each track |
 | [MusicBrainz](https://github.com/pipe-bomb/musicbrainz-plugin) | Retrieves track, artist & album metadata from MusicBrainz. Requires [Chromaprint](https://github.com/pipe-bomb/chromaprint-plugin) for tracks that don't have MusicBrainz audio tags built in |
 
+## Searching for Plugins
+
+The [Pipe Bomb Community](https://github.com/pipe-bomb-community) organisation maintains a [list of official and community plugins](https://github.com/Pipe-Bomb-Community#plugins).
+
 ## Developing a Plugin
 
 The plugins listed above are a great place to start understanding how Pipe Bomb's internals work. To make a new plugin, create a directory inside your server's `plugins` directory.
