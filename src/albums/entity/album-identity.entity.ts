@@ -25,7 +25,9 @@ export class DBAlbumIdentity {
 	@PrimaryColumn({ type: "uuid" })
 	albumUuid: string;
 
-	@ManyToOne(() => DBAlbum, (album) => album.identities)
+	@ManyToOne(() => DBAlbum, (album) => album.identities, {
+		onDelete: "CASCADE",
+	})
 	@JoinColumn({ name: "albumUuid" })
 	album?: DBAlbum;
 
