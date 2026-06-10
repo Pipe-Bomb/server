@@ -19,14 +19,17 @@ The server will start on port 3000.
 
 The "access-control-allow-origin" header can be configured using the environment variable `CORS`.
 
-Pipe Bomb server supports sending "httpOnly" cookies to the client for use with the official [Pipe Bomb frontend](https://github.com/Pipe-Bomb/website). In this case, the cookie domain can be configured using the environment variable `COOKIE_DOMAIN`. To have the cookie be shared across subdomains, including a leading ".".
+Pipe Bomb server supports sending "httpOnly" cookies to the client for use with the official [Pipe Bomb frontend](https://github.com/Pipe-Bomb/website). In this case, the cookie domain can be configured using the environment variable `COOKIE_DOMAIN`. To have the cookie be shared across subdomains, including a leading ".". If you wish o run the server at a sub-path, you can do so prepare the server for this using the `BASE_PATH` environment variable.
 
 Example ".env" file:
 
 ```bash
 CORS="https://pipebomb.net"
 COOKIE_DOMAIN=".pipebomb.net"
+BASE_PATH="/api"
 ```
+
+If you wish
 
 ## Data Storage
 
