@@ -37,6 +37,10 @@ export class TrackManagerService {
 		return this.tracksRepository.findOne(options);
 	}
 
+	async deleteAll() {
+		await this.tracksRepository.deleteAll();
+	}
+
 	async setRunId(
 		tracks: DBTrack[],
 		runId: string,

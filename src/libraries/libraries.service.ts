@@ -55,7 +55,6 @@ export class LibrariesService {
 						getRunId: () => context.getRunId(),
 					});
 
-					let tracks: DBTrack[] = [];
 					let chunks = 0;
 					const CHUNK_SIZE = 1_000;
 
@@ -683,5 +682,42 @@ export class LibrariesService {
 		}
 
 		return output;
+	}
+
+	async clearStaleLibraries() {
+		const libraries: { pluginId: string; libraryId: string }[] = [];
+
+		for (const [pluginId, entry] of this.libraries) {
+			for (const libraryId of entry.libraries.keys()) {
+				libraries.push({ pluginId, libraryId });
+			}
+		}
+
+		if (!libraries.length) {
+			await this.trackManagerService.deleteAll();
+			return;
+		}
+
+		const conditionStrings: string[] = [];
+		const queryParameters: Record<string, string> = {};
+
+		for (const [index, { pluginId, libraryId }] of libraries.entries()) {
+			const pluginKey = `p_${index}`;
+			const libraryKey = `l_${index}`;
+
+			conditionStrings.push(
+				`(pluginId = :${pluginKey} AND libraryId = :${libraryKey})`,
+			);
+
+			queryParameters[pluginKey] = pluginId;
+			queryParameters[libraryKey] = libraryId;
+		}
+
+		await this.trackManagerService
+			.queryBuilder()
+			.delete()
+			.from(DBTrack)
+			.where(`NOT (${conditionStrings.join(" OR ")})`, queryParameters)
+			.execute();
 	}
 }

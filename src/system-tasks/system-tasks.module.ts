@@ -4,6 +4,7 @@ import { TasksModule } from "src/tasks/tasks.module";
 import { IdentifiersModule } from "src/identifiers/identifiers.module";
 import { ArtistManagerModule } from "src/artist-manager/artist-manager.module";
 import { AlbumManagerModule } from "src/album-manager/album-manager.module";
+import { LibrariesModule } from "src/libraries/libraries.module";
 
 @Module({
 	imports: [
@@ -11,6 +12,7 @@ import { AlbumManagerModule } from "src/album-manager/album-manager.module";
 		IdentifiersModule,
 		ArtistManagerModule,
 		AlbumManagerModule,
+		LibrariesModule,
 	],
 	providers: [SystemTasksService],
 })
