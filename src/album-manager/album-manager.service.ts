@@ -491,32 +491,18 @@ export class AlbumManagerService {
 	async removeOrphanedAlbums() {
 		const subQueryBuilder = this.albumsRepository.manager.createQueryBuilder();
 
-		// const hasIdentities = subQueryBuilder
-		// 	.subQuery()
-		// 	.select("1")
-		// 	.from(DBAlbumIdentity, "identity")
-		// 	.where('identity."albumUuid" = "albums".uuid')
-		// 	.getQuery();
-
-		// const hasArtists = subQueryBuilder
-		// 	.subQuery()
-		// 	.select("1")
-		// 	.from(DBAlbumArtist, "artist")
-		// 	.where('artist."albumUuid" = "albums".uuid')
-		// 	.getQuery();
-
-		const hasTracks = subQueryBuilder
+		const albumsWithTracks = subQueryBuilder
 			.subQuery()
-			.select("1")
+			.select('track."albumUuid"')
 			.from(DBAlbumTrack, "track")
-			.where('track."albumUuid" = "albums".uuid')
+			.where('track."albumUuid" IS NOT NULL')
 			.getQuery();
 
 		await this.albumsRepository
 			.createQueryBuilder()
 			.delete()
 			.from(DBAlbum)
-			.where(`NOT EXISTS ${hasTracks}`)
+			.where(`uuid NOT IN ${albumsWithTracks}`)
 			.execute();
 	}
 }
