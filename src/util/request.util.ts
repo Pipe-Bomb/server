@@ -7,8 +7,6 @@ function firstHeader(value: string | undefined): string | undefined {
 	return value.split(",")[0].trim();
 }
 
-const BASE_PATH = process.env.BASE_PATH ?? null;
-
 export function getBaseUrl(request: Request) {
 	const protocol =
 		firstHeader(request.get("x-forwarded-proto")) ?? request.protocol;
@@ -21,13 +19,13 @@ export function getBaseUrl(request: Request) {
 	}
 
 	let baseUrl = `${protocol}://${host}`;
-	if (!BASE_PATH || BASE_PATH == "/") {
+	if (!process.env.BASE_PATH || process.env.BASE_PATH == "/") {
 		return baseUrl;
 	}
 
-	if (!BASE_PATH.startsWith("/")) {
+	if (!process.env.BASE_PATH.startsWith("/")) {
 		baseUrl += "/";
 	}
 
-	return `${baseUrl}${BASE_PATH}`;
+	return `${baseUrl}${process.env.BASE_PATH}`;
 }
