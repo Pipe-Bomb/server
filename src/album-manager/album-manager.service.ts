@@ -491,19 +491,19 @@ export class AlbumManagerService {
 	async removeOrphanedAlbums() {
 		const subQueryBuilder = this.albumsRepository.manager.createQueryBuilder();
 
-		const hasIdentities = subQueryBuilder
-			.subQuery()
-			.select("1")
-			.from(DBAlbumIdentity, "identity")
-			.where('identity."albumUuid" = "albums".uuid')
-			.getQuery();
+		// const hasIdentities = subQueryBuilder
+		// 	.subQuery()
+		// 	.select("1")
+		// 	.from(DBAlbumIdentity, "identity")
+		// 	.where('identity."albumUuid" = "albums".uuid')
+		// 	.getQuery();
 
-		const hasArtists = subQueryBuilder
-			.subQuery()
-			.select("1")
-			.from(DBAlbumArtist, "artist")
-			.where('artist."albumUuid" = "albums".uuid')
-			.getQuery();
+		// const hasArtists = subQueryBuilder
+		// 	.subQuery()
+		// 	.select("1")
+		// 	.from(DBAlbumArtist, "artist")
+		// 	.where('artist."albumUuid" = "albums".uuid')
+		// 	.getQuery();
 
 		const hasTracks = subQueryBuilder
 			.subQuery()
@@ -516,9 +516,7 @@ export class AlbumManagerService {
 			.createQueryBuilder()
 			.delete()
 			.from(DBAlbum)
-			.where(
-				`NOT EXISTS ${hasIdentities} AND NOT EXISTS ${hasArtists} AND NOT EXISTS ${hasTracks}`,
-			)
+			.where(`NOT EXISTS ${hasTracks}`)
 			.execute();
 	}
 }

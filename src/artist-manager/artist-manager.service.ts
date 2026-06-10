@@ -628,12 +628,12 @@ export class ArtistManagerService {
 	async removeOrphanedArtists() {
 		const subQueryBuilder = this.artistsRepository.manager.createQueryBuilder();
 
-		const hasIdentities = subQueryBuilder
-			.subQuery()
-			.select("1")
-			.from(DBArtistIdentity, "identity")
-			.where('identity."artistUuid" = "artists".uuid')
-			.getQuery();
+		// const hasIdentities = subQueryBuilder
+		// 	.subQuery()
+		// 	.select("1")
+		// 	.from(DBArtistIdentity, "identity")
+		// 	.where('identity."artistUuid" = "artists".uuid')
+		// 	.getQuery();
 
 		const hasTracks = subQueryBuilder
 			.subQuery()
@@ -653,9 +653,7 @@ export class ArtistManagerService {
 			.createQueryBuilder()
 			.delete()
 			.from(DBArtist)
-			.where(
-				`NOT EXISTS ${hasIdentities} AND NOT EXISTS ${hasTracks} AND NOT EXISTS ${hasAlbums}`,
-			)
+			.where(`NOT EXISTS ${hasTracks} AND NOT EXISTS ${hasAlbums}`)
 			.execute();
 	}
 }
