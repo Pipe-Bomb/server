@@ -33,7 +33,9 @@ export class DBArtistIdentity {
 	})
 	target: ArtistIdentityTarget;
 
-	@ManyToOne(() => DBArtist, (artist) => artist.identities)
+	@ManyToOne(() => DBArtist, (artist) => artist.identities, {
+		onDelete: "CASCADE",
+	})
 	@JoinColumn({ name: "artistUuid" })
 	artist?: DBArtist;
 
