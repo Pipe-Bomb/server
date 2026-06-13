@@ -88,6 +88,7 @@ export class PlaylistsService {
 			withTrackUsers?: boolean;
 			withOwner?: boolean;
 			withTrackCount?: number;
+			withSmartFilters?: boolean;
 		} = {},
 	) {
 		const playlist = await this.playlistsRepository.findOne({
@@ -97,6 +98,9 @@ export class PlaylistsService {
 			relations: {
 				attributes: options.withAttributes,
 				owner: options.withOwner,
+				filterGroups: !!options.withSmartFilters && {
+					filters: true,
+				},
 			},
 		});
 

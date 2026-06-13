@@ -14,6 +14,7 @@ export class LoadedAttributeResponse {
 
 	@ApiProperty({
 		enum: AttributeType,
+		enumName: "AttributeType",
 	})
 	type: AttributeType;
 

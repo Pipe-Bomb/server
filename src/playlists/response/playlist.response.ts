@@ -15,6 +15,7 @@ import {
 } from "src/attributes/response/persistent-attribute.response";
 import { UserResponse } from "src/users/response/user.response";
 import { PlaylistTrackResponse } from "./playlist-track.response";
+import { SmartPlaylistFilterGroupResponse } from "./smart-playlist-filter-group.reponse";
 
 @ApiSchema({ name: "Playlist" })
 @ApiExtraModels(
@@ -42,6 +43,12 @@ export class PlaylistResponse {
 		nullable: true,
 	})
 	attributes: DBPlaylistAttribute[] | null;
+
+	@ApiProperty({
+		type: [SmartPlaylistFilterGroupResponse],
+		nullable: true,
+	})
+	filterGroups: SmartPlaylistFilterGroupResponse[] | null;
 
 	@ApiProperty({
 		type: [PlaylistTrackResponse],

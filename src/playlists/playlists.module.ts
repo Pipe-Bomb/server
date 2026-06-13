@@ -11,10 +11,18 @@ import { TrackManagerModule } from "src/track-manager/track-manager.module";
 import { LibrariesModule } from "src/libraries/libraries.module";
 import { EphemeralModule } from "src/ephemeral/ephemeral.module";
 import { AlbumManagerModule } from "src/album-manager/album-manager.module";
+import { SmartPlaylistsService } from "./smart-playlists.service";
+import { DBSmartPlaylistFilter } from "./entity/smart-playlist-filter.entity";
+import { DBSmartPlaylistFilterGroup } from "./entity/smart-playlist-filter-group.entity";
 
 @Module({
 	imports: [
-		TypeOrmModule.forFeature([DBPlaylist, DBPlaylistTrack]),
+		TypeOrmModule.forFeature([
+			DBPlaylist,
+			DBPlaylistTrack,
+			DBSmartPlaylistFilter,
+			DBSmartPlaylistFilterGroup,
+		]),
 		UsersModule,
 		AttributesModule,
 		AttributeSourcesModule,
@@ -24,6 +32,6 @@ import { AlbumManagerModule } from "src/album-manager/album-manager.module";
 		AlbumManagerModule,
 	],
 	controllers: [PlaylistsController],
-	providers: [PlaylistsService],
+	providers: [PlaylistsService, SmartPlaylistsService],
 })
 export class PlaylistsModule {}

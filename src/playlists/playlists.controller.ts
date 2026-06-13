@@ -41,6 +41,8 @@ import { AlbumManagerService } from "src/album-manager/album-manager.service";
 import { PlaylistTracksQuery } from "./dto/playlist-tracks-query.dto";
 import { PlaylistTrackResponse } from "./response/playlist-track.response";
 import { TrackIdDto } from "src/tracks/dto/track-id.dto";
+import { CreateSmartFilterGroupDto } from "./dto/create-smart-filter-group.dto";
+import { SmartPlaylistsService } from "./smart-playlists.service";
 
 @Controller("playlists")
 export class PlaylistsController {
@@ -48,6 +50,7 @@ export class PlaylistsController {
 
 	constructor(
 		private readonly playlistsService: PlaylistsService,
+		private readonly smartPlaylistsService: SmartPlaylistsService,
 		private readonly attributeUploadService: AttributeUploadService,
 		private readonly trackManagerService: TrackManagerService,
 		private readonly librariesService: LibrariesService,
@@ -106,6 +109,7 @@ export class PlaylistsController {
 			withTrackAttributes: true,
 			withTrackUsers: true,
 			withOwner: true,
+			withSmartFilters: true,
 		});
 		if (!playlistInfo) {
 			throw new NotFoundException("Playlist not found");
@@ -361,6 +365,69 @@ export class PlaylistsController {
 
 		return sessions.map((session) =>
 			this.ephemeralService.toCreationSessionResponse(session),
+		);
+	}
+
+	@Put(":uuid/filters")
+	@ApiOperation({ operationId: "addPlaylistSmartFilterGroup" })
+	@UseGuards(AuthGuard)
+	@ApiNoContentResponse()
+	@ApiUnauthorizedResponse()
+	@ApiForbiddenResponse()
+	@ApiNotFoundResponse()
+	async addPlaylistSmartFilterGroup(
+		@Param("uuid") uuid: string,
+		@Body() dto: CreateSmartFilterGroupDto,
+		@ReqUser(FetchUserPipe) user: DBUser,
+	) {
+		const playlistInfo = await this.playlistsService.findByUuid(uuid);
+		if (!playlistInfo) {
+			throw new NotFoundException("Playlist not found");
+		}
+		const { playlist } = playlistInfo;
+
+		if (playlist.ownerUuid != user.uuid) {
+			throw new ForbiddenException();
+		}
+
+		if (!dto.filters.length) {
+			throw new BadRequestException("No filters in group");
+		}
+
+		await this.smartPlaylistsService.addFilterGroup(playlist, dto.filters);
+	}
+
+	@Patch(":playlistUuid/filters/:filterGroupUuid")
+	@ApiOperation({ operationId: "updatePlaylistSmartFilterGroup" })
+	@UseGuards(AuthGuard)
+	@ApiNoContentResponse()
+	@ApiUnauthorizedResponse()
+	@ApiForbiddenResponse()
+	@ApiNotFoundResponse()
+	async updatePlaylistSmartFilterGroup(
+		@Param("playlistUuid") playlistUuid: string,
+		@Param("filterGroupUuid") filterGroupUuid: string,
+		@Body() dto: CreateSmartFilterGroupDto,
+		@ReqUser(FetchUserPipe) user: DBUser,
+	) {
+		const playlistInfo = await this.playlistsService.findByUuid(playlistUuid);
+		if (!playlistInfo) {
+			throw new NotFoundException("Playlist not found");
+		}
+		const { playlist } = playlistInfo;
+
+		if (playlist.ownerUuid != user.uuid) {
+			throw new ForbiddenException();
+		}
+
+		if (!dto.filters.length) {
+			throw new BadRequestException("No filters in group");
+		}
+
+		await this.smartPlaylistsService.updateFilterGroup(
+			filterGroupUuid,
+			playlist.uuid,
+			dto.filters,
 		);
 	}
 }
