@@ -430,4 +430,32 @@ export class PlaylistsController {
 			dto.filters,
 		);
 	}
+
+	@Delete(":playlistUuid/filters/:filterGroupUuid")
+	@ApiOperation({ operationId: "deletePlaylistSmartFilterGroup" })
+	@UseGuards(AuthGuard)
+	@ApiNoContentResponse()
+	@ApiUnauthorizedResponse()
+	@ApiForbiddenResponse()
+	@ApiNotFoundResponse()
+	async deletePlaylistSmartFilterGroup(
+		@Param("playlistUuid") playlistUuid: string,
+		@Param("filterGroupUuid") filterGroupUuid: string,
+		@ReqUser(FetchUserPipe) user: DBUser,
+	) {
+		const playlistInfo = await this.playlistsService.findByUuid(playlistUuid);
+		if (!playlistInfo) {
+			throw new NotFoundException("Playlist not found");
+		}
+		const { playlist } = playlistInfo;
+
+		if (playlist.ownerUuid != user.uuid) {
+			throw new ForbiddenException();
+		}
+
+		await this.smartPlaylistsService.deleteFilterGroup(
+			filterGroupUuid,
+			playlist.uuid,
+		);
+	}
 }

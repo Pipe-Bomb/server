@@ -66,6 +66,24 @@ export class SmartPlaylistsService {
 		await this.smartPlaylistFiltersRepository.insert(filterEntities);
 	}
 
+	async deleteFilterGroup(filterGroupUuid: string, playlistUuid: string) {
+		const group = await this.smartPlaylistFilterGroupsRepository.findOneBy({
+			uuid: filterGroupUuid,
+		});
+
+		if (!group) {
+			throw new NotFoundException("Filter group not found");
+		}
+
+		if (group.playlistUuid != playlistUuid) {
+			throw new BadRequestException("Group is not a part of playlist");
+		}
+
+		await this.smartPlaylistFilterGroupsRepository.delete({
+			uuid: group.uuid,
+		});
+	}
+
 	private toDBFilter(filter: SmartFilterDto) {
 		const entity = this.smartPlaylistFiltersRepository.create({
 			entityType: filter.entityType,
