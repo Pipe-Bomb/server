@@ -122,10 +122,10 @@ export class SmartPlaylistsService {
 		}
 
 		console.log(`Removing ${toRemove.length} tracks...`);
-		for (let i = 0; i < toRemove.length; i += 1_000) {
+		for (let i = 0; i < toRemove.length; i += 500) {
 			await this.playlistTracksRepository.delete({
 				playlistUuid,
-				trackUuid: In(toRemove.slice(i, i + 1_000)),
+				trackUuid: In(toRemove.slice(i, i + 500)),
 			});
 		}
 
@@ -134,10 +134,10 @@ export class SmartPlaylistsService {
 		);
 
 		console.log(`Adding ${toAdd.length} tracks...`);
-		for (let i = 0; i < toAdd.length; i += 1_000) {
+		for (let i = 0; i < toAdd.length; i += 500) {
 			await this.playlistsService.addTracks(
 				playlistUuid,
-				toAdd.slice(i, i + 1_000),
+				toAdd.slice(i, i + 500),
 				null,
 			);
 		}
