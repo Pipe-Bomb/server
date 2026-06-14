@@ -458,4 +458,28 @@ export class PlaylistsController {
 			playlist.uuid,
 		);
 	}
+
+	@Post(":uuid/filters")
+	@ApiOperation({ operationId: "runPlaylistSmartFilters" })
+	@UseGuards(AuthGuard)
+	@ApiNoContentResponse()
+	@ApiUnauthorizedResponse()
+	@ApiForbiddenResponse()
+	@ApiNotFoundResponse()
+	async runPlaylistSmartFilters(
+		@Param("uuid") playlistUuid: string,
+		@ReqUser(FetchUserPipe) user: DBUser,
+	) {
+		const playlistInfo = await this.playlistsService.findByUuid(playlistUuid);
+		if (!playlistInfo) {
+			throw new NotFoundException("Playlist not found");
+		}
+		const { playlist } = playlistInfo;
+
+		if (playlist.ownerUuid != user.uuid) {
+			throw new ForbiddenException();
+		}
+
+		await this.smartPlaylistsService.runFilters(playlist.uuid);
+	}
 }

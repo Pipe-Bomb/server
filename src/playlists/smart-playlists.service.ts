@@ -5,11 +5,14 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DBSmartPlaylistFilter } from "./entity/smart-playlist-filter.entity";
-import { Repository } from "typeorm";
+import { In, IsNull, Repository } from "typeorm";
 import { DBPlaylist } from "./entity/playlist.entity";
 import { SmartFilterDto } from "./dto/create-smart-filter.dto";
 import { DBSmartPlaylistFilterGroup } from "./entity/smart-playlist-filter-group.entity";
 import { AttributeType } from "src/attributes/enum/attribute-type.enum";
+import { TrackManagerService } from "src/track-manager/track-manager.service";
+import { DBPlaylistTrack } from "./entity/playlist-track.entity";
+import { PlaylistsService } from "./playlists.service";
 
 @Injectable()
 export class SmartPlaylistsService {
@@ -18,6 +21,10 @@ export class SmartPlaylistsService {
 		private readonly smartPlaylistFilterGroupsRepository: Repository<DBSmartPlaylistFilterGroup>,
 		@InjectRepository(DBSmartPlaylistFilter)
 		private readonly smartPlaylistFiltersRepository: Repository<DBSmartPlaylistFilter>,
+		@InjectRepository(DBPlaylistTrack)
+		private readonly playlistTracksRepository: Repository<DBPlaylistTrack>,
+		private readonly playlistsService: PlaylistsService,
+		private readonly trackManagerService: TrackManagerService,
 	) {}
 
 	async addFilterGroup(playlist: DBPlaylist, filters: SmartFilterDto[]) {
@@ -82,6 +89,59 @@ export class SmartPlaylistsService {
 		await this.smartPlaylistFilterGroupsRepository.delete({
 			uuid: group.uuid,
 		});
+	}
+
+	async runFilters(playlistUuid: string) {
+		const groups = await this.smartPlaylistFilterGroupsRepository.find({
+			where: {
+				playlistUuid,
+			},
+			relations: {
+				filters: true,
+			},
+		});
+
+		const trackIds =
+			await this.trackManagerService.findTracksBySmartFilters(groups);
+
+		const existingTracks = (
+			await this.playlistTracksRepository.find({
+				where: {
+					playlistUuid,
+					addedByUuid: IsNull(),
+				},
+				select: ["trackUuid"],
+			})
+		).map((track) => track.trackUuid);
+
+		const toRemove: string[] = [];
+		for (const trackId of existingTracks) {
+			if (!trackIds.includes(trackId)) {
+				toRemove.push(trackId);
+			}
+		}
+
+		console.log(`Removing ${toRemove.length} tracks...`);
+		for (let i = 0; i < toRemove.length; i += 1_000) {
+			await this.playlistTracksRepository.delete({
+				playlistUuid,
+				trackUuid: In(toRemove.slice(i, i + 1_000)),
+			});
+		}
+
+		const toAdd = trackIds.filter(
+			(trackId) => !existingTracks.includes(trackId),
+		);
+
+		console.log(`Adding ${toAdd.length} tracks...`);
+		for (let i = 0; i < toAdd.length; i += 1_000) {
+			await this.playlistsService.addTracks(
+				playlistUuid,
+				toAdd.slice(i, i + 1_000),
+				null,
+			);
+		}
+		console.log("Finished!");
 	}
 
 	private toDBFilter(filter: SmartFilterDto) {
