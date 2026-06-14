@@ -11,6 +11,7 @@ import {
 } from "typeorm";
 import { DBPlaylistTrack } from "./playlist-track.entity";
 import { PlaylistResponse } from "../response/playlist.response";
+import { DBSmartPlaylistFilterGroup } from "./smart-playlist-filter-group.entity";
 
 @Entity("playlists")
 export class DBPlaylist {
@@ -40,12 +41,17 @@ export class DBPlaylist {
 	@OneToMany(() => DBPlaylistTrack, (track) => track.playlist)
 	tracks?: DBPlaylistTrack[];
 
+	@OneToMany(() => DBSmartPlaylistFilterGroup, (group) => group.playlist)
+	filterGroups?: DBSmartPlaylistFilterGroup[];
+
 	toResponse(trackCount?: number | null): PlaylistResponse {
 		return {
 			uuid: this.uuid,
 			ownerUuid: this.ownerUuid,
 			owner: this.owner?.toResponse() ?? null,
 			attributes: this.attributes ?? null,
+			filterGroups:
+				this.filterGroups?.map((group) => group.toResponse()) ?? null,
 			tracks:
 				this.tracks
 					?.map((track) => track.toResponse())

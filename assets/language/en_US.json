@@ -22,6 +22,7 @@
 	"contextmenu.playlist.delete": "Delete Playlist",
 	"contextmenu.playlist.rename": "Rename",
 	"contextmenu.playlist.change-thumbnail": "Change Thumbnail",
+	"contextmenu.playlist.scan-smart-filters": "Scan Smart Filters",
 
 	"login.title.login": "Log In",
 	"login.title.signup": "Create Account",

@@ -1,6 +1,14 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { LibraryHandler, Track } from "@sdk";
+import { DBAlbumTrack } from "src/albums/entity/album-track.entity";
+import { DBTrackArtist } from "src/artist-manager/entity/track-artist.entity";
+import { AttributeEntity } from "src/attribute-sources/enum/attribute-entity.enum";
+import { DBAlbumAttribute } from "src/attributes/entities/album-attribute.entity";
+import { DBArtistAttribute } from "src/attributes/entities/artist-attribute.entity";
+import { DBTrackAttribute } from "src/attributes/entities/track-attribute.entity";
+import { AttributeType } from "src/attributes/enum/attribute-type.enum";
+import { DBSmartPlaylistFilterGroup } from "src/playlists/entity/smart-playlist-filter-group.entity";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { DBTrack } from "src/tracks/entities/track.entity";
 import {
@@ -170,5 +178,169 @@ export class TrackManagerService {
 		}
 
 		return output as DBTrack[];
+	}
+
+	async findTracksBySmartFilters(
+		groups: DBSmartPlaylistFilterGroup[],
+		amount?: number,
+	): Promise<string[]> {
+		const mainQb = this.tracksRepository.createQueryBuilder("track");
+		mainQb.select("track.uuid", "id");
+
+		const groupConditions: string[] = [];
+
+		for (const [groupIndex, group] of groups.entries()) {
+			const filterConditions: string[] = [];
+
+			if (!group.filters || group.filters.length === 0) {
+				continue;
+			}
+
+			for (const [filterIndex, filter] of group.filters.entries()) {
+				const subQb = mainQb.subQuery().select("1");
+
+				const alias = `attr_g${groupIndex}_f${filterIndex}`;
+				const paramPrefix = `p_g${groupIndex}_f${filterIndex}`;
+				const junctionAlias = `j_g${groupIndex}_f${filterIndex}`;
+
+				switch (filter.entityType) {
+					case AttributeEntity.TRACK:
+						subQb
+							.from(DBTrackAttribute, alias)
+							.where(`${alias}.entityRelationId = track.uuid`);
+						break;
+
+					case AttributeEntity.ALBUM:
+						subQb
+							.from(DBAlbumTrack, junctionAlias)
+							.innerJoin(
+								DBAlbumAttribute,
+								alias,
+								`${alias}.entityRelationId = ${junctionAlias}.albumUuid`,
+							)
+							.where(`${junctionAlias}.trackUuid = track.uuid`);
+						break;
+
+					case AttributeEntity.ARTIST:
+						subQb
+							.from(DBTrackArtist, junctionAlias)
+							.innerJoin(
+								DBArtistAttribute,
+								alias,
+								`${alias}.entityRelationId = ${junctionAlias}.artistUuid`,
+							)
+							.where(`${junctionAlias}.trackUuid = track.uuid`);
+						break;
+
+					default:
+						throw new BadRequestException(
+							`Unsupported entity type: ${filter.entityType}`,
+						);
+				}
+
+				subQb.andWhere(`${alias}.key = :${paramPrefix}_key`);
+				mainQb.setParameter(`${paramPrefix}_key`, filter.attributeKey);
+
+				switch (filter.attributeType) {
+					case AttributeType.STRING: {
+						if (filter.value_string !== null) {
+							if (filter.partial) {
+								subQb.andWhere(
+									`${alias}.value_string LIKE :${paramPrefix}_string`,
+								);
+								mainQb.setParameter(
+									`${paramPrefix}_string`,
+									`%${filter.value_string}%`,
+								);
+							} else {
+								subQb.andWhere(
+									`${alias}.value_string = :${paramPrefix}_string`,
+								);
+								mainQb.setParameter(
+									`${paramPrefix}_string`,
+									filter.value_string,
+								);
+							}
+						}
+						break;
+					}
+					case AttributeType.BOOLEAN: {
+						if (filter.value_boolean !== null) {
+							subQb.andWhere(
+								`${alias}.value_boolean = :${paramPrefix}_boolean`,
+							);
+							mainQb.setParameter(
+								`${paramPrefix}_boolean`,
+								filter.value_boolean,
+							);
+						}
+						break;
+					}
+					case AttributeType.INTEGER: {
+						if (filter.value_int !== null) {
+							subQb.andWhere(`${alias}.value_int = :${paramPrefix}_int`);
+							mainQb.setParameter(`${paramPrefix}_int`, filter.value_int);
+						} else {
+							if (filter.min !== null) {
+								subQb.andWhere(`${alias}.value_int >= :${paramPrefix}_intMin`);
+								mainQb.setParameter(`${paramPrefix}_intMin`, filter.min);
+							}
+							if (filter.max !== null) {
+								subQb.andWhere(`${alias}.value_int <= :${paramPrefix}_intMax`);
+								mainQb.setParameter(`${paramPrefix}_intMax`, filter.max);
+							}
+						}
+						break;
+					}
+					case AttributeType.DECIMAL: {
+						if (filter.value_decimal !== null) {
+							subQb.andWhere(
+								`${alias}.value_decimal = :${paramPrefix}_decimal`,
+							);
+							mainQb.setParameter(
+								`${paramPrefix}_decimal`,
+								filter.value_decimal,
+							);
+						} else {
+							if (filter.min !== null) {
+								subQb.andWhere(
+									`${alias}.value_decimal >= :${paramPrefix}_decimalMin`,
+								);
+								mainQb.setParameter(`${paramPrefix}_decimalMin`, filter.min);
+							}
+							if (filter.max !== null) {
+								subQb.andWhere(
+									`${alias}.value_decimal <= :${paramPrefix}_decimalMax`,
+								);
+								mainQb.setParameter(`${paramPrefix}_decimalMax`, filter.max);
+							}
+						}
+						break;
+					}
+					case AttributeType.BUFFER:
+						break;
+				}
+
+				const operator = filter.inverse ? "NOT EXISTS" : "EXISTS";
+				filterConditions.push(`${operator} ${subQb.getQuery()}`);
+			}
+
+			if (filterConditions.length > 0) {
+				groupConditions.push(`(${filterConditions.join(" AND ")})`);
+			}
+		}
+
+		if (groupConditions.length > 0) {
+			mainQb.andWhere(`(${groupConditions.join(" OR ")})`);
+		} else {
+			return [];
+		}
+
+		if (amount) {
+			mainQb.limit(amount);
+		}
+
+		const results = (await mainQb.getRawMany()) as { id: string }[];
+		return results.map(({ id }) => id);
 	}
 }

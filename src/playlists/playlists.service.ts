@@ -88,6 +88,7 @@ export class PlaylistsService {
 			withTrackUsers?: boolean;
 			withOwner?: boolean;
 			withTrackCount?: number;
+			withSmartFilters?: boolean;
 		} = {},
 	) {
 		const playlist = await this.playlistsRepository.findOne({
@@ -97,6 +98,9 @@ export class PlaylistsService {
 			relations: {
 				attributes: options.withAttributes,
 				owner: options.withOwner,
+				filterGroups: !!options.withSmartFilters && {
+					filters: true,
+				},
 			},
 		});
 
@@ -192,14 +196,14 @@ export class PlaylistsService {
 	}
 
 	async addTracks(
-		playlist: DBPlaylist,
-		tracks: DBTrack[],
+		playlist: DBPlaylist | string,
+		tracks: DBTrack[] | string[],
 		user: DBUser | null,
 	) {
 		await this.playlistTracksRepository.upsert(
 			tracks.map((track, ordinal) => ({
-				trackUuid: track.uuid,
-				playlistUuid: playlist.uuid,
+				trackUuid: typeof track == "string" ? track : track.uuid,
+				playlistUuid: typeof playlist == "string" ? playlist : playlist.uuid,
 				addedByUuid: user?.uuid ?? null,
 				ordinal,
 			})),

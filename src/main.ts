@@ -47,6 +47,7 @@ async function bootstrap() {
 	const swaggerConfig = new DocumentBuilder()
 		.setTitle("Pipe Bomb API")
 		.setVersion(packageJson.version)
+		.setOpenAPIVersion("3.1.0")
 		.build();
 
 	// mkdirSync("openapi", { recursive: true });
