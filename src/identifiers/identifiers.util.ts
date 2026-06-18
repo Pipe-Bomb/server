@@ -6,10 +6,8 @@ export function orderIdentifiers<T extends Identifier>(
 	inputs: LoadedIdentifier<T>[],
 	withDependencies?: ExistingDependency[],
 ) {
-	// Helper to generate unique keys for the Map
 	const getFullId = (pluginId: string, id: string) => `${pluginId}:${id}`;
 
-	// 0. Map existing external dependencies for quick lookup
 	const externalSet = new Set<string>();
 	if (withDependencies) {
 		for (const dep of withDependencies) {
@@ -23,12 +21,24 @@ export function orderIdentifiers<T extends Identifier>(
 		idMap.set(key, item);
 	}
 
-	// 1. Resolve Dependency Keys Helper
-	const resolveDepKey = (ownerPluginId: string, dep: IdentifierDependency) => {
-		return getFullId(dep.pluginId ?? ownerPluginId, dep.sourceId);
+	const resolveDepKey = (dep: IdentifierDependency): string => {
+		if (dep.pluginId != null) {
+			return getFullId(dep.pluginId, dep.sourceId);
+		}
+
+		const suffix = `:${dep.sourceId}`;
+
+		for (const key of idMap.keys()) {
+			if (key.endsWith(suffix)) return key;
+		}
+
+		for (const key of externalSet) {
+			if (key.endsWith(suffix)) return key;
+		}
+
+		return getFullId("*", dep.sourceId);
 	};
 
-	// 2. Recursive Pruning of missing hard dependencies
 	const validKeys = new Set<string>();
 	const invalidKeys = new Set<string>();
 
@@ -38,22 +48,17 @@ export function orderIdentifiers<T extends Identifier>(
 	): boolean {
 		if (invalidKeys.has(key)) return false;
 		if (validKeys.has(key)) return true;
-		if (visited.has(key)) return true; // Potential cycle, handled in Kahn's
+		if (visited.has(key)) return true;
 
 		const item = idMap.get(key);
-
-		// If the identifier is not in the current input batch,
-		// we check if it was passed as an existing dependency.
 		if (!item) {
 			return externalSet.has(key);
 		}
 
-		// If it is in the batch, we recursively validate its hard dependencies
 		visited.add(key);
-		const ownerPluginId = item.plugin.package.name;
 
 		for (const dep of item.identifier.getDependencies()) {
-			const depKey = resolveDepKey(ownerPluginId, dep);
+			const depKey = resolveDepKey(dep);
 			if (!checkValidity(depKey, visited)) {
 				invalidKeys.add(key);
 				return false;
@@ -63,13 +68,11 @@ export function orderIdentifiers<T extends Identifier>(
 		return true;
 	}
 
-	// Filter only those inputs that have all hard dependencies met (either in inputs or external)
 	const prunedKeys = Array.from(idMap.keys()).filter((key) =>
 		checkValidity(key),
 	);
 	const prunedIdMap = new Map(prunedKeys.map((k) => [k, idMap.get(k)!]));
 
-	// 3. Graph Building
 	const adj = new Map<string, Set<string>>();
 	const hardInDegree = new Map<string, number>();
 	const softInDegree = new Map<string, number>();
@@ -81,22 +84,16 @@ export function orderIdentifiers<T extends Identifier>(
 	}
 
 	for (const [key, item] of prunedIdMap) {
-		const pluginId = item.plugin.package.name;
-
-		// Hard Dependencies
 		for (const dep of item.identifier.getDependencies()) {
-			const depKey = resolveDepKey(pluginId, dep);
-			// We only add edges for dependencies within the current pruned batch.
-			// External dependencies are already satisfied and don't affect internal ordering.
+			const depKey = resolveDepKey(dep);
 			if (prunedIdMap.has(depKey)) {
 				adj.get(depKey)!.add(key);
 				hardInDegree.set(key, hardInDegree.get(key)! + 1);
 			}
 		}
 
-		// Soft Dependencies
 		for (const dep of item.identifier.getSoftDependencies()) {
-			const depKey = resolveDepKey(pluginId, dep);
+			const depKey = resolveDepKey(dep);
 			if (prunedIdMap.has(depKey)) {
 				adj.get(depKey)!.add(key);
 				softInDegree.set(key, softInDegree.get(key)! + 1);
@@ -104,7 +101,6 @@ export function orderIdentifiers<T extends Identifier>(
 		}
 	}
 
-	// 4. Topological Sort (Modified Kahn's)
 	const result: LoadedIdentifier<T>[] = [];
 	const remainingKeys = new Set(prunedKeys);
 
@@ -131,11 +127,10 @@ export function orderIdentifiers<T extends Identifier>(
 
 			for (const dependentKey of adj.get(key) || []) {
 				const dependent = prunedIdMap.get(dependentKey)!;
-				const depPluginId = dependent.plugin.package.name;
 
 				const isHard = dependent.identifier
 					.getDependencies()
-					.some((d) => resolveDepKey(depPluginId, d) === key);
+					.some((d) => resolveDepKey(d) === key);
 
 				if (isHard) {
 					hardInDegree.set(dependentKey, hardInDegree.get(dependentKey)! - 1);

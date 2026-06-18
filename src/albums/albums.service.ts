@@ -179,7 +179,7 @@ export class AlbumsService {
 						runId,
 					);
 					this.logger.debug(
-						`Identified ${identities.length} identities to Artist #${completed + 1}`,
+						`Identified ${identities.length} identities to Album #${completed + 1}`,
 					);
 
 					pool = pool.filter((album) => !mergedAlbums.includes(album.uuid));

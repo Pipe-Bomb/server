@@ -12,6 +12,7 @@ import { PluginConfigModule } from "src/plugin-config/plugin-config.module";
 import { EphemeralModule } from "src/ephemeral/ephemeral.module";
 import { ArtistManagerModule } from "src/artist-manager/artist-manager.module";
 import { AlbumManagerModule } from "src/album-manager/album-manager.module";
+import { TrackManagerModule } from "src/track-manager/track-manager.module";
 
 @Module({
 	imports: [
@@ -26,6 +27,7 @@ import { AlbumManagerModule } from "src/album-manager/album-manager.module";
 		AlbumManagerModule,
 		PluginConfigModule,
 		EphemeralModule,
+		TrackManagerModule,
 	],
 	controllers: [PluginsController],
 	providers: [PluginsService],

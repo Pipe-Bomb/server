@@ -20,6 +20,8 @@ import { PluginConfigService } from "src/plugin-config/plugin-config.service";
 import { EphemeralService } from "src/ephemeral/ephemeral.service";
 import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
 import { AlbumManagerService } from "src/album-manager/album-manager.service";
+import { DataClient, Plugin } from "@sdk";
+import { TrackManagerService } from "src/track-manager/track-manager.service";
 
 @Injectable()
 export class PluginsService {
@@ -41,6 +43,7 @@ export class PluginsService {
 		private readonly albumManagerService: AlbumManagerService,
 		private readonly pluginConfigService: PluginConfigService,
 		private readonly ephemeralService: EphemeralService,
+		private readonly trackManagerService: TrackManagerService,
 	) {
 		this.logger.debug(`Plugin directory is "${this.pluginsDirectory}"`);
 
@@ -226,6 +229,90 @@ export class PluginsService {
 				this.pluginConfigService.registerConfigManager(configManager, plugin),
 			registerEphemeralSource: (source) =>
 				this.ephemeralService.registerEphemeralSource(source, plugin),
+			getDataClient: () => this.createDataClient(),
+		};
+	}
+
+	private createDataClient(): DataClient {
+		return {
+			getPlugins: () => {
+				const plugins: Record<string, Plugin> = {};
+				for (const [pluginId, loadedPlugin] of this.plugins.entries()) {
+					plugins[pluginId] = loadedPlugin.plugin;
+				}
+				return plugins;
+			},
+			getPlugin: (pluginId) => {
+				return this.getPlugin(pluginId)?.plugin ?? null;
+			},
+			getPluginId: (plugin) => {
+				for (const [pluginId, loadedPlugin] of this.plugins.entries()) {
+					if (loadedPlugin.plugin == plugin) {
+						return pluginId;
+					}
+				}
+				return null;
+			},
+			getLibraryHandler: (pluginId, libraryId) => {
+				return (
+					this.librariesService.findLibrary(pluginId, libraryId)?.handler ??
+					null
+				);
+			},
+			forEachTrack: async (pluginId, libraryId, callback) => {
+				const library = this.librariesService.findLibrary(pluginId, libraryId);
+				if (!library) {
+					throw new Error("Library does not exist");
+				}
+				await this.librariesService.forEachTrack(library, callback);
+			},
+			forEachAlbum: (callback) =>
+				this.albumManagerService.forEachAlbum(callback),
+			forEachArtist: (callback) =>
+				this.artistManagerService.forEachArtist(callback),
+			getTrackCount: async (pluginId, libraryId) =>
+				this.trackManagerService.count({
+					pluginId,
+					libraryId,
+				}),
+			getAlbumCount: () => this.albumManagerService.count([]),
+			getArtistCount: () => this.artistManagerService.count([]),
+			getTrackIdentities: async (pluginId, libraryId, trackId) => {
+				const track = await this.trackManagerService.findOne({
+					where: {
+						pluginId,
+						libraryId,
+						trackId,
+					},
+				});
+				if (!track) {
+					return null;
+				}
+
+				const identities =
+					await this.identifiersService.getTrackIdentities(track);
+				return identities.map((identity) => identity.toIdentity());
+			},
+			getAlbumIdentities: async (albumUuid) => {
+				const album = await this.albumManagerService.findOne(albumUuid, {
+					withIdentities: true,
+				});
+				if (!album?.identities) {
+					return null;
+				}
+
+				return album.identities.map((identity) => identity.toIdentity());
+			},
+			getArtistIdentities: async (artistUuid) => {
+				const artist = await this.artistManagerService.findOne(artistUuid, {
+					withIdentities: true,
+				});
+				if (!artist?.identities) {
+					return null;
+				}
+
+				return artist.identities.map((identity) => identity.toIdentity());
+			},
 		};
 	}
 

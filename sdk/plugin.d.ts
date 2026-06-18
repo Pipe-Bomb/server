@@ -1,4 +1,3 @@
-import { Logger } from "./logger";
 import { PluginApiContext } from "./plugin-api-context";
 
 export interface Plugin {

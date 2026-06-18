@@ -650,4 +650,30 @@ export class ArtistManagerService {
 			.andWhere(`uuid NOT IN ${artistsWithAlbums}`)
 			.execute();
 	}
+
+	public async forEachArtist(
+		callback: (artistUuid: string, cancel: () => void) => void | Promise<void>,
+	) {
+		const CHUNK_SIZE = 1_000;
+
+		let isCancelled = false;
+
+		for (let i = 0; true; i++) {
+			if (isCancelled) {
+				return;
+			}
+			const artists = await this.findMany({
+				amount: CHUNK_SIZE,
+				offset: CHUNK_SIZE * i,
+			});
+			for (const artist of artists) {
+				await callback(artist.uuid, () => {
+					isCancelled = true;
+				});
+				if (isCancelled) {
+					return;
+				}
+			}
+		}
+	}
 }

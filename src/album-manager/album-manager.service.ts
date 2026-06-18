@@ -364,6 +364,7 @@ export class AlbumManagerService {
 			),
 			this.trackIdentifiers,
 		);
+		console.log(this.orderedIdentifiers, this.trackIdentifiers);
 	}
 
 	public registerTrackIdentifier(
@@ -504,5 +505,34 @@ export class AlbumManagerService {
 			.from(DBAlbum)
 			.where(`uuid NOT IN ${albumsWithTracks}`)
 			.execute();
+	}
+
+	public async forEachAlbum(
+		callback: (albumUuid: string, cancel: () => void) => void | Promise<void>,
+	) {
+		const CHUNK_SIZE = 1_000;
+
+		let isCancelled = false;
+
+		for (let i = 0; true; i++) {
+			if (isCancelled) {
+				return;
+			}
+			const albums = await this.findMany({
+				amount: CHUNK_SIZE,
+				offset: CHUNK_SIZE * i,
+			});
+			if (!albums.length) {
+				break;
+			}
+			for (const album of albums) {
+				await callback(album.uuid, () => {
+					isCancelled = true;
+				});
+				if (isCancelled) {
+					return;
+				}
+			}
+		}
 	}
 }

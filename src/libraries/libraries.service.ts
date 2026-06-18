@@ -252,6 +252,33 @@ export class LibrariesService {
 		return { tracks };
 	}
 
+	public async forEachTrack(
+		library: LoadedLibraryHandler,
+		callback: (trackId: string, cancel: () => void) => void | Promise<void>,
+	) {
+		const CHUNK_SIZE = 1_000;
+
+		let isCancelled = false;
+
+		for (let i = 0; true; i++) {
+			if (isCancelled) {
+				return;
+			}
+			const { tracks } = await this.findTracks(library, {
+				amount: CHUNK_SIZE,
+				offset: CHUNK_SIZE * i,
+			});
+			for (const track of tracks) {
+				await callback(track.trackId, () => {
+					isCancelled = true;
+				});
+				if (isCancelled) {
+					return;
+				}
+			}
+		}
+	}
+
 	public register(handler: LibraryHandler, plugin: LoadedPlugin) {
 		const pluginLibs = this.libraries.get(plugin.package.name);
 
