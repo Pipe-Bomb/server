@@ -364,7 +364,6 @@ export class AlbumManagerService {
 			),
 			this.trackIdentifiers,
 		);
-		console.log(this.orderedIdentifiers, this.trackIdentifiers);
 	}
 
 	public registerTrackIdentifier(

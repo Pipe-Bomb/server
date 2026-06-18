@@ -81,7 +81,6 @@ export class PluginConfigService {
 						key,
 					});
 					await this.configEntriesRepository.insert(entries);
-					console.log("Set values:", entries);
 				},
 				delete: async (key) => {
 					await this.configEntriesRepository.delete({
