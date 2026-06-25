@@ -62,8 +62,6 @@ export class AudioCacheService {
 		const filePath = this.getPath(pluginId, handler.id, trackId);
 		const jsonFilePath = `${filePath}.json`;
 
-		console.log("GETTING AUDIO PRODUCER");
-
 		if (
 			(!type || type == "stream") &&
 			existsSync(filePath) &&
