@@ -22,6 +22,9 @@ import { ArtistManagerService } from "src/artist-manager/artist-manager.service"
 import { AlbumManagerService } from "src/album-manager/album-manager.service";
 import { DataClient, Plugin } from "@sdk";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
+import { toSimplifiedAttributeList } from "src/attributes/attributes.util";
+import { SavedAttribute } from "sdk/database";
+import { AudioSessionsService } from "src/audio-sessions/audio-sessions.service";
 
 @Injectable()
 export class PluginsService {
@@ -44,6 +47,7 @@ export class PluginsService {
 		private readonly pluginConfigService: PluginConfigService,
 		private readonly ephemeralService: EphemeralService,
 		private readonly trackManagerService: TrackManagerService,
+		private readonly audioSessionsService: AudioSessionsService,
 	) {
 		this.logger.debug(`Plugin directory is "${this.pluginsDirectory}"`);
 
@@ -183,6 +187,7 @@ export class PluginsService {
 		return {
 			getServerVersion: () => Package.version,
 			getLogger: () => logger,
+			getServerPort: () => 3000, // todo: don't hard code
 			getPluginPackage: () => plugin.package,
 			requestTempDirectory: async () => {
 				let dir: string;
@@ -259,6 +264,20 @@ export class PluginsService {
 					null
 				);
 			},
+			createAudioSession: async (pluginId, libraryId, trackId, type) => {
+				const session = await this.audioSessionsService.createSession(
+					pluginId,
+					libraryId,
+					trackId,
+					type,
+				);
+
+				return {
+					getId: () => session.id,
+					getType: () => session.type,
+					getAudioProducer: () => session.getProducer(),
+				};
+			},
 			forEachTrack: async (pluginId, libraryId, callback) => {
 				const library = this.librariesService.findLibrary(pluginId, libraryId);
 				if (!library) {
@@ -277,6 +296,14 @@ export class PluginsService {
 				}),
 			getAlbumCount: () => this.albumManagerService.count([]),
 			getArtistCount: () => this.artistManagerService.count([]),
+			getAlbumUuids: (amount, offset) =>
+				this.albumManagerService
+					.findMany({ amount, offset })
+					.then((albums) => albums.map(({ uuid }) => uuid)),
+			getArtistUuids: (amount, offset) =>
+				this.artistManagerService
+					.findMany({ amount, offset })
+					.then((artists) => artists.map(({ uuid }) => uuid)),
 			getTrackIdentities: async (pluginId, libraryId, trackId) => {
 				const track = await this.trackManagerService.findOne({
 					where: {
@@ -293,25 +320,73 @@ export class PluginsService {
 					await this.identifiersService.getTrackIdentities(track);
 				return identities.map((identity) => identity.toIdentity());
 			},
-			getAlbumIdentities: async (albumUuid) => {
+			getAlbum: async (albumUuid: string, { relations } = {}) => {
 				const album = await this.albumManagerService.findOne(albumUuid, {
-					withIdentities: true,
+					withIdentities: relations?.identities,
+					withAttributes: relations?.attributes,
+					withArtists: !!relations?.artists,
+					withArtistIdentities:
+						typeof relations?.artists == "object" &&
+						relations.artists.identities,
+					withArtistAttributes:
+						typeof relations?.artists == "object" &&
+						relations.artists.attributes,
+					withTracks: !!relations?.tracks,
+					withTrackIdentities:
+						typeof relations?.tracks == "object" && relations.tracks.identities,
+					withTrackAttributes:
+						typeof relations?.tracks == "object" && relations.tracks.attributes,
+					withTrackArtists:
+						typeof relations?.tracks == "object" && !!relations.tracks.artists,
+					withTrackArtistIdentities:
+						typeof relations?.tracks == "object" &&
+						typeof relations.tracks.artists == "object" &&
+						relations.tracks.artists.identities,
+					withTrackArtistAttributes:
+						typeof relations?.tracks == "object" &&
+						typeof relations.tracks.artists == "object" &&
+						relations.tracks.artists.attributes,
 				});
-				if (!album?.identities) {
-					return null;
-				}
 
-				return album.identities.map((identity) => identity.toIdentity());
+				return album?.toSavedResponse() ?? null;
 			},
-			getArtistIdentities: async (artistUuid) => {
+			getArtist: async (artistUuid: string, { relations } = {}) => {
 				const artist = await this.artistManagerService.findOne(artistUuid, {
-					withIdentities: true,
+					withIdentities: relations?.identities,
+					withAttributes: relations?.attributes,
+					withTracks: !!relations?.tracks,
+					withTrackIdentities:
+						typeof relations?.tracks == "object" && relations.tracks.identities,
+					withTrackAttributes:
+						typeof relations?.tracks == "object" && relations.tracks.attributes,
+					withTrackArtists:
+						typeof relations?.tracks == "object" && !!relations.tracks.artists,
+					withTrackArtistIdentities:
+						typeof relations?.tracks == "object" &&
+						typeof relations.tracks.artists == "object" &&
+						relations.tracks.artists.identities,
+					withTrackArtistAttributes:
+						typeof relations?.tracks == "object" &&
+						typeof relations.tracks.artists == "object" &&
+						relations.tracks.artists.attributes,
+					withAlbums: !!relations?.albums,
+					withAlbumIdentities:
+						typeof relations?.albums == "object" && relations.albums.identities,
+					withAlbumAttributes:
+						typeof relations?.albums == "object" && relations.albums.attributes,
+					withAlbumArtists:
+						typeof relations?.albums == "object" && !!relations.albums.artists,
+					withAlbumArtistIdentities:
+						typeof relations?.albums == "object" &&
+						typeof relations.albums.artists == "object" &&
+						relations.albums.artists.identities,
+					withAlbumArtistAttributes:
+						typeof relations?.albums == "object" &&
+						typeof relations.albums.artists == "object" &&
+						relations.albums.artists.attributes,
 				});
-				if (!artist?.identities) {
-					return null;
-				}
 
-				return artist.identities.map((identity) => identity.toIdentity());
+				return artist?.toSavedResponse() ?? null;
 			},
 		};
 	}

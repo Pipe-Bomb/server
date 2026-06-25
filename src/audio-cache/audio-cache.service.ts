@@ -4,7 +4,17 @@ import FFmpeg from "fluent-ffmpeg";
 import { createHash, randomUUID } from "crypto";
 import path from "path";
 import { createReadStream, createWriteStream, existsSync } from "fs";
-import { mkdir, rm, stat, rename, copyFile, unlink, lstat } from "fs/promises";
+import {
+	mkdir,
+	rm,
+	stat,
+	rename,
+	copyFile,
+	unlink,
+	lstat,
+	writeFile,
+	readFile,
+} from "fs/promises";
 import Mime from "mime";
 import { finished } from "stream/promises";
 import { TasksService } from "src/tasks/tasks.service";
@@ -14,25 +24,14 @@ import { StreamStreamInstance } from "src/streaming-core/stream-instance/stream.
 import { HLSStreamInstance } from "src/streaming-core/stream-instance/hls.stream-instance";
 import { AudioProducer, AudioProducerType, LibraryHandler } from "@sdk";
 import { parseStream } from "music-metadata";
+import { CacheSidecar } from "./interface/cache-sidecar.interface";
+import Ffmpeg from "fluent-ffmpeg";
 
 @Injectable()
 export class AudioCacheService {
 	private readonly logger = new Logger("Audio Cache Service");
 
-	constructor(
-		private readonly tasksService: TasksService,
-		private readonly streamingCoreService: StreamingCoreService,
-	) {
-		// this.tasksService.registerSystemTask({
-		// 	id: "cache-all-libraries",
-		// 	resumable: false,
-		// 	run: async (context) => {
-		// 		const libraries = this.librariesService.allFlat();
-		// 		for (const library of libraries) {
-		// 		}
-		// 	},
-		// });
-	}
+	constructor(private readonly streamingCoreService: StreamingCoreService) {}
 
 	private getPath(pluginId: string, libraryId: string, trackId: string) {
 		const hash = createHash("sha256").update(trackId).digest("hex");
@@ -61,36 +60,106 @@ export class AudioCacheService {
 		type: AudioProducerType | null,
 	): Promise<AudioProducer | null> {
 		const filePath = this.getPath(pluginId, handler.id, trackId);
+		const jsonFilePath = `${filePath}.json`;
 
-		if ((!type || type == "stream") && existsSync(filePath)) {
-			return {
-				type: "stream",
-				cacheable: false,
-				getMetadata: async () => {
-					const stats = await stat(filePath);
+		console.log("GETTING AUDIO PRODUCER");
 
-					return {
-						size: stats.size,
-						mimeType: "audio/mpeg", // mp3 mime type
-					};
-				},
-				getStream: async () => createReadStream(filePath),
-				getDuration: async () => {
-					const metadata = await parseStream(createReadStream(filePath));
-					if (metadata.format.duration) {
-						return metadata.format.duration;
-					}
-					throw new Error("Failed to get duration");
-				},
-				getPart: async (start, end) =>
-					createReadStream(filePath, {
-						start,
-						end,
-					}),
-			};
+		if (
+			(!type || type == "stream") &&
+			existsSync(filePath) &&
+			existsSync(jsonFilePath)
+		) {
+			try {
+				const rawSidecar = await readFile(jsonFilePath, "utf-8");
+				const sidecarContents: CacheSidecar = await JSON.parse(rawSidecar);
+				return {
+					type: "stream",
+					cacheable: false,
+					getMetadata: async () => {
+						return {
+							size: sidecarContents.size,
+							mimeType: sidecarContents.mimeType,
+						};
+					},
+					getStream: async () => createReadStream(filePath),
+					getDuration: async () => {
+						const metadata = await parseStream(createReadStream(filePath));
+						if (metadata.format.duration) {
+							return metadata.format.duration;
+						}
+						throw new Error("Failed to get duration");
+					},
+					getPart: async (start, end) =>
+						createReadStream(filePath, {
+							start,
+							end,
+						}),
+				};
+			} catch (e) {
+				this.logger.error(
+					`Failed to create cached Audio Producer for Track "${trackId}" in Library "${handler.id}" from Plugin "${pluginId}"`,
+					e,
+				);
+			}
 		}
 
 		return handler.getAudioProducer(trackId, type);
+	}
+
+	private async createSidecar(audioPath: string) {
+		const jsonPath = `${audioPath}.json`;
+
+		const stats = await stat(audioPath);
+
+		const ffprobeData = await new Promise<FFmpeg.FfprobeData>(
+			(resolve, reject) => {
+				Ffmpeg.ffprobe(audioPath, (error, data) => {
+					if (error) {
+						return reject(error);
+					}
+					resolve(data);
+				});
+			},
+		);
+
+		const audioStream = ffprobeData.streams.find(
+			(s) => s.codec_type === "audio",
+		);
+		const codec = audioStream?.codec_name?.toLowerCase();
+		const format = ffprobeData.format.format_name?.toLowerCase() || "";
+
+		let mimeType: string | null = null;
+
+		if (
+			format.includes("mp4") ||
+			format.includes("m4a") ||
+			format.includes("mov")
+		) {
+			mimeType = "audio/mp4";
+		} else if (codec === "aac") {
+			mimeType = "audio/aac";
+		} else if (codec === "mp3" || format.includes("mp3")) {
+			mimeType = "audio/mpeg";
+		} else if (codec === "flac" || format.includes("flac")) {
+			mimeType = "audio/flac";
+		} else if (codec === "opus") {
+			mimeType = "audio/opus";
+		} else if (codec === "vorbis" || format.includes("ogg")) {
+			mimeType = "audio/ogg";
+		} else if (format.includes("wav") || codec?.startsWith("pcm_")) {
+			mimeType = "audio/wav";
+		}
+
+		if (!mimeType) {
+			throw new Error("Unable to determine mime type");
+		}
+
+		const content: CacheSidecar = {
+			size: stats.size,
+			mimeType,
+		};
+
+		await writeFile(jsonPath, JSON.stringify(content));
 	}
 
 	async cacheTrack(library: LoadedLibraryHandler, track: DBTrack) {
@@ -101,6 +170,10 @@ export class AudioCacheService {
 		);
 		const fileDir = path.dirname(filePath);
 		if (existsSync(filePath)) {
+			if (!existsSync(`${filePath}.json`)) {
+				await this.createSidecar(filePath);
+			}
+
 			return false;
 		}
 
@@ -155,6 +228,7 @@ export class AudioCacheService {
 						throw e;
 					}
 				}
+				await this.createSidecar(filePath);
 
 				return true;
 			}

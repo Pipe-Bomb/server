@@ -9,6 +9,7 @@ import {
 import { DBTrack } from "src/tracks/entities/track.entity";
 import { DBArtist } from "src/artist-manager/entity/artist.entity";
 import { TrackArtistResponse } from "src/tracks/response/track-artist.response";
+import { SavedArtistTrack } from "sdk/database";
 
 @Entity("track_artists")
 @Index(["trackUuid", "artistUuid", "pluginId", "identifierId"], {
@@ -52,6 +53,19 @@ export class DBTrackArtist {
 			artistUuid: this.artistUuid,
 			joinPhrase: this.joinPhrase,
 			artist: this.artist.toResponse(),
+		};
+	}
+
+	toSavedResponse(): SavedArtistTrack {
+		return {
+			artistUuid: this.artistUuid,
+			trackUuid: this.trackUuid,
+			pluginId: this.pluginId,
+			identifierId: this.identifierId,
+			ordinal: this.ordinal,
+			joinPhrase: this.joinPhrase,
+			artist: this.artist?.toSavedResponse() ?? null,
+			track: this.track?.toSavedResponse() ?? null,
 		};
 	}
 }

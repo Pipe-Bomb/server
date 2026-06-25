@@ -13,6 +13,7 @@ import { EphemeralModule } from "src/ephemeral/ephemeral.module";
 import { ArtistManagerModule } from "src/artist-manager/artist-manager.module";
 import { AlbumManagerModule } from "src/album-manager/album-manager.module";
 import { TrackManagerModule } from "src/track-manager/track-manager.module";
+import { AudioSessionsModule } from "src/audio-sessions/audio-sessions.module";
 
 @Module({
 	imports: [
@@ -28,6 +29,7 @@ import { TrackManagerModule } from "src/track-manager/track-manager.module";
 		PluginConfigModule,
 		EphemeralModule,
 		TrackManagerModule,
+		AudioSessionsModule,
 	],
 	controllers: [PluginsController],
 	providers: [PluginsService],

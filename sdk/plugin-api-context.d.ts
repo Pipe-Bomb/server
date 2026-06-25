@@ -15,6 +15,7 @@ import { Task } from "./task";
 
 export interface PluginApiContext {
 	getServerVersion(): string;
+	getServerPort(): number;
 	getLogger(): Logger;
 	getPluginPackage(): PluginPackage;
 	registerLibraryHandler(libraryHandler: LibraryHandler): void;

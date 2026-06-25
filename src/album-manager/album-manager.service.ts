@@ -89,9 +89,11 @@ export class AlbumManagerService {
 	async findForArtist(
 		artist: DBArtist,
 		options: {
-			amount: number;
+			withIdentities?: boolean;
 			withAttributes?: boolean;
 			withArtists?: boolean;
+			withArtistIdentities?: boolean;
+			withArtistAttributes?: boolean;
 		},
 	) {
 		const albums = await this.albumsRepository.find({
@@ -110,10 +112,12 @@ export class AlbumManagerService {
 			},
 			relations: {
 				album: {
+					identities: options.withIdentities,
 					attributes: options.withAttributes,
 					artists: options.withArtists && {
 						artist: {
-							attributes: true,
+							identities: options.withArtistIdentities,
+							attributes: options.withArtistAttributes,
 						},
 					},
 				},
@@ -137,9 +141,14 @@ export class AlbumManagerService {
 			withAttributes?: boolean;
 			withIdentities?: boolean;
 			withArtists?: boolean;
+			withArtistIdentities?: boolean;
+			withArtistAttributes?: boolean;
 			withTracks?: boolean;
+			withTrackIdentities?: boolean;
 			withTrackAttributes?: boolean;
 			withTrackArtists?: boolean;
+			withTrackArtistIdentities?: boolean;
+			withTrackArtistAttributes?: boolean;
 		} = {},
 	) {
 		const album = await this.albumsRepository.findOne({
@@ -152,16 +161,19 @@ export class AlbumManagerService {
 				identities: options.withIdentities,
 				artists: !!options.withArtists && {
 					artist: {
-						attributes: true,
+						attributes: options.withArtistAttributes,
+						identities: options.withArtistIdentities,
 					},
 				},
 				tracks: !!options.withTracks && {
 					track: {
 						artists: !!options.withTrackArtists && {
 							artist: {
-								attributes: true,
+								identities: options.withTrackArtistIdentities,
+								attributes: options.withTrackArtistAttributes,
 							},
 						},
+						identities: options.withTrackIdentities,
 						attributes: options.withTrackAttributes,
 					},
 				},

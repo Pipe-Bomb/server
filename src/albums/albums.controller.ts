@@ -43,10 +43,12 @@ export class AlbumsController {
 	async getAlbum(@Param("albumUuid") albumUuid: string) {
 		const album = await this.albumManagerService.findOne(albumUuid, {
 			withArtists: true,
+			withArtistAttributes: true,
 			withAttributes: true,
 			withIdentities: true,
 			withTracks: true,
 			withTrackArtists: true,
+			withTrackArtistAttributes: true,
 			withTrackAttributes: true,
 		});
 

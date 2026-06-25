@@ -8,6 +8,7 @@ import {
 	Index,
 } from "typeorm";
 import { DBAlbum } from "./album.entity";
+import { SavedAlbumTrack } from "sdk/database";
 
 @Entity("album_tracks")
 @Index(["albumUuid"])
@@ -38,4 +39,17 @@ export class DBAlbumTrack {
 	@ManyToOne(() => DBTrack, (track) => track.albums, { onDelete: "CASCADE" })
 	@JoinColumn({ name: "trackUuid" })
 	track?: DBTrack;
+
+	toSavedResponse(): SavedAlbumTrack {
+		return {
+			albumUuid: this.albumUuid,
+			trackUuid: this.trackUuid,
+			discNumber: this.discNumber,
+			trackNumber: this.trackNumber,
+			pluginId: this.pluginId,
+			identifierId: this.identifierId,
+			album: this.album?.toSavedResponse() ?? null,
+			track: this.track?.toSavedResponse() ?? null,
+		};
+	}
 }

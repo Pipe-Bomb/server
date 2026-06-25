@@ -9,6 +9,7 @@ import {
 } from "typeorm";
 import { DBAlbum } from "./album.entity";
 import { AlbumArtistResponse } from "../response/album-artist.response";
+import { SavedAlbumArtist } from "sdk/database";
 
 @Entity("album_artists")
 @Index(["albumUuid"])
@@ -49,6 +50,19 @@ export class DBAlbumArtist {
 			artistUuid: this.artistUuid,
 			joinPhrase: this.joinPhrase,
 			artist: this.artist.toResponse(),
+		};
+	}
+
+	toSavedResponse(): SavedAlbumArtist {
+		return {
+			artistUuid: this.artistUuid,
+			albumUuid: this.albumUuid,
+			pluginId: this.pluginId,
+			identifierId: this.identifierId,
+			ordinal: this.ordinal,
+			joinPhrase: this.joinPhrase,
+			artist: this.artist?.toSavedResponse() ?? null,
+			album: this.album?.toSavedResponse() ?? null,
 		};
 	}
 }

@@ -150,13 +150,19 @@ export class ArtistManagerService {
 		options: {
 			withAttributes?: boolean;
 			withIdentities?: boolean;
-			withTracks?: number;
+			withTracks?: number | boolean;
+			withTrackIdentities?: boolean;
 			withTrackAttributes?: boolean;
 			withTrackArtists?: boolean;
+			withTrackArtistIdentities?: boolean;
+			withTrackArtistAttributes?: boolean;
 			withTrackAlbums?: boolean;
-			withAlbums?: number;
-			withAlbumArtists?: boolean;
+			withAlbums?: boolean;
+			withAlbumIdentities?: boolean;
 			withAlbumAttributes?: boolean;
+			withAlbumArtists?: boolean;
+			withAlbumArtistIdentities?: boolean;
+			withAlbumArtistAttributes?: boolean;
 		} = {},
 	) {
 		const artist = await this.artistsRepository.findOne({
@@ -181,7 +187,10 @@ export class ArtistManagerService {
 						artistUuid: artist.uuid,
 					},
 				},
-				take: options.withTracks,
+				take:
+					typeof options.withTracks == "number"
+						? options.withTracks
+						: undefined,
 				select: ["uuid"],
 			});
 
@@ -220,9 +229,11 @@ export class ArtistManagerService {
 
 		if (options.withAlbums) {
 			artist.albums = await this.albumManagerService.findForArtist(artist, {
-				amount: options.withAlbums,
-				withArtists: options.withAlbumArtists,
+				withIdentities: options.withAlbumIdentities,
 				withAttributes: options.withAlbumAttributes,
+				withArtists: options.withAlbumArtists,
+				withArtistIdentities: options.withAlbumArtistIdentities,
+				withArtistAttributes: options.withAlbumArtistAttributes,
 			});
 		}
 

@@ -13,6 +13,7 @@ import { DBTrackArtist } from "../../artist-manager/entity/track-artist.entity";
 import { TrackArtistResponse } from "../response/track-artist.response";
 import { DBAlbumTrack } from "src/albums/entity/album-track.entity";
 import { AlbumResponse } from "src/albums/response/album.response";
+import { SavedTrack } from "sdk/database";
 
 @Entity("tracks")
 @Unique("IDX_pluginId_libraryId_trackId", ["pluginId", "libraryId", "trackId"])
@@ -135,6 +136,22 @@ export class DBTrack {
 			identities,
 			artists: (this.artists && artists) ?? null,
 			albums: (this.albums && albums) ?? null,
+		};
+	}
+
+	toSavedResponse(): SavedTrack {
+		return {
+			uuid: this.uuid,
+			pluginId: this.pluginId,
+			libraryId: this.libraryId,
+			trackId: this.trackId,
+			title: this.title,
+			identities:
+				this.identities?.map((identity) => identity.toIdentity()) ?? null,
+			attributes:
+				this.attributes?.map((attribute) => attribute.toSavedAttribute()) ??
+				null,
+			artists: this.artists?.map((artist) => artist.toSavedResponse()) ?? null,
 		};
 	}
 }

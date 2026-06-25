@@ -13,6 +13,7 @@ import { IdentityResponse } from "src/identifiers/response/identity.response";
 import { TrackResponse } from "src/tracks/response/track.response";
 import { DBAlbumArtist } from "src/albums/entity/album-artist.entity";
 import { AlbumResponse } from "src/albums/response/album.response";
+import { SavedArtist } from "sdk/database";
 
 @Entity("artists")
 export class DBArtist {
@@ -68,6 +69,20 @@ export class DBArtist {
 			identities,
 			tracks,
 			albums,
+		};
+	}
+
+	toSavedResponse(): SavedArtist {
+		return {
+			uuid: this.uuid,
+			dateAdded: new Date(this.dateAdded),
+			identities:
+				this.identities?.map((identity) => identity.toIdentity()) ?? null,
+			attributes:
+				this.attributes?.map((attribute) => attribute.toSavedAttribute()) ??
+				null,
+			tracks: this.tracks?.map((track) => track.toSavedResponse()) ?? null,
+			albums: this.albums?.map((album) => album.toSavedResponse()) ?? null,
 		};
 	}
 }

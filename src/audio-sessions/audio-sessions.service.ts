@@ -4,10 +4,10 @@ import {
 	NotFoundException,
 	ServiceUnavailableException,
 } from "@nestjs/common";
+import { AudioProducerType } from "@sdk";
 import { AudioCacheService } from "src/audio-cache/audio-cache.service";
 import { LibrariesService } from "src/libraries/libraries.service";
 import { StreamingCoreService } from "src/streaming-core/streaming-core.service";
-import { DBTrack } from "src/tracks/entities/track.entity";
 
 @Injectable()
 export class AudioSessionsService {
@@ -19,7 +19,12 @@ export class AudioSessionsService {
 		private readonly audioCacheService: AudioCacheService,
 	) {}
 
-	async createSession(pluginId: string, libraryId: string, trackId: string) {
+	async createSession(
+		pluginId: string,
+		libraryId: string,
+		trackId: string,
+		type?: AudioProducerType | null,
+	) {
 		const library = this.librariesService.findLibrary(pluginId, libraryId);
 		if (!library) {
 			throw new NotFoundException("Library not found");
@@ -28,7 +33,7 @@ export class AudioSessionsService {
 			library.handler,
 			pluginId,
 			trackId,
-			null,
+			type ?? null,
 		);
 
 		if (!producer) {

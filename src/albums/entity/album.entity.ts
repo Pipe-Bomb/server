@@ -11,6 +11,7 @@ import { DBAlbumIdentity } from "./album-identity.entity";
 import { AlbumResponse } from "../response/album.response";
 import { DBAlbumAttribute } from "src/attributes/entities/album-attribute.entity";
 import { AlbumArtistResponse } from "../response/album-artist.response";
+import { SavedAlbum } from "sdk/database";
 
 @Entity("albums")
 export class DBAlbum {
@@ -76,6 +77,19 @@ export class DBAlbum {
 				this.identities?.map((identity) => identity.toResponse()) ?? null,
 			attributes: this.attributes ?? null,
 			artists: this.artists ? artists : null,
+		};
+	}
+
+	toSavedResponse(): SavedAlbum {
+		return {
+			uuid: this.uuid,
+			dateAdded: new Date(this.dateAdded),
+			identities:
+				this.identities?.map((identity) => identity.toIdentity()) ?? null,
+			attributes:
+				this.attributes?.map((attribute) => attribute.toSavedAttribute()) ??
+				null,
+			tracks: this.tracks?.map((track) => track.toSavedResponse()) ?? null,
 		};
 	}
 }
