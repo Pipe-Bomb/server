@@ -126,6 +126,7 @@ export abstract class DBAttributeTemplate {
 						({
 							uuid: value.uuid,
 							url: value.url.url,
+							extension: value.extension,
 						}) as SavedAttributeValues["buffer"],
 				),
 			);

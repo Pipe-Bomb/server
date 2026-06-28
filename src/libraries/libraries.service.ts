@@ -268,6 +268,9 @@ export class LibrariesService {
 				amount: CHUNK_SIZE,
 				offset: CHUNK_SIZE * i,
 			});
+			if (!tracks.length || isCancelled) {
+				break;
+			}
 			for (const track of tracks) {
 				await callback(track.trackId, () => {
 					isCancelled = true;

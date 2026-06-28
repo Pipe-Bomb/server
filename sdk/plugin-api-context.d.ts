@@ -1,4 +1,5 @@
 import { AttributeSource } from "./attribute-source";
+import { AuthClient } from "./auth-client";
 import { ConfigManager } from "./config-manager";
 import { DataClient } from "./data-client";
 import { EphemeralSource } from "./ephemeral-source";
@@ -32,4 +33,5 @@ export interface PluginApiContext {
 	registerConfigManager(configManager: ConfigManager): void;
 	registerEphemeralSource(ephemeralSource: EphemeralSource): void;
 	getDataClient(): DataClient;
+	requestAuthClient(): AuthClient | null;
 }

@@ -1,7 +1,7 @@
 import { Identity } from "./information-helper";
 import { LibraryHandler } from "./library-handler";
 import type { Plugin } from "./plugin";
-import { SavedAlbum, SavedArtist } from "./database";
+import { SavedAlbum, SavedArtist, SavedTrack } from "./database";
 import { AudioSession } from "./audio-session";
 import { AudioProducerType } from "./audio-producer";
 
@@ -9,6 +9,11 @@ export interface DataClient {
 	getPlugin(pluginId: string): Plugin | null;
 	getPluginId(plugin: Plugin): string | null;
 	getPlugins(): Record<string, Plugin>;
+
+	getResource(
+		resourceUuid: string,
+		resourceExtension: string,
+	): Promise<Buffer | null>;
 
 	getLibraryHandler(pluginId: string, libraryId: string): LibraryHandler | null;
 
@@ -43,11 +48,23 @@ export interface DataClient {
 
 	getArtistUuids(amount: number, offset?: number): Promise<string[]>;
 
-	getTrackIdentities(
+	getTrack(
 		pluginId: string,
 		libraryId: string,
 		trackId: string,
-	): Promise<Identity[] | null>;
+		options?: {
+			relations?: {
+				identities?: boolean;
+				attributes?: boolean;
+				artists?:
+					| boolean
+					| {
+							identities?: boolean;
+							attributes?: boolean;
+					  };
+			};
+		},
+	): Promise<SavedTrack | null>;
 
 	getAlbum(
 		uuid: string,
@@ -93,12 +110,6 @@ export interface DataClient {
 								| {
 										identities?: boolean;
 										attributes?: boolean;
-										artists?:
-											| boolean
-											| {
-													identities?: boolean;
-													attributes?: boolean;
-											  };
 								  };
 							artists?:
 								| boolean

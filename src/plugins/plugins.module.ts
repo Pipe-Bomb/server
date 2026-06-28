@@ -14,6 +14,7 @@ import { ArtistManagerModule } from "src/artist-manager/artist-manager.module";
 import { AlbumManagerModule } from "src/album-manager/album-manager.module";
 import { TrackManagerModule } from "src/track-manager/track-manager.module";
 import { AudioSessionsModule } from "src/audio-sessions/audio-sessions.module";
+import { UsersModule } from "src/users/users.module";
 
 @Module({
 	imports: [
@@ -30,6 +31,7 @@ import { AudioSessionsModule } from "src/audio-sessions/audio-sessions.module";
 		EphemeralModule,
 		TrackManagerModule,
 		AudioSessionsModule,
+		UsersModule,
 	],
 	controllers: [PluginsController],
 	providers: [PluginsService],

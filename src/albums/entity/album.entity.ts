@@ -90,6 +90,7 @@ export class DBAlbum {
 				this.attributes?.map((attribute) => attribute.toSavedAttribute()) ??
 				null,
 			tracks: this.tracks?.map((track) => track.toSavedResponse()) ?? null,
+			artists: this.artists?.map((artist) => artist.toSavedResponse()) ?? null,
 		};
 	}
 }

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { plainToInstance } from "class-transformer";
-import { validate } from "class-validator";
-import { existsSync } from "fs";
+import { isUUID, validate } from "class-validator";
+import { createReadStream, existsSync } from "fs";
 import { lstat, mkdir, readdir, readFile } from "fs/promises";
 import path from "path";
 import { PluginPackageDto } from "./dto/plugin-package.dto";
@@ -22,9 +22,8 @@ import { ArtistManagerService } from "src/artist-manager/artist-manager.service"
 import { AlbumManagerService } from "src/album-manager/album-manager.service";
 import { DataClient, Plugin } from "@sdk";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
-import { toSimplifiedAttributeList } from "src/attributes/attributes.util";
-import { SavedAttribute } from "sdk/database";
 import { AudioSessionsService } from "src/audio-sessions/audio-sessions.service";
+import { UsersService } from "src/users/users.service";
 
 @Injectable()
 export class PluginsService {
@@ -48,6 +47,7 @@ export class PluginsService {
 		private readonly ephemeralService: EphemeralService,
 		private readonly trackManagerService: TrackManagerService,
 		private readonly audioSessionsService: AudioSessionsService,
+		private readonly usersService: UsersService,
 	) {
 		this.logger.debug(`Plugin directory is "${this.pluginsDirectory}"`);
 
@@ -235,6 +235,26 @@ export class PluginsService {
 			registerEphemeralSource: (source) =>
 				this.ephemeralService.registerEphemeralSource(source, plugin),
 			getDataClient: () => this.createDataClient(),
+			requestAuthClient: () => {
+				return {
+					getUuid: (username) => this.usersService.usernameToUuid(username),
+					getUsername: (uuid) =>
+						this.usersService
+							.findOne(uuid)
+							.then((user) => user?.username ?? null),
+					generateUserToken: async (uuid: string) => {
+						const user = await this.usersService.findOne(uuid);
+						if (!user) {
+							throw new Error("User not found");
+						}
+						return this.usersService.generateJwt(user, plugin.package.name);
+					},
+					getUserFromToken: async (token: string) => {
+						const payload = await this.usersService.parseJwt(token);
+						return payload.sub;
+					},
+				};
+			},
 		};
 	}
 
@@ -257,6 +277,28 @@ export class PluginsService {
 					}
 				}
 				return null;
+			},
+			getResource: async (resourceUuid, resourceExtension) => {
+				if (!isUUID(resourceUuid)) {
+					throw new Error("Invalid resource UUID");
+				}
+				if (resourceExtension.includes(".")) {
+					throw new Error("Invalid resource extension");
+				}
+				const filePath = path.join(
+					"resources",
+					resourceUuid.substring(0, 3),
+					`${resourceUuid}.${resourceExtension}`,
+				);
+				try {
+					return await readFile(filePath);
+				} catch (e) {
+					this.logger.warn(
+						`Failed to read resource "${resourceUuid}" (${resourceExtension})`,
+						e,
+					);
+					return null;
+				}
 			},
 			getLibraryHandler: (pluginId, libraryId) => {
 				return (
@@ -304,23 +346,30 @@ export class PluginsService {
 				this.artistManagerService
 					.findMany({ amount, offset })
 					.then((artists) => artists.map(({ uuid }) => uuid)),
-			getTrackIdentities: async (pluginId, libraryId, trackId) => {
+			getTrack: async (pluginId, libraryId, trackId, { relations } = {}) => {
 				const track = await this.trackManagerService.findOne({
 					where: {
 						pluginId,
 						libraryId,
 						trackId,
 					},
+					relations: {
+						identities: relations?.identities,
+						attributes: relations?.attributes,
+						artists: relations?.artists && {
+							artist:
+								typeof relations.artists == "object"
+									? {
+											identities: relations.artists.identities,
+											attributes: relations.artists.attributes,
+										}
+									: true,
+						},
+					},
 				});
-				if (!track) {
-					return null;
-				}
-
-				const identities =
-					await this.identifiersService.getTrackIdentities(track);
-				return identities.map((identity) => identity.toIdentity());
+				return track?.toSavedResponse() ?? null;
 			},
-			getAlbum: async (albumUuid: string, { relations } = {}) => {
+			getAlbum: async (albumUuid, { relations } = {}) => {
 				const album = await this.albumManagerService.findOne(albumUuid, {
 					withIdentities: relations?.identities,
 					withAttributes: relations?.attributes,
@@ -384,6 +433,16 @@ export class PluginsService {
 						typeof relations?.albums == "object" &&
 						typeof relations.albums.artists == "object" &&
 						relations.albums.artists.attributes,
+					withAlbumTracks:
+						typeof relations?.albums == "object" && !!relations.albums.tracks,
+					withAlbumTrackIdentities:
+						typeof relations?.albums == "object" &&
+						typeof relations.albums.tracks == "object" &&
+						relations.albums.tracks.identities,
+					withAlbumTrackAttributes:
+						typeof relations?.albums == "object" &&
+						typeof relations.albums.tracks == "object" &&
+						relations.albums.tracks.attributes,
 				});
 
 				return artist?.toSavedResponse() ?? null;

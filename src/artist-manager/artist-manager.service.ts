@@ -158,6 +158,9 @@ export class ArtistManagerService {
 			withTrackArtistAttributes?: boolean;
 			withTrackAlbums?: boolean;
 			withAlbums?: boolean;
+			withAlbumTracks?: boolean;
+			withAlbumTrackAttributes?: boolean;
+			withAlbumTrackIdentities?: boolean;
 			withAlbumIdentities?: boolean;
 			withAlbumAttributes?: boolean;
 			withAlbumArtists?: boolean;
@@ -171,7 +174,9 @@ export class ArtistManagerService {
 			},
 			relationLoadStrategy: "query",
 			relations: {
-				attributes: options.withAttributes,
+				attributes: options.withAttributes && {
+					value_buffer: true,
+				},
 				identities: options.withIdentities,
 			},
 		});
@@ -234,6 +239,9 @@ export class ArtistManagerService {
 				withArtists: options.withAlbumArtists,
 				withArtistIdentities: options.withAlbumArtistIdentities,
 				withArtistAttributes: options.withAlbumArtistAttributes,
+				withTracks: options.withAlbumTracks,
+				withTrackIdentities: options.withAlbumTrackIdentities,
+				withTrackAttributes: options.withAlbumTrackAttributes,
 			});
 		}
 
@@ -371,13 +379,6 @@ export class ArtistManagerService {
 						(i) => i.identityId == id && (!pluginId || i.pluginId == pluginId),
 					),
 			);
-			if (artist.uuid == "893a348b-3bb7-4600-8e59-0deb509cbc24") {
-				this.logger.error(
-					"RUNNING IDENTIFIER:",
-					plugin.package.name,
-					identifier.id,
-				);
-			}
 			const newIdentities = await identifier.identify(
 				helper,
 				new Logger(`PLUGIN ${plugin.package.name}`),
@@ -405,10 +406,6 @@ export class ArtistManagerService {
 					newEntries.push(newIdentity);
 				}
 			}
-		}
-
-		if (artist.uuid == "893a348b-3bb7-4600-8e59-0deb509cbc24") {
-			this.logger.error("CHRIS LAKE:", newEntries);
 		}
 
 		if (!newEntries.length) {
@@ -677,6 +674,9 @@ export class ArtistManagerService {
 				amount: CHUNK_SIZE,
 				offset: CHUNK_SIZE * i,
 			});
+			if (!artists.length || isCancelled) {
+				break;
+			}
 			for (const artist of artists) {
 				await callback(artist.uuid, () => {
 					isCancelled = true;

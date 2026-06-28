@@ -94,6 +94,9 @@ export class AlbumManagerService {
 			withArtists?: boolean;
 			withArtistIdentities?: boolean;
 			withArtistAttributes?: boolean;
+			withTracks?: boolean;
+			withTrackIdentities?: boolean;
+			withTrackAttributes?: boolean;
 		},
 	) {
 		const albums = await this.albumsRepository.find({
@@ -118,6 +121,12 @@ export class AlbumManagerService {
 						artist: {
 							identities: options.withArtistIdentities,
 							attributes: options.withArtistAttributes,
+						},
+					},
+					tracks: options.withTracks && {
+						track: {
+							identities: options.withTrackIdentities,
+							attributes: options.withTrackAttributes,
 						},
 					},
 				},
@@ -533,7 +542,7 @@ export class AlbumManagerService {
 				amount: CHUNK_SIZE,
 				offset: CHUNK_SIZE * i,
 			});
-			if (!albums.length) {
+			if (!albums.length || isCancelled) {
 				break;
 			}
 			for (const album of albums) {

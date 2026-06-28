@@ -94,9 +94,10 @@ export class UsersService {
 		return user;
 	}
 
-	generateJwt(user: DBUser) {
+	generateJwt(user: DBUser, pluginId?: string) {
 		const payload: UserJwtPayload = {
 			sub: user.uuid,
+			plugin: pluginId,
 		};
 
 		return this.jwtService.signAsync(payload, {
@@ -114,6 +115,16 @@ export class UsersService {
 		} catch {
 			throw new UnauthorizedException();
 		}
+	}
+
+	async usernameToUuid(username: string) {
+		const user = await this.usersRepository.findOne({
+			where: {
+				username,
+			},
+			select: ["uuid"],
+		});
+		return user?.uuid ?? null;
 	}
 
 	findOne(

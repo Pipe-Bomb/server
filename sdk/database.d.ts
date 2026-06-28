@@ -10,6 +10,7 @@ export type SavedAttributeValues = {
 	buffer: {
 		uuid: string;
 		url: string;
+		extension: string;
 	};
 };
 
@@ -51,6 +52,7 @@ export interface SavedAlbum {
 	attributes: SavedAttribute[] | null;
 	identities: Identity[] | null;
 	dateAdded: Date;
+	artists: SavedAlbumArtist[] | null;
 }
 
 export interface SavedArtistTrack {
