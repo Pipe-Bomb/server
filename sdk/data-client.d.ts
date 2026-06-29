@@ -1,4 +1,4 @@
-import { LibraryHandler } from "./library-handler";
+import { LibraryHandler, LibraryHandlerId } from "./library-handler";
 import type { Plugin } from "./plugin";
 import { SavedAlbum, SavedArtist, SavedTrack } from "./database";
 import { AudioSession } from "./audio-session";
@@ -13,6 +13,8 @@ export interface DataClient {
 		resourceUuid: string,
 		resourceExtension: string,
 	): Promise<Buffer | null>;
+
+	getLibraryHandlerIds(): LibraryHandlerId[];
 
 	getLibraryHandler(pluginId: string, libraryId: string): LibraryHandler | null;
 
@@ -56,6 +58,12 @@ export interface DataClient {
 				identities?: boolean;
 				attributes?: boolean;
 				artists?:
+					| boolean
+					| {
+							identities?: boolean;
+							attributes?: boolean;
+					  };
+				albums?:
 					| boolean
 					| {
 							identities?: boolean;

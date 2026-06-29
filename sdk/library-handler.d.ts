@@ -3,6 +3,11 @@ import { AttributeSource } from "./attribute-source";
 import { Task, TaskRunContext } from "./task";
 import { AudioProducer, AudioProducerType } from "./audio-producer";
 
+export interface LibraryHandlerId {
+	pluginId: string;
+	libraryId: string;
+}
+
 export interface LibraryHandlerApiContext {
 	addTrack(track: Track, runId: string | null): Promise<void>;
 	removeTrack(id: string): Promise<void>;

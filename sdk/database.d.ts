@@ -32,6 +32,7 @@ export interface SavedTrack {
 	attributes: SavedAttribute[] | null;
 	identities: Identity[] | null;
 	artists: SavedArtistTrack[] | null;
+	albums: SavedAlbumTrack[] | null;
 }
 
 export interface SavedAlbumTrack {

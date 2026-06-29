@@ -152,6 +152,7 @@ export class DBTrack {
 				this.attributes?.map((attribute) => attribute.toSavedAttribute()) ??
 				null,
 			artists: this.artists?.map((artist) => artist.toSavedResponse()) ?? null,
+			albums: this.albums?.map((album) => album.toSavedResponse()) ?? null,
 		};
 	}
 }

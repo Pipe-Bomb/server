@@ -303,6 +303,13 @@ export class PluginsService {
 					return null;
 				}
 			},
+			getLibraryHandlerIds: () => {
+				const handlers = this.librariesService.allFlat();
+				return handlers.map(({ handler, plugin }) => ({
+					pluginId: plugin.package.name,
+					libraryId: handler.id,
+				}));
+			},
 			getLibraryHandler: (pluginId, libraryId) => {
 				return (
 					this.librariesService.findLibrary(pluginId, libraryId)?.handler ??
@@ -365,6 +372,15 @@ export class PluginsService {
 									? {
 											identities: relations.artists.identities,
 											attributes: relations.artists.attributes,
+										}
+									: true,
+						},
+						albums: relations?.albums && {
+							album:
+								typeof relations.albums == "object"
+									? {
+											identities: relations.albums.identities,
+											attributes: relations.albums.attributes,
 										}
 									: true,
 						},
