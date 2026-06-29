@@ -12,6 +12,7 @@ import {
 import { DBPlaylistTrack } from "./playlist-track.entity";
 import { PlaylistResponse } from "../response/playlist.response";
 import { DBSmartPlaylistFilterGroup } from "./smart-playlist-filter-group.entity";
+import { SavedPlaylist } from "@sdk";
 
 @Entity("playlists")
 export class DBPlaylist {
@@ -57,6 +58,21 @@ export class DBPlaylist {
 					?.map((track) => track.toResponse())
 					.filter((track) => !!track) ?? null,
 			trackCount: trackCount ?? null,
+		};
+	}
+
+	toSavedResponse(): SavedPlaylist {
+		return {
+			uuid: this.uuid,
+			ownerUuid: this.ownerUuid,
+			owner: this.owner?.toSavedResponse() ?? null,
+			dateCreated: new Date(this.dateCreated),
+			attributes:
+				this.attributes?.map((attribute) => attribute.toSavedAttribute()) ??
+				null,
+			filters:
+				this.filterGroups?.map((group) => group.toSavedResponse()) ?? null,
+			tracks: this.tracks?.map((track) => track.toSavedResponse()) ?? null,
 		};
 	}
 }

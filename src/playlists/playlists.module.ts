@@ -33,5 +33,6 @@ import { DBSmartPlaylistFilterGroup } from "./entity/smart-playlist-filter-group
 	],
 	controllers: [PlaylistsController],
 	providers: [PlaylistsService, SmartPlaylistsService],
+	exports: [PlaylistsService],
 })
 export class PlaylistsModule {}

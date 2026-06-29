@@ -15,6 +15,7 @@ import { AlbumManagerModule } from "src/album-manager/album-manager.module";
 import { TrackManagerModule } from "src/track-manager/track-manager.module";
 import { AudioSessionsModule } from "src/audio-sessions/audio-sessions.module";
 import { UsersModule } from "src/users/users.module";
+import { PlaylistsModule } from "src/playlists/playlists.module";
 
 @Module({
 	imports: [
@@ -32,6 +33,7 @@ import { UsersModule } from "src/users/users.module";
 		TrackManagerModule,
 		AudioSessionsModule,
 		UsersModule,
+		PlaylistsModule,
 	],
 	controllers: [PluginsController],
 	providers: [PluginsService],

@@ -10,6 +10,7 @@ import {
 import { DBPlaylist } from "./playlist.entity";
 import { DBSmartPlaylistFilter } from "./smart-playlist-filter.entity";
 import { SmartPlaylistFilterGroupResponse } from "../response/smart-playlist-filter-group.reponse";
+import { SavedSmartFilter, SavedSmartFilterGroup } from "@sdk";
 
 @Entity("smart_playlist_filter_groups")
 export class DBSmartPlaylistFilterGroup {
@@ -44,6 +45,14 @@ export class DBSmartPlaylistFilterGroup {
 			uuid: this.uuid,
 			dateCreated: new Date(this.dateCreated),
 			filters: this.filters.map((filter) => filter.toResponse()),
+		};
+	}
+
+	toSavedResponse(): SavedSmartFilterGroup {
+		return {
+			uuid: this.uuid,
+			filters: this.filters?.map((filter) => filter.toSavedResponse()) ?? null,
+			dateCreated: new Date(this.dateCreated),
 		};
 	}
 }

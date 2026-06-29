@@ -5,7 +5,6 @@ import {
 	ManyToOne,
 	PrimaryGeneratedColumn,
 } from "typeorm";
-import { DBPlaylist } from "./playlist.entity";
 import { AttributeEntity } from "src/attribute-sources/enum/attribute-entity.enum";
 import { AttributeType } from "src/attributes/enum/attribute-type.enum";
 import { DBSmartPlaylistFilterGroup } from "./smart-playlist-filter-group.entity";
@@ -13,6 +12,7 @@ import {
 	BaseSmartPlaylistFilterResponse,
 	SmartPlaylistFilterResponse,
 } from "../response/smart-playlist-filter.response";
+import { AttributeValues, SavedAttributeValues, SavedSmartFilter } from "@sdk";
 
 @Entity("smart_playlist_filters")
 export class DBSmartPlaylistFilter {
@@ -26,7 +26,7 @@ export class DBSmartPlaylistFilter {
 
 	@ManyToOne(() => DBSmartPlaylistFilterGroup, { onDelete: "CASCADE" })
 	@JoinColumn({ name: "groupUuid" })
-	group?: DBPlaylist;
+	group?: DBSmartPlaylistFilterGroup;
 
 	@Column({
 		enum: AttributeEntity,
@@ -142,5 +142,39 @@ export class DBSmartPlaylistFilter {
 			default:
 				throw new Error("Not implemented");
 		}
+	}
+
+	toSavedResponse(): SavedSmartFilter {
+		const value: SavedAttributeValues[AttributeType] | null = (() => {
+			switch (this.attributeType) {
+				case AttributeType.BOOLEAN:
+					return this.value_boolean;
+				case AttributeType.DECIMAL:
+					return this.value_decimal;
+				case AttributeType.INTEGER:
+					return this.value_int;
+				case AttributeType.STRING:
+					return this.value_string;
+				default:
+					return null;
+			}
+		})();
+
+		return {
+			uuid: this.uuid,
+			groupUuid: this.groupUuid,
+			group: this.group?.toSavedResponse() ?? null,
+			entityType: this.entityType,
+			attributeKey: this.attributeKey,
+			attributeType: this.attributeType as Exclude<
+				keyof AttributeValues,
+				"buffer"
+			>,
+			value,
+			inverse: this.inverse,
+			min: this.min,
+			max: this.max,
+			partial: this.partial,
+		};
 	}
 }

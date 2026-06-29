@@ -8,6 +8,7 @@ import { ContainedCustomAttributeDto } from "src/attributes/dto/custom-attribute
 import { DBPlaylistAttribute } from "src/attributes/entities/playlist-attribute.entity";
 import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
 import { DBTrack } from "src/tracks/entities/track.entity";
+import { PlaylistClient } from "@sdk";
 
 @Injectable()
 export class PlaylistsService {
@@ -216,5 +217,61 @@ export class PlaylistsService {
 
 	async delete(playlist: DBPlaylist) {
 		await this.playlistsRepository.remove(playlist);
+	}
+
+	createPlaylistClient(): PlaylistClient {
+		return {
+			getUserPlaylistUuids: async (uuid) => {
+				const playlists = await this.playlistsRepository.find({
+					where: {
+						ownerUuid: uuid,
+					},
+					select: ["uuid"],
+				});
+				return playlists.map(({ uuid }) => uuid);
+			},
+			getPlaylist: async (uuid, { relations } = {}) => {
+				const playlist = await this.playlistsRepository.findOne({
+					where: {
+						uuid,
+					},
+					relations: {
+						attributes: relations?.attributes,
+						filterGroups: relations?.filterGroups && {
+							filters: true,
+						},
+						owner: relations?.owner,
+						tracks:
+							typeof relations?.tracks == "object"
+								? {
+										addedBy: relations.tracks.addedBy,
+										track:
+											typeof relations.tracks.track == "object"
+												? {
+														identities: relations.tracks.track.identities,
+														attributes: relations.tracks.track.attributes,
+														artists: relations.tracks.track.artists && {
+															artist:
+																typeof relations.tracks.track.artists ==
+																"object"
+																	? {
+																			identities:
+																				relations.tracks.track.artists
+																					.identities,
+																			attributes:
+																				relations.tracks.track.artists
+																					.attributes,
+																		}
+																	: true,
+														},
+													}
+												: relations.tracks.track,
+									}
+								: relations?.tracks,
+					},
+				});
+				return playlist?.toSavedResponse() ?? null;
+			},
+		};
 	}
 }

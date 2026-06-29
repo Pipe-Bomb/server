@@ -11,6 +11,7 @@ import {
 } from "./identifier";
 import { LibraryHandler } from "./library-handler";
 import { Logger } from "./logger";
+import { PlaylistClient } from "./playlist-client";
 import { PluginPackage } from "./plugin";
 import { Task } from "./task";
 
@@ -34,4 +35,5 @@ export interface PluginApiContext {
 	registerEphemeralSource(ephemeralSource: EphemeralSource): void;
 	getDataClient(): DataClient;
 	requestAuthClient(): AuthClient | null;
+	getPlaylistClient(): PlaylistClient;
 }

@@ -1,4 +1,3 @@
-import { Identity } from "./information-helper";
 import { LibraryHandler } from "./library-handler";
 import type { Plugin } from "./plugin";
 import { SavedAlbum, SavedArtist, SavedTrack } from "./database";

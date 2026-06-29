@@ -11,6 +11,7 @@ import { DBPlaylist } from "./playlist.entity";
 import { DBTrack } from "src/tracks/entities/track.entity";
 import { PlaylistTrackResponse } from "../response/playlist-track.response";
 import { DBUser } from "src/users/entity/user.entity";
+import { SavedPlaylistTrack } from "@sdk";
 
 @Entity("playlist_tracks")
 @Unique("IDX_playlistUuid_trackUuid", ["playlistUuid", "trackUuid"])
@@ -66,6 +67,19 @@ export class DBPlaylistTrack {
 			dateAdded: new Date(this.dateAdded),
 			addedBySystem: !this.addedByUuid,
 			addedBy: this.addedBy?.toResponse() ?? null,
+		};
+	}
+
+	toSavedResponse(): SavedPlaylistTrack {
+		return {
+			playlistUuid: this.playlistUuid,
+			trackUuid: this.trackUuid,
+			dateAdded: new Date(this.dateAdded),
+			ordinal: this.ordinal,
+			addedByUuid: this.addedByUuid,
+			addedBy: this.addedBy?.toSavedResponse() ?? null,
+			playlist: this.playlist?.toSavedResponse() ?? null,
+			track: this.track?.toSavedResponse() ?? null,
 		};
 	}
 }

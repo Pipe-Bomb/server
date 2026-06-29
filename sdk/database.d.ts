@@ -1,5 +1,4 @@
-import { RelativeUrl } from "src/interception/relative-url";
-import { AttributeType } from "./attribute";
+import { AttributeType, AttributeValue } from "./attribute";
 import { Identity } from "./information-helper";
 
 export type SavedAttributeValues = {
@@ -77,11 +76,60 @@ export interface SavedAlbumArtist {
 	joinPhrase: string | null;
 }
 
-export class SavedArtist {
+export interface SavedArtist {
 	uuid: string;
 	tracks: SavedArtistTrack[] | null;
 	albums: SavedAlbumArtist[] | null;
 	attributes: SavedAttribute[] | null;
 	identities: Identity[] | null;
 	dateAdded: Date;
+}
+
+export interface SavedUser {
+	uuid: string;
+	username: string;
+	playlists: SavedPlaylist[] | null;
+}
+
+export interface SavedSmartFilter<
+	T extends Exclude<AttributeType, "buffer"> = Exclude<AttributeType, "buffer">,
+> {
+	uuid: string;
+	groupUuid: string;
+	group: SavedSmartFilterGroup | null;
+	entityType: "track" | "artist" | "album";
+	attributeKey: string;
+	attributeType: T;
+	value: SavedAttributeValues[T] | null;
+	inverse: boolean;
+	min: number | null;
+	max: number | null;
+	partial: boolean | null;
+}
+
+export interface SavedSmartFilterGroup {
+	uuid: string;
+	dateCreated: Date;
+	filters: SavedSmartFilter[] | null;
+}
+
+export interface SavedPlaylistTrack {
+	playlistUuid: string;
+	trackUuid: string;
+	dateAdded: Date;
+	ordinal: number;
+	addedByUuid: string | null;
+	addedBy: SavedUser | null;
+	playlist: SavedPlaylist | null;
+	track: SavedTrack | null;
+}
+
+export interface SavedPlaylist {
+	uuid: string;
+	ownerUuid: string;
+	owner: SavedUser | null;
+	dateCreated: Date;
+	attributes: SavedAttribute[] | null;
+	filters: SavedSmartFilterGroup[] | null;
+	tracks: SavedPlaylistTrack[] | null;
 }

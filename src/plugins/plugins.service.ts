@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { plainToInstance } from "class-transformer";
 import { isUUID, validate } from "class-validator";
-import { createReadStream, existsSync } from "fs";
+import { existsSync } from "fs";
 import { lstat, mkdir, readdir, readFile } from "fs/promises";
 import path from "path";
 import { PluginPackageDto } from "./dto/plugin-package.dto";
@@ -24,6 +24,7 @@ import { DataClient, Plugin } from "@sdk";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { AudioSessionsService } from "src/audio-sessions/audio-sessions.service";
 import { UsersService } from "src/users/users.service";
+import { PlaylistsService } from "src/playlists/playlists.service";
 
 @Injectable()
 export class PluginsService {
@@ -48,6 +49,7 @@ export class PluginsService {
 		private readonly trackManagerService: TrackManagerService,
 		private readonly audioSessionsService: AudioSessionsService,
 		private readonly usersService: UsersService,
+		private readonly playlistsService: PlaylistsService,
 	) {
 		this.logger.debug(`Plugin directory is "${this.pluginsDirectory}"`);
 
@@ -255,6 +257,7 @@ export class PluginsService {
 					},
 				};
 			},
+			getPlaylistClient: () => this.playlistsService.createPlaylistClient(),
 		};
 	}
 

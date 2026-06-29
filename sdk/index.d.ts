@@ -16,3 +16,4 @@ export * from "./data-client";
 export * from "./database";
 export * from "./audio-session";
 export * from "./auth-client";
+export * from "./playlist-client";

@@ -7,6 +7,7 @@ import {
 } from "typeorm";
 import { UserResponse } from "../response/user.response";
 import { DBPlaylist } from "src/playlists/entity/playlist.entity";
+import { SavedUser } from "@sdk";
 
 @Entity("users")
 export class DBUser {
@@ -40,6 +41,15 @@ export class DBUser {
 			username: this.username,
 			playlists:
 				this.playlists?.map((playlist) => playlist.toResponse()) ?? null,
+		};
+	}
+
+	toSavedResponse(): SavedUser {
+		return {
+			uuid: this.uuid,
+			username: this.username,
+			playlists:
+				this.playlists?.map((playlist) => playlist.toSavedResponse()) ?? null,
 		};
 	}
 }
