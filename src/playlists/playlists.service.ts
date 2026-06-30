@@ -282,6 +282,14 @@ export class PlaylistsService {
 									}
 								: relations?.tracks,
 					},
+					order: {
+						tracks:
+							(relations?.tracks && {
+								dateAdded: "asc",
+								ordinal: "asc",
+							}) ||
+							undefined,
+					},
 				});
 				return playlist?.toSavedResponse() ?? null;
 			},
