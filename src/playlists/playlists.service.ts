@@ -1,14 +1,14 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DBPlaylist } from "./entity/playlist.entity";
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
 import { DBPlaylistTrack } from "./entity/playlist-track.entity";
 import { DBUser } from "src/users/entity/user.entity";
-import { ContainedCustomAttributeDto } from "src/attributes/dto/custom-attribute.dto";
 import { DBPlaylistAttribute } from "src/attributes/entities/playlist-attribute.entity";
 import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
 import { DBTrack } from "src/tracks/entities/track.entity";
-import { PlaylistClient } from "@sdk";
+import { AttributeValue, PlaylistClient } from "@sdk";
+import { UsersService } from "src/users/users.service";
 
 @Injectable()
 export class PlaylistsService {
@@ -20,6 +20,7 @@ export class PlaylistsService {
 		@InjectRepository(DBPlaylistTrack)
 		private readonly playlistTracksRepository: Repository<DBPlaylistTrack>,
 		private readonly attributeSourcesService: AttributeSourcesService,
+		private readonly usersService: UsersService,
 	) {
 		this.attributeSourcesService.registerPlaylistAttribute(null, {
 			key: "title",
@@ -33,7 +34,7 @@ export class PlaylistsService {
 		});
 	}
 
-	async create(owner: DBUser, attributes: ContainedCustomAttributeDto[]) {
+	async create(owner: DBUser, attributes: AttributeValue[]) {
 		const playlist = this.playlistsRepository.create({
 			owner,
 		});
@@ -44,7 +45,7 @@ export class PlaylistsService {
 			const newAttributes =
 				await this.attributeSourcesService.createPlaylistAttributes(
 					playlist.uuid,
-					this.attributeSourcesService.customToAttributeValues(attributes),
+					attributes,
 					null,
 				);
 
@@ -215,6 +216,18 @@ export class PlaylistsService {
 		);
 	}
 
+	async removeTracks(
+		playlist: DBPlaylist | string,
+		tracks: DBTrack[] | string[],
+	) {
+		await this.playlistTracksRepository.delete({
+			playlistUuid: typeof playlist == "string" ? playlist : playlist.uuid,
+			trackUuid: In(
+				tracks.map((track) => (typeof track == "string" ? track : track.uuid)),
+			),
+		});
+	}
+
 	async delete(playlist: DBPlaylist) {
 		await this.playlistsRepository.remove(playlist);
 	}
@@ -271,6 +284,81 @@ export class PlaylistsService {
 					},
 				});
 				return playlist?.toSavedResponse() ?? null;
+			},
+			addToPlaylist: async (uuid, trackUuids, options = {}) => {
+				const playlist = await this.findByUuid(uuid);
+
+				if (!playlist) {
+					throw new Error("Playlist doesn't exist");
+				}
+
+				let user: DBUser | null = null;
+				if (options.asUser) {
+					user = await this.usersService.findOne(options.asUser);
+
+					if (!user) {
+						throw new Error("User doesn't exist");
+					}
+
+					if (user.uuid != playlist.playlist.ownerUuid) {
+						throw new Error("User cannot modify playlist");
+					}
+				}
+
+				await this.addTracks(playlist.playlist, trackUuids, user);
+			},
+			removeFromPlaylist: async (uuid, trackUuids, options = {}) => {
+				const playlist = await this.findByUuid(uuid);
+
+				if (!playlist) {
+					throw new Error("Playlist doesn't exist");
+				}
+
+				let user: DBUser | null = null;
+				if (options.asUser) {
+					user = await this.usersService.findOne(options.asUser);
+
+					if (!user) {
+						throw new Error("User doesn't exist");
+					}
+
+					if (user.uuid != playlist.playlist.ownerUuid) {
+						throw new Error("User cannot modify playlist");
+					}
+				}
+
+				await this.removeTracks(playlist.playlist, trackUuids);
+			},
+			createUserPlaylist: async (ownerUuid, { attributes } = {}) => {
+				const user = await this.usersService.findOne(ownerUuid);
+				if (!user) {
+					throw new Error("User doesn't exist");
+				}
+
+				const playlist = await this.create(user, attributes ?? []);
+				return playlist.uuid;
+			},
+			deletePlaylist: async (uuid, options = {}) => {
+				const playlist = await this.findByUuid(uuid);
+
+				if (!playlist) {
+					throw new Error("Playlist doesn't exist");
+				}
+
+				let user: DBUser | null = null;
+				if (options.asUser) {
+					user = await this.usersService.findOne(options.asUser);
+
+					if (!user) {
+						throw new Error("User doesn't exist");
+					}
+
+					if (user.uuid != playlist.playlist.ownerUuid) {
+						throw new Error("User cannot delete playlist");
+					}
+				}
+
+				await this.delete(playlist.playlist);
 			},
 		};
 	}

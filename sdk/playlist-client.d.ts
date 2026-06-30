@@ -1,3 +1,4 @@
+import { AttributeValue } from "./attribute";
 import { SavedPlaylist } from "./database";
 
 export interface PlaylistClient {
@@ -28,4 +29,34 @@ export interface PlaylistClient {
 			};
 		},
 	): Promise<SavedPlaylist | null>;
+
+	addToPlaylist(
+		uuid: string,
+		trackUuids: string[],
+		options?: {
+			asUser?: string;
+		},
+	): Promise<void>;
+
+	removeFromPlaylist(
+		uuid: string,
+		trackUuids: string[],
+		options?: {
+			asUser?: string;
+		},
+	): Promise<void>;
+
+	createUserPlaylist(
+		ownerUuid: string,
+		options?: {
+			attributes?: AttributeValue[];
+		},
+	): Promise<string>;
+
+	deletePlaylist(
+		uuid: string,
+		options?: {
+			asUser?: string;
+		},
+	): Promise<void>;
 }

@@ -654,7 +654,7 @@ export class AttributeSourcesService {
 				}
 
 				formatterMap.set(key, {
-					formatter: attribute.formatter,
+					formatter: attribute.formatter as AttributeFormatter<any>,
 					pluginId: source?.plugin.package.name ?? "",
 					sourceId: source?.source.id ?? "",
 					priority: index,

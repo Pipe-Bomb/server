@@ -43,6 +43,7 @@ import { PlaylistTrackResponse } from "./response/playlist-track.response";
 import { TrackIdDto } from "src/tracks/dto/track-id.dto";
 import { CreateSmartFilterGroupDto } from "./dto/create-smart-filter-group.dto";
 import { SmartPlaylistsService } from "./smart-playlists.service";
+import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
 
 @Controller("playlists")
 export class PlaylistsController {
@@ -56,6 +57,7 @@ export class PlaylistsController {
 		private readonly librariesService: LibrariesService,
 		private readonly ephemeralService: EphemeralService,
 		private readonly albumManagerService: AlbumManagerService,
+		private readonly attributeSourcesService: AttributeSourcesService,
 	) {}
 
 	@Put()
@@ -69,7 +71,11 @@ export class PlaylistsController {
 		@Body() dto: CreatePlaylistDto,
 		@ReqUser(FetchUserPipe) user: DBUser,
 	): Promise<PlaylistResponse> {
-		const playlist = await this.playlistsService.create(user, dto.attributes);
+		const attributes = this.attributeSourcesService.customToAttributeValues(
+			dto.attributes,
+		);
+
+		const playlist = await this.playlistsService.create(user, attributes);
 		return playlist.toResponse();
 	}
 
