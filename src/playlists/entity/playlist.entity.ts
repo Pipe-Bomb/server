@@ -8,6 +8,7 @@ import {
 	ManyToOne,
 	OneToMany,
 	PrimaryGeneratedColumn,
+	UpdateDateColumn,
 } from "typeorm";
 import { DBPlaylistTrack } from "./playlist-track.entity";
 import { PlaylistResponse } from "../response/playlist.response";
@@ -33,6 +34,11 @@ export class DBPlaylist {
 	})
 	dateCreated: number;
 
+	@UpdateDateColumn({
+		type: "integer",
+	})
+	dateModified: number;
+
 	@OneToMany(
 		() => DBPlaylistAttribute,
 		(attribute) => attribute.entityRelationId,
@@ -50,6 +56,8 @@ export class DBPlaylist {
 			uuid: this.uuid,
 			ownerUuid: this.ownerUuid,
 			owner: this.owner?.toResponse() ?? null,
+			dateCreated: new Date(this.dateCreated),
+			dateModified: new Date(this.dateModified),
 			attributes: this.attributes ?? null,
 			filterGroups:
 				this.filterGroups?.map((group) => group.toResponse()) ?? null,
@@ -67,6 +75,7 @@ export class DBPlaylist {
 			ownerUuid: this.ownerUuid,
 			owner: this.owner?.toSavedResponse() ?? null,
 			dateCreated: new Date(this.dateCreated),
+			dateModified: new Date(this.dateModified),
 			attributes:
 				this.attributes?.map((attribute) => attribute.toSavedAttribute()) ??
 				null,

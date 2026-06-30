@@ -7,8 +7,9 @@ import { DBUser } from "src/users/entity/user.entity";
 import { DBPlaylistAttribute } from "src/attributes/entities/playlist-attribute.entity";
 import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
 import { DBTrack } from "src/tracks/entities/track.entity";
-import { AttributeValue, PlaylistClient } from "@sdk";
+import { AttributeType, AttributeValue, PlaylistClient } from "@sdk";
 import { UsersService } from "src/users/users.service";
+import { AttributeUploadService } from "src/attributes/attribute-upload.service";
 
 @Injectable()
 export class PlaylistsService {
@@ -21,6 +22,7 @@ export class PlaylistsService {
 		private readonly playlistTracksRepository: Repository<DBPlaylistTrack>,
 		private readonly attributeSourcesService: AttributeSourcesService,
 		private readonly usersService: UsersService,
+		private readonly attributeUploadService: AttributeUploadService,
 	) {
 		this.attributeSourcesService.registerPlaylistAttribute(null, {
 			key: "title",
@@ -59,9 +61,148 @@ export class PlaylistsService {
 		}
 
 		playlist.attributes = dbAttributes;
-		await this.attributeSourcesService.upsertPlaylistAttributes(dbAttributes);
+		await this.attributeSourcesService.upsertPlaylistAttributes(
+			playlist.uuid,
+			dbAttributes,
+		);
 
 		return playlist;
+	}
+
+	async updateAttributes(
+		playlist: DBPlaylist,
+		attributes: AttributeValue[],
+		user?: DBUser,
+	) {
+		const bufferAttributes: AttributeValue<"buffer">[] = [];
+		const supportedAttributes: AttributeValue[] = [];
+
+		const playlistAttributes =
+			this.attributeSourcesService.getPlaylistAttributes();
+
+		for (const attribute of attributes) {
+			const loadedAttribute = playlistAttributes.find(
+				(attr) => attr.attribute.key == attribute.key,
+			);
+			if (
+				loadedAttribute?.attribute.type == "buffer" &&
+				typeof attribute.value == "object" &&
+				!attribute.value.buffer
+			) {
+				bufferAttributes.push(attribute as AttributeValue<"buffer">);
+			} else {
+				supportedAttributes.push(attribute);
+			}
+		}
+
+		let dbAttributes: DBPlaylistAttribute[] = [];
+		try {
+			const newAttributes =
+				await this.attributeSourcesService.createPlaylistAttributes(
+					playlist.uuid,
+					supportedAttributes,
+					null,
+				);
+
+			dbAttributes.push(...newAttributes);
+		} catch (e) {
+			this.logger.error(
+				"Failed to create Attributes for Playlist during creation:",
+				e,
+			);
+			throw new BadRequestException("Invalid Attributes");
+		}
+
+		const keys = attributes.map(({ key }) => key);
+
+		if (playlist.attributes) {
+			playlist.attributes = playlist.attributes.filter(
+				(attribute) => !keys.includes(attribute.key),
+			);
+		}
+
+		await this.attributeSourcesService.upsertPlaylistAttributes(
+			playlist.uuid,
+			dbAttributes,
+		);
+
+		if (bufferAttributes.length) {
+			if (!user) {
+				throw new Error("Buffer attributes cannot be handled without a User");
+			}
+
+			const sessions = bufferAttributes.map((attribute) => {
+				let resolve: (buffer: Buffer) => void;
+				let reject: (error: Error) => void;
+
+				const session = this.attributeUploadService.createSession(
+					user,
+					attribute.key,
+					attribute.value.extension,
+					(buffer) => resolve(buffer),
+					(error) => reject(error),
+				);
+
+				const promise = new Promise<Buffer>((res, rej) => {
+					resolve = res;
+					reject = rej;
+				});
+
+				return {
+					session,
+					promise,
+					attribute,
+				};
+			});
+
+			Promise.allSettled(sessions.map(({ promise }) => promise)).then(
+				(responses) => {
+					const toSave: AttributeValue<"buffer">[] = [];
+
+					for (const [i, response] of responses.entries()) {
+						if (response.status != "fulfilled") {
+							continue;
+						}
+
+						const buffer = response.value;
+						const session = sessions[i];
+						if (session) {
+							session.attribute.value.buffer = buffer;
+							toSave.push(session.attribute);
+						}
+					}
+
+					if (toSave.length) {
+						this.updateAttributes(playlist, attributes, user).catch((e) =>
+							this.logger.error(
+								`Failed to save delayed buffer Attributes to Playlist:`,
+								e,
+							),
+						);
+					}
+				},
+			);
+
+			return sessions.map(({ session }) => session);
+		}
+
+		return [];
+	}
+
+	private async updateDateModified(playlist: DBPlaylist | string) {
+		const now = Date.now();
+		if (typeof playlist == "object") {
+			playlist.dateModified = now;
+		}
+
+		await this.playlistsRepository.update(
+			{
+				uuid: typeof playlist == "string" ? playlist : playlist.uuid,
+			},
+			{
+				dateModified: now,
+			},
+		);
 	}
 
 	async findForUser(
@@ -214,6 +355,8 @@ export class PlaylistsService {
 				skipUpdateIfNoValuesChanged: true,
 			},
 		);
+
+		await this.updateDateModified(playlist);
 	}
 
 	async removeTracks(
@@ -226,6 +369,7 @@ export class PlaylistsService {
 				tracks.map((track) => (typeof track == "string" ? track : track.uuid)),
 			),
 		});
+		await this.updateDateModified(playlist);
 	}
 
 	async delete(playlist: DBPlaylist) {
@@ -367,6 +511,28 @@ export class PlaylistsService {
 				}
 
 				await this.delete(playlist.playlist);
+			},
+			updatePlaylistAttributes: async (uuid, attributes, options = {}) => {
+				const playlist = await this.findByUuid(uuid);
+
+				if (!playlist) {
+					throw new Error("Playlist doesn't exist");
+				}
+
+				let user: DBUser | null = null;
+				if (options.asUser) {
+					user = await this.usersService.findOne(options.asUser);
+
+					if (!user) {
+						throw new Error("User doesn't exist");
+					}
+
+					if (user.uuid != playlist.playlist.ownerUuid) {
+						throw new Error("User cannot update playlist attributes");
+					}
+				}
+
+				this.updateAttributes(playlist.playlist, attributes);
 			},
 		};
 	}

@@ -14,6 +14,8 @@
 	"contextmenu.track.play-next": "Play Next",
 	"contextmenu.track.add-to-queue": "Add to Queue",
 	"contextmenu.track.add-to-playlist": "Add to Playlist",
+	"contextmenu.track.remove-from-playlist": "Remove from Playlist",
+	"contextmenu.track.go-to-page": "Go to Page",
 
 	"contextmenu.album.view-info": "Album Info",
 	"contextmenu.album.add-to-playlist": "Add to Playlist",

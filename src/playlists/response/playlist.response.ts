@@ -39,6 +39,16 @@ export class PlaylistResponse {
 	owner: UserResponse | null;
 
 	@ApiProperty({
+		type: Date,
+	})
+	dateCreated: Date;
+
+	@ApiProperty({
+		type: Date,
+	})
+	dateModified: Date;
+
+	@ApiProperty({
 		oneOf: [{ $ref: getSchemaPath(AttributeMapResponse) }],
 		nullable: true,
 	})

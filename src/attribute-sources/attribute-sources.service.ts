@@ -492,10 +492,18 @@ export class AttributeSourcesService {
 		});
 	}
 
-	public async upsertPlaylistAttributes(attributes: DBPlaylistAttribute[]) {
-		await this.playlistAttributesRepository.upsert(attributes, {
-			conflictPaths: ["pluginId", "entityId", "sourceId", "ordinal", "key"],
+	public async upsertPlaylistAttributes(
+		playlistUuid: string,
+		attributes: DBPlaylistAttribute[],
+	) {
+		const keys = attributes.map(({ key }) => key);
+
+		await this.playlistAttributesRepository.delete({
+			entityId: playlistUuid,
+			key: In(keys),
 		});
+
+		await this.playlistAttributesRepository.insert(attributes);
 	}
 
 	setSourceOrder(order: OrderedAttributeSourceDto[]) {

@@ -31,7 +31,6 @@ import {
 	ApiOperation,
 	ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
-import { AddPlaylistTracksDto } from "./dto/add-playlist-tracks.dto";
 import { DBTrack } from "src/tracks/entities/track.entity";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { LibrariesService } from "src/libraries/libraries.service";
@@ -44,6 +43,9 @@ import { TrackIdDto } from "src/tracks/dto/track-id.dto";
 import { CreateSmartFilterGroupDto } from "./dto/create-smart-filter-group.dto";
 import { SmartPlaylistsService } from "./smart-playlists.service";
 import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
+import { UpdatePlaylistTracksDto } from "./dto/update-playlist-tracks.dto";
+import { UpdatePlaylistAttributesDto } from "./dto/update-playlist-attributes.dto";
+import { AttributeUploadSessionResponse } from "src/attributes/response/attribute-upload-session.response";
 
 @Controller("playlists")
 export class PlaylistsController {
@@ -192,8 +194,8 @@ export class PlaylistsController {
 		return tracks.map((track) => track.toResponse()).filter((track) => !!track);
 	}
 
-	@Patch(":uuid/add")
-	@ApiOperation({ operationId: "addTracksToPlaylist" })
+	@Patch(":uuid/tracks")
+	@ApiOperation({ operationId: "updatePlaylistTracks" })
 	@UseGuards(AuthGuard)
 	@ApiOkResponse({
 		type: PlaylistResponse,
@@ -201,10 +203,10 @@ export class PlaylistsController {
 	@ApiUnauthorizedResponse()
 	@ApiForbiddenResponse()
 	@ApiNotFoundResponse()
-	async addTracks(
+	async updatePlaylistTracks(
 		@Param("uuid") uuid: string,
 		@ReqUser(FetchUserPipe) user: DBUser,
-		@Body() dto: AddPlaylistTracksDto,
+		@Body() dto: UpdatePlaylistTracksDto,
 	): Promise<PlaylistResponse> {
 		const playlistInfo = await this.playlistsService.findByUuid(uuid);
 		if (!playlistInfo) {
@@ -216,105 +218,153 @@ export class PlaylistsController {
 			throw new ForbiddenException();
 		}
 
-		const tracks: (DBTrack | null)[] = [];
-		const missingTracks: (TrackIdDto & { index: number })[] = [];
+		if (dto.add) {
+			const tracks: (DBTrack | null)[] = [];
+			const missingTracks: (TrackIdDto & { index: number })[] = [];
 
-		const resolveTracks = async (toLookup: TrackIdDto[]) => {
-			const resolved = await this.librariesService.resolveTracks(toLookup);
-			const offset = tracks.length;
-			tracks.push(...resolved);
+			const resolveTracks = async (toLookup: TrackIdDto[]) => {
+				const resolved = await this.librariesService.resolveTracks(toLookup);
+				const offset = tracks.length;
+				tracks.push(...resolved);
 
-			for (const [index, track] of resolved.entries()) {
-				if (!track) {
-					missingTracks.push({
-						...toLookup[index],
-						index: index + offset,
-					});
+				for (const [index, track] of resolved.entries()) {
+					if (!track) {
+						missingTracks.push({
+							...toLookup[index],
+							index: index + offset,
+						});
+					}
 				}
+			};
+
+			if (dto.add.tracks?.length) {
+				await resolveTracks(dto.add.tracks);
 			}
-		};
 
-		if (dto.tracks?.length) {
-			await resolveTracks(dto.tracks);
-		}
-
-		if (dto.albums?.length) {
-			for (const albumInfo of dto.albums) {
-				if (albumInfo.uuid) {
-					const album = await this.albumManagerService.findOne(albumInfo.uuid, {
-						withTracks: true,
-					});
-					if (!album) {
-						throw new NotFoundException("Album not found");
-					}
-					if (album.tracks) {
-						tracks.push(...album.tracks.map(({ track }) => track!));
-					}
-				} else if (
-					albumInfo.pluginId &&
-					albumInfo.identityId &&
-					albumInfo.identity
-				) {
-					const ephemeralSource =
-						this.ephemeralService.getEphemeralSourceByAlbumIdentity(
-							albumInfo.pluginId,
+			if (dto.add.albums?.length) {
+				for (const albumInfo of dto.add.albums) {
+					if (albumInfo.uuid) {
+						const album = await this.albumManagerService.findOne(
+							albumInfo.uuid,
+							{
+								withTracks: true,
+							},
+						);
+						if (!album) {
+							throw new NotFoundException("Album not found");
+						}
+						if (album.tracks) {
+							tracks.push(...album.tracks.map(({ track }) => track!));
+						}
+					} else if (
+						albumInfo.pluginId &&
+						albumInfo.identityId &&
+						albumInfo.identity
+					) {
+						const ephemeralSource =
+							this.ephemeralService.getEphemeralSourceByAlbumIdentity(
+								albumInfo.pluginId,
+								albumInfo.identityId,
+							);
+						if (!ephemeralSource) {
+							throw new NotFoundException("Ephemeral Album not found");
+						}
+						const content = await ephemeralSource.source.resolveAlbumContent(
 							albumInfo.identityId,
+							albumInfo.identity,
 						);
-					if (!ephemeralSource) {
-						throw new NotFoundException("Ephemeral Album not found");
-					}
-					const content = await ephemeralSource.source.resolveAlbumContent(
-						albumInfo.identityId,
-						albumInfo.identity,
-					);
-					if (!content) {
-						throw new NotFoundException("Ephemeral Album not found");
-					}
-					if (content.tracks?.length) {
-						await resolveTracks(
-							content.tracks.map((track) => ({
-								pluginId: ephemeralSource.plugin.package.name,
-								libraryId: ephemeralSource.source.getLibraryHandler().id,
-								trackId: track.id,
-							})),
+						if (!content) {
+							throw new NotFoundException("Ephemeral Album not found");
+						}
+						if (content.tracks?.length) {
+							await resolveTracks(
+								content.tracks.map((track) => ({
+									pluginId: ephemeralSource.plugin.package.name,
+									libraryId: ephemeralSource.source.getLibraryHandler().id,
+									trackId: track.id,
+								})),
+							);
+						}
+					} else {
+						throw new BadRequestException(
+							"Album had no identifiable information",
 						);
 					}
-				} else {
-					throw new BadRequestException(
-						"Album had no identifiable information",
-					);
 				}
 			}
+
+			const session = await this.ephemeralService.createTracks(missingTracks, {
+				playlistUuids: [playlist.uuid],
+			});
+
+			session.promise.then(async (newTracks) => {
+				for (const [i, track] of newTracks.entries()) {
+					const index = missingTracks[i].index;
+					tracks[index] = track;
+				}
+
+				const foundTracks = tracks.filter((track) => !!track);
+
+				if (foundTracks.length) {
+					try {
+						await this.playlistsService.addTracks(playlist, foundTracks, user);
+						this.logger.debug(
+							`Added ${foundTracks.length} Tracks to Playlist "${playlist.uuid}"`,
+						);
+					} catch (e) {
+						this.logger.error(
+							`Failed to add Tracks to Playlist "${playlist.uuid}":`,
+							e,
+						);
+					}
+				}
+			});
 		}
 
-		const session = await this.ephemeralService.createTracks(missingTracks, {
-			playlistUuids: [playlist.uuid],
-		});
+		if (dto.remove?.length) {
+			const tracks = (
+				await this.librariesService.resolveTracks(dto.remove)
+			).filter((track) => !!track);
 
-		session.promise.then(async (newTracks) => {
-			for (const [i, track] of newTracks.entries()) {
-				const index = missingTracks[i].index;
-				tracks[index] = track;
-			}
-
-			const foundTracks = tracks.filter((track) => !!track);
-
-			if (foundTracks.length) {
-				try {
-					await this.playlistsService.addTracks(playlist, foundTracks, user);
-					this.logger.debug(
-						`Added ${foundTracks.length} Tracks to Playlist "${playlist.uuid}"`,
-					);
-				} catch (e) {
-					this.logger.error(
-						`Failed to add Tracks to Playlist "${playlist.uuid}":`,
-						e,
-					);
-				}
-			}
-		});
+			await this.playlistsService.removeTracks(playlist, tracks);
+		}
 
 		return this.getPlaylist(playlist.uuid, user);
+	}
+
+	@Patch(":uuid/attributes")
+	@ApiOperation({ operationId: "updatePlaylistAttributes" })
+	@UseGuards(AuthGuard)
+	@ApiOkResponse({
+		type: [AttributeUploadSessionResponse],
+	})
+	@ApiUnauthorizedResponse()
+	@ApiForbiddenResponse()
+	@ApiNotFoundResponse()
+	async updatePlaylistAttributes(
+		@Param("uuid") uuid: string,
+		@ReqUser(FetchUserPipe) user: DBUser,
+		@Body() dto: UpdatePlaylistAttributesDto,
+	): Promise<AttributeUploadSessionResponse[]> {
+		const playlistInfo = await this.playlistsService.findByUuid(uuid);
+		if (!playlistInfo) {
+			throw new NotFoundException("Playlist not found");
+		}
+		const { playlist } = playlistInfo;
+
+		if (playlist.ownerUuid != user.uuid) {
+			throw new ForbiddenException();
+		}
+
+		const attributes = this.attributeSourcesService.customToAttributeValues(
+			dto.attributes,
+		);
+
+		return await this.playlistsService.updateAttributes(
+			playlist,
+			attributes,
+			user,
+		);
 	}
 
 	@Delete(":uuid")

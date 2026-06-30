@@ -130,6 +130,7 @@ export interface SavedPlaylist {
 	ownerUuid: string;
 	owner: SavedUser | null;
 	dateCreated: Date;
+	dateModified: Date;
 	attributes: SavedAttribute[] | null;
 	filters: SavedSmartFilterGroup[] | null;
 	tracks: SavedPlaylistTrack[] | null;

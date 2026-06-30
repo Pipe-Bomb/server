@@ -15,6 +15,8 @@ export class AttributeUploadService {
 
 	createSession(
 		user: DBUser,
+		attributeKey: string,
+		attributeExtension: string,
 		resolve: (buffer: Buffer) => void,
 		reject: (error: Error) => void,
 	): AttributeUploadSessionResponse {
@@ -45,6 +47,8 @@ export class AttributeUploadService {
 
 		return {
 			uuid,
+			key: attributeKey,
+			extension: attributeExtension,
 			url: new RelativeUrl(`/attributes/buffer/${uuid}`),
 		};
 	}

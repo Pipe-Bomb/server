@@ -5,6 +5,7 @@ import {
 	BaseCustomAttributeDto,
 	ContainedCustomAttributeDto,
 	CustomBooleanAttributeDto,
+	CustomBufferAttributeDto,
 	CustomDecimalAttributeDto,
 	CustomIntegerAttributeDto,
 	CustomStringAttributeDto,
@@ -16,9 +17,9 @@ import { AttributeType } from "src/attributes/enum/attribute-type.enum";
 	CustomBooleanAttributeDto,
 	CustomIntegerAttributeDto,
 	CustomDecimalAttributeDto,
-	// CustomBufferAttributeDto,
+	CustomBufferAttributeDto,
 )
-export class CreatePlaylistDto {
+export class UpdatePlaylistAttributesDto {
 	@IsArray()
 	@ValidateNested({ each: true })
 	@Type(() => BaseCustomAttributeDto, {
@@ -30,7 +31,7 @@ export class CreatePlaylistDto {
 				{ value: CustomBooleanAttributeDto, name: AttributeType.BOOLEAN },
 				{ value: CustomIntegerAttributeDto, name: AttributeType.INTEGER },
 				{ value: CustomDecimalAttributeDto, name: AttributeType.DECIMAL },
-				// { value: CustomBufferAttributeDto, name: AttributeType.BUFFER },
+				{ value: CustomBufferAttributeDto, name: AttributeType.BUFFER },
 			],
 		},
 	})
@@ -43,7 +44,7 @@ export class CreatePlaylistDto {
 				{ $ref: getSchemaPath(CustomBooleanAttributeDto) },
 				{ $ref: getSchemaPath(CustomIntegerAttributeDto) },
 				{ $ref: getSchemaPath(CustomDecimalAttributeDto) },
-				// { $ref: getSchemaPath(CustomBufferAttributeDto) },
+				{ $ref: getSchemaPath(CustomBufferAttributeDto) },
 			],
 			discriminator: {
 				propertyName: "type",
@@ -52,7 +53,7 @@ export class CreatePlaylistDto {
 					[AttributeType.BOOLEAN]: getSchemaPath(CustomBooleanAttributeDto),
 					[AttributeType.INTEGER]: getSchemaPath(CustomIntegerAttributeDto),
 					[AttributeType.DECIMAL]: getSchemaPath(CustomDecimalAttributeDto),
-					// [AttributeType.BUFFER]: getSchemaPath(CustomBufferAttributeDto),
+					[AttributeType.BUFFER]: getSchemaPath(CustomBufferAttributeDto),
 				},
 			},
 		},

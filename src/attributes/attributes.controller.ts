@@ -7,6 +7,7 @@ import {
 	Put,
 	UploadedFile,
 	UseGuards,
+	UseInterceptors,
 } from "@nestjs/common";
 import { AttributesService } from "./attributes.service";
 import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
@@ -29,6 +30,7 @@ import { AuthGuard } from "src/users/auth.guard";
 import { ReqUser } from "src/users/user.decorator";
 import { FetchUserPipe } from "src/users/user.pipe";
 import { DBUser } from "src/users/entity/user.entity";
+import { FileInterceptor } from "@nestjs/platform-express";
 
 @Controller("attributes")
 export class AttributesController {
@@ -72,6 +74,7 @@ export class AttributesController {
 	@ApiNotFoundResponse()
 	@ApiUnauthorizedResponse()
 	@UseGuards(AuthGuard)
+	@UseInterceptors(FileInterceptor("file"))
 	@HttpCode(HttpStatus.NO_CONTENT)
 	async uploadAttributeBuffer(
 		@Param("uuid") uuid: string,

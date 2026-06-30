@@ -59,4 +59,12 @@ export interface PlaylistClient {
 			asUser?: string;
 		},
 	): Promise<void>;
+
+	updatePlaylistAttributes(
+		uuid: string,
+		attributes: AttributeValue[],
+		options?: {
+			asUser?: string;
+		},
+	): Promise<void>;
 }
