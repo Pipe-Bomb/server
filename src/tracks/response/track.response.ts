@@ -47,6 +47,11 @@ export class TrackResponse {
 	title: string;
 
 	@ApiProperty({
+		type: Date,
+	})
+	dateAdded: Date;
+
+	@ApiProperty({
 		type: [TrackArtistResponse],
 		nullable: true,
 	})

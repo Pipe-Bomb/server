@@ -29,6 +29,7 @@ export interface SavedTrack {
 	libraryId: string;
 	trackId: string;
 	title: string;
+	dateAdded: Date;
 	attributes: SavedAttribute[] | null;
 	identities: Identity[] | null;
 	artists: SavedArtistTrack[] | null;

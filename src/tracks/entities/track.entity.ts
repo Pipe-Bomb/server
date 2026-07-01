@@ -1,5 +1,6 @@
 import {
 	Column,
+	CreateDateColumn,
 	Entity,
 	OneToMany,
 	PrimaryGeneratedColumn,
@@ -58,6 +59,11 @@ export class DBTrack {
 		nullable: true,
 	})
 	lastAttributionRunId: string | null;
+
+	@CreateDateColumn({
+		type: "integer",
+	})
+	dateAdded: number;
 
 	@OneToMany(() => DBTrackArtist, (artist) => artist.track)
 	artists?: DBTrackArtist[];
@@ -132,6 +138,7 @@ export class DBTrack {
 			pluginId: this.pluginId,
 			libraryId: this.libraryId,
 			title: this.title,
+			dateAdded: new Date(this.dateAdded),
 			attributes: this.attributes ?? null,
 			identities,
 			artists: (this.artists && artists) ?? null,
@@ -146,6 +153,7 @@ export class DBTrack {
 			libraryId: this.libraryId,
 			trackId: this.trackId,
 			title: this.title,
+			dateAdded: new Date(this.dateAdded),
 			identities:
 				this.identities?.map((identity) => identity.toIdentity()) ?? null,
 			attributes:
