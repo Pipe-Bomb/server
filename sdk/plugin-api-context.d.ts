@@ -1,6 +1,6 @@
 import { AttributeSource } from "./attribute-source";
 import { AuthClient } from "./auth-client";
-import { ConfigManager } from "./config-manager";
+import { ConfigManager, UserConfigManager } from "./config-manager";
 import { DataClient } from "./data-client";
 import { EphemeralSource } from "./ephemeral-source";
 import { ExternalUrlSource } from "./external-url-source";
@@ -32,6 +32,10 @@ export interface PluginApiContext {
 	registerExternalUrlSource(externalUrlSource: ExternalUrlSource): void;
 	requestCacheDirectory(): Promise<string>;
 	registerConfigManager(configManager: ConfigManager): void;
+	registerUserConfigManager(
+		id: string,
+		userConfigManager: UserConfigManager,
+	): void;
 	registerEphemeralSource(ephemeralSource: EphemeralSource): void;
 	getDataClient(): DataClient;
 	requestAuthClient(): AuthClient | null;

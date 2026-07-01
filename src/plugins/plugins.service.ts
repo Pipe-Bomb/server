@@ -234,6 +234,12 @@ export class PluginsService {
 				this.externalUrlsService.registerSource(source, plugin),
 			registerConfigManager: (configManager) =>
 				this.pluginConfigService.registerConfigManager(configManager, plugin),
+			registerUserConfigManager: (id, configManager) =>
+				this.pluginConfigService.registerUserConfigManager(
+					id,
+					configManager,
+					plugin,
+				),
 			registerEphemeralSource: (source) =>
 				this.ephemeralService.registerEphemeralSource(source, plugin),
 			getDataClient: () => this.createDataClient(),

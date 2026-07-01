@@ -1,15 +1,18 @@
 import {
 	Body,
 	Controller,
+	ForbiddenException,
 	Get,
 	HttpCode,
 	HttpStatus,
 	NotFoundException,
 	Param,
 	Post,
+	UseGuards,
 } from "@nestjs/common";
 import { PluginConfigService } from "./plugin-config.service";
 import {
+	ApiForbiddenResponse,
 	ApiNotFoundResponse,
 	ApiOkResponse,
 	ApiOperation,
@@ -21,18 +24,23 @@ import { ConfigNode, HeadingConfigNode } from "@sdk";
 import { ConfigNodeType } from "./enum/config-node-type.enum";
 import { HeadingConfigNodeSize } from "./enum/heading-config-node-size.enum";
 import { PluginConfigUpdateDto } from "./dto/plugin-config-update.dto";
+import { AuthGuard } from "src/users/auth.guard";
+import { FetchUserPipe } from "src/users/user.pipe";
+import { ReqUser } from "src/users/user.decorator";
+import { DBUser } from "src/users/entity/user.entity";
+import { UserConfigsResponse } from "./response/user-configs.response";
 
 @Controller("plugin-config")
 export class PluginConfigController {
 	constructor(private readonly pluginConfigService: PluginConfigService) {}
 
-	@Get()
+	@Get("plugin")
 	@ApiOperation({ operationId: "getAllPluginConfigs" })
 	@ApiOkResponse({
 		type: PluginConfigsResponse,
 	})
-	getAll(): PluginConfigsResponse {
-		const all = this.pluginConfigService.all();
+	getAllPluginConfigs(): PluginConfigsResponse {
+		const all = this.pluginConfigService.allPluginConfigs();
 
 		return {
 			configs: all.map((configManager) => ({
@@ -41,16 +49,36 @@ export class PluginConfigController {
 		};
 	}
 
-	@Get(":pluginId")
+	@Get("user")
+	@UseGuards(AuthGuard)
+	@ApiOperation({ operationId: "getAllUserConfigs" })
+	@ApiOkResponse({
+		type: UserConfigsResponse,
+	})
+	getAllUserConfigs(@ReqUser(FetchUserPipe) user: DBUser): UserConfigsResponse {
+		const all = this.pluginConfigService
+			.allUserConfigs()
+			.filter(({ configManager }) => configManager.canUserAccess(user.uuid));
+
+		return {
+			configs: all.map(({ plugin, id }) => ({
+				pluginId: plugin.package.name,
+				configId: id,
+			})),
+		};
+	}
+
+	@Get("plugin/:pluginId")
 	@ApiOperation({ operationId: "getPluginConfig" })
 	@ApiOkResponse({
 		type: PluginConfigResponse,
 	})
 	@ApiNotFoundResponse()
-	async get(
+	@UseGuards(AuthGuard)
+	async getPluginConfig(
 		@Param("pluginId") pluginId: string,
 	): Promise<PluginConfigResponse> {
-		const config = this.pluginConfigService.find(pluginId);
+		const config = this.pluginConfigService.findPluginConfig(pluginId);
 		if (!config) {
 			throw new NotFoundException("Config not found");
 		}
@@ -62,23 +90,90 @@ export class PluginConfigController {
 		};
 	}
 
-	@Post(":pluginId")
+	@Get("user/:pluginId/:configId")
+	@ApiOperation({ operationId: "getUserConfig" })
+	@ApiOkResponse({
+		type: PluginConfigResponse,
+	})
+	@ApiNotFoundResponse()
+	@ApiForbiddenResponse()
+	@UseGuards(AuthGuard)
+	async getUserConfig(
+		@Param("pluginId") pluginId: string,
+		@Param("configId") configId: string,
+		@ReqUser(FetchUserPipe) user: DBUser,
+	): Promise<PluginConfigResponse> {
+		const config = this.pluginConfigService.findUserConfig(pluginId, configId);
+		if (!config) {
+			throw new NotFoundException("Config not found");
+		}
+		const { configManager } = config;
+		if (!configManager.canUserAccess(user.uuid)) {
+			throw new ForbiddenException();
+		}
+
+		const rootNode = await config.configManager.getConfigOptions(user.uuid);
+		if (!rootNode) {
+			throw new ForbiddenException();
+		}
+
+		return {
+			node: this.toResponse(rootNode),
+		};
+	}
+
+	@Post("plugin/:pluginId")
 	@ApiOperation({ operationId: "updatePluginConfig" })
 	@ApiOkResponse({
 		type: PluginConfigResponse,
 	})
 	@ApiNotFoundResponse()
 	@HttpCode(HttpStatus.OK)
-	async update(
+	@UseGuards(AuthGuard)
+	async updatePluginConfig(
 		@Param("pluginId") pluginId: string,
 		@Body() dto: PluginConfigUpdateDto,
 	): Promise<PluginConfigResponse> {
-		const config = this.pluginConfigService.find(pluginId);
+		const config = this.pluginConfigService.findPluginConfig(pluginId);
 		if (!config) {
 			throw new NotFoundException("Config not found");
 		}
 
 		const rootNode = await config.configManager.update(dto.values);
+
+		return {
+			node: this.toResponse(rootNode),
+		};
+	}
+
+	@Post("user/:pluginId/:configId")
+	@ApiOperation({ operationId: "updateUserConfig" })
+	@ApiOkResponse({
+		type: PluginConfigResponse,
+	})
+	@ApiNotFoundResponse()
+	@ApiForbiddenResponse()
+	@HttpCode(HttpStatus.OK)
+	@UseGuards(AuthGuard)
+	async updateUserConfig(
+		@Param("pluginId") pluginId: string,
+		@Param("configId") configId: string,
+		@ReqUser(FetchUserPipe) user: DBUser,
+		@Body() dto: PluginConfigUpdateDto,
+	) {
+		const config = this.pluginConfigService.findUserConfig(pluginId, configId);
+		if (!config) {
+			throw new NotFoundException("Config not found");
+		}
+		const { configManager } = config;
+		if (!configManager.canUserAccess(user.uuid)) {
+			throw new ForbiddenException();
+		}
+
+		const rootNode = await config.configManager.update(user.uuid, dto.values);
+		if (!rootNode) {
+			throw new ForbiddenException();
+		}
 
 		return {
 			node: this.toResponse(rootNode),
