@@ -122,9 +122,9 @@ If you start Pipe Bomb server with `npm run start:plugin-dev`, the server will a
 
 - ✅ Playlists
 
-- 🚧 Update playlist attributes
+- ✅ Update playlist attributes
 
-- 🚧 Automatically add tracks to playlist based on attributes matching criteria
+- ✅ Automatically add tracks to playlist based on attributes matching criteria
 
 - ➖ Save ephemeral artists and albums without manually copying to a playlist
 
