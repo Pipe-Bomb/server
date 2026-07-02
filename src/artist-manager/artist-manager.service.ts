@@ -17,7 +17,13 @@ import { LoadedIdentifier } from "src/identifiers/interface/loaded-identifier";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { DBTrack } from "src/tracks/entities/track.entity";
-import { Repository, DataSource, In, FindOptionsWhere } from "typeorm";
+import {
+	Repository,
+	DataSource,
+	In,
+	FindOptionsWhere,
+	FindManyOptions,
+} from "typeorm";
 import { DBArtistIdentity } from "./entity/artist-identity.entity";
 import { DBArtist } from "./entity/artist.entity";
 import { DBTrackArtist } from "./entity/track-artist.entity";
@@ -269,6 +275,21 @@ export class ArtistManagerService {
 				identities: options.withIdentities,
 			},
 		});
+	}
+
+	findManyRaw(options: FindManyOptions<DBArtist>) {
+		return this.artistsRepository.find(options);
+	}
+
+	async updateAttributionRunId(runId: string, artistUuids: string[]) {
+		await this.artistsRepository.update(
+			{
+				uuid: In(artistUuids),
+			},
+			{
+				lastAttributionRunId: runId,
+			},
+		);
 	}
 
 	count(where: FindOptionsWhere<DBArtist> | FindOptionsWhere<DBArtist>[]) {

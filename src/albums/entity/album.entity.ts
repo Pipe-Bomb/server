@@ -41,6 +41,12 @@ export class DBAlbum {
 	@Column({ type: "uuid", nullable: true })
 	lastIdentificationRunId: string | null;
 
+	@Column({
+		type: "uuid",
+		nullable: true,
+	})
+	lastAttributionRunId: string | null;
+
 	toResponse(): AlbumResponse {
 		const artistMap: Record<string, DBAlbumArtist> = {};
 

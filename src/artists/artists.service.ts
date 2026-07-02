@@ -15,12 +15,14 @@ export class ArtistsService {
 		@InjectRepository(DBArtist)
 		private readonly artistsRepository: Repository<DBArtist>,
 	) {
-		this.tasksService.registerSystemTask({
-			id: "identify-all-artists",
+		this.tasksService.registerSystemTask<"all" | "new">({
+			id: "identify-artists",
 			resumable: true,
-			run: async (context) => {
+			getSubTasks: () => ["all", "new"],
+			run: async (context, subTaskId) => {
 				await this.identifyAllArtists(
 					context.getRunId(),
+					subTaskId == "new",
 					(completed, total) => {
 						context.update(completed / total);
 					},
@@ -31,6 +33,7 @@ export class ArtistsService {
 
 	public async identifyAllArtists(
 		runId: string,
+		onlyNew: boolean,
 		onProgress?: (completed: number, total: number) => void,
 	) {
 		const CHUNK_SIZE = 30;
@@ -46,14 +49,17 @@ export class ArtistsService {
 
 		const criteria: FindOptionsWhere<DBArtist>[] = [
 			{
-				lastIdentificationRunId: Not(runId),
-				uuid: Not(In(failedUuids)),
-			},
-			{
 				lastIdentificationRunId: IsNull(),
 				uuid: Not(In(failedUuids)),
 			},
 		];
+
+		if (!onlyNew) {
+			criteria.push({
+				lastIdentificationRunId: Not(runId),
+				uuid: Not(In(failedUuids)),
+			});
+		}
 
 		const count = await this.artistManagerService.count(criteria);
 		if (!count) {

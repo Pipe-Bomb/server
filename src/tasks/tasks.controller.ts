@@ -1,4 +1,5 @@
 import {
+	Body,
 	Controller,
 	Get,
 	HttpCode,
@@ -16,6 +17,7 @@ import {
 } from "@nestjs/swagger";
 import { AllTasksResponse } from "./response/all-tasks.response";
 import { LoadedTask } from "./interface/loaded-task.interface";
+import { StartTaskDto } from "./dto/start-task.dto";
 
 @Controller("tasks")
 export class TasksController {
@@ -56,7 +58,7 @@ export class TasksController {
 	@ApiConflictResponse()
 	@ApiNoContentResponse()
 	@HttpCode(HttpStatus.NO_CONTENT)
-	start(@Param("taskUuid") taskUuid: string) {
-		this.tasksService.runTask(taskUuid);
+	async start(@Param("taskUuid") taskUuid: string, @Body() dto: StartTaskDto) {
+		await this.tasksService.runTask(taskUuid, dto.subTask);
 	}
 }

@@ -22,13 +22,18 @@ export class AlbumsService {
 		private readonly artistManagerService: ArtistManagerService,
 		private readonly tasksService: TasksService,
 	) {
-		this.tasksService.registerSystemTask({
-			id: "identify-all-albums",
+		this.tasksService.registerSystemTask<"all" | "new">({
+			id: "identify-albums",
 			resumable: true,
-			run: async (context) => {
-				await this.identifyAllAlbums(context.getRunId(), (completed, total) => {
-					context.update(completed / total);
-				});
+			getSubTasks: () => ["all", "new"],
+			run: async (context, subTaskId) => {
+				await this.identifyAllAlbums(
+					context.getRunId(),
+					subTaskId == "new",
+					(completed, total) => {
+						context.update(completed / total);
+					},
+				);
 			},
 		});
 	}
@@ -130,6 +135,7 @@ export class AlbumsService {
 
 	public async identifyAllAlbums(
 		runId: string,
+		onlyNew: boolean,
 		onProgress?: (completed: number, total: number) => void,
 	) {
 		const CHUNK_SIZE = 30;
@@ -145,14 +151,17 @@ export class AlbumsService {
 
 		const criteria: FindOptionsWhere<DBAlbum>[] = [
 			{
-				lastIdentificationRunId: Not(runId),
-				uuid: Not(In(failedUuids)),
-			},
-			{
 				lastIdentificationRunId: IsNull(),
 				uuid: Not(In(failedUuids)),
 			},
 		];
+
+		if (!onlyNew) {
+			criteria.push({
+				lastIdentificationRunId: Not(runId),
+				uuid: Not(In(failedUuids)),
+			});
+		}
 
 		const count = await this.albumManagerService.count(criteria);
 		if (!count) {

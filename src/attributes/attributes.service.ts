@@ -14,6 +14,7 @@ import { DBAlbumAttribute } from "./entities/album-attribute.entity";
 import { ArtistIdentityTarget } from "src/artist-manager/enum/artist-identity-target.enum";
 import { AlbumManagerService } from "src/album-manager/album-manager.service";
 import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
+import { FindOptionsWhere, In, IsNull, Not } from "typeorm";
 
 @Injectable()
 export class AttributesService {
@@ -25,22 +26,28 @@ export class AttributesService {
 		private readonly artistManagerService: ArtistManagerService,
 		private readonly albumManagerService: AlbumManagerService,
 	) {
-		this.tasksService.registerSystemTask({
-			id: "attribute-all-artists",
+		this.tasksService.registerSystemTask<"all" | "new">({
+			id: "attribute-artists",
 			resumable: false,
-			run: async (context) => {
-				await this.attributeAllArtists((completed, total) =>
-					context.update(completed / total),
+			getSubTasks: () => ["all", "new"],
+			run: async (context, subTaskId) => {
+				await this.attributeAllArtists(
+					context.getRunId(),
+					subTaskId == "new",
+					(completed, total) => context.update(completed / total),
 				);
 			},
 		});
 
-		this.tasksService.registerSystemTask({
-			id: "attribute-all-albums",
+		this.tasksService.registerSystemTask<"all" | "new">({
+			id: "attribute-albums",
 			resumable: false,
-			run: async (context) => {
-				await this.attributeAllAlbums((completed, total) =>
-					context.update(completed / total),
+			getSubTasks: () => ["all", "new"],
+			run: async (context, subTaskId) => {
+				await this.attributeAllAlbums(
+					context.getRunId(),
+					subTaskId == "new",
+					(completed, total) => context.update(completed / total),
 				);
 			},
 		});
@@ -152,49 +159,137 @@ export class AttributesService {
 	}
 
 	async attributeAllArtists(
+		runId: string,
+		onlyNew: boolean,
 		onProgress?: (completed: number, total: number) => void,
 	) {
-		const count = await this.artistManagerService.count({});
+		const CHUNK_SIZE = 100;
+		const failedUuids: string[] = [];
+
+		const criteria: FindOptionsWhere<DBArtist>[] = [
+			{
+				lastAttributionRunId: IsNull(),
+				uuid: Not(In(failedUuids)),
+			},
+		];
+
+		if (!onlyNew) {
+			criteria.push({
+				lastIdentificationRunId: Not(runId),
+				uuid: Not(In(failedUuids)),
+			});
+		}
+
+		const count = await this.artistManagerService.count(criteria);
+		if (!count) {
+			return;
+		}
+
 		onProgress?.(0, count);
 
-		for (let i = 0; true; i++) {
-			const artists = await this.artistManagerService.findMany({
-				amount: 100,
-				offset: 100 * i,
-			});
+		let completed = 0;
 
-			if (!artists.length) {
-				return;
+		while (true) {
+			const chunk = await this.artistManagerService.findManyRaw({
+				where: criteria,
+				take: CHUNK_SIZE,
+			});
+			if (!chunk.length) {
+				return false;
 			}
 
-			// todo: multithread
-			for (const [index, artist] of artists.entries()) {
-				await this.attributeArtist(artist);
-				onProgress?.(i * 100 + index, count);
+			const results = await Promise.allSettled(
+				chunk.map((artist) =>
+					this.attributeArtist(artist).finally(() =>
+						onProgress?.(++completed, count),
+					),
+				),
+			);
+			const successIds: string[] = [];
+
+			for (const [index, result] of results.entries()) {
+				const artist = chunk[index];
+
+				if (result.status == "fulfilled") {
+					successIds.push(artist.uuid);
+				} else {
+					failedUuids.push(artist.uuid);
+				}
+			}
+
+			if (successIds.length) {
+				await this.artistManagerService.updateAttributionRunId(
+					runId,
+					successIds,
+				);
 			}
 		}
 	}
 
 	async attributeAllAlbums(
+		runId: string,
+		onlyNew: boolean,
 		onProgress?: (completed: number, total: number) => void,
 	) {
-		const count = await this.albumManagerService.count({});
+		const CHUNK_SIZE = 100;
+		const failedUuids: string[] = [];
+
+		const criteria: FindOptionsWhere<DBAlbum>[] = [
+			{
+				lastAttributionRunId: IsNull(),
+				uuid: Not(In(failedUuids)),
+			},
+		];
+
+		if (!onlyNew) {
+			criteria.push({
+				lastIdentificationRunId: Not(runId),
+				uuid: Not(In(failedUuids)),
+			});
+		}
+
+		const count = await this.albumManagerService.count(criteria);
+		if (!count) {
+			return;
+		}
+
 		onProgress?.(0, count);
 
-		for (let i = 0; true; i++) {
-			const albums = await this.albumManagerService.findMany({
-				amount: 100,
-				offset: 100 * i,
-			});
+		let completed = 0;
 
-			if (!albums.length) {
-				return;
+		while (true) {
+			const chunk = await this.albumManagerService.findManyRaw({
+				where: criteria,
+				take: CHUNK_SIZE,
+			});
+			if (!chunk.length) {
+				return false;
 			}
 
-			// todo: multithread
-			for (const [index, album] of albums.entries()) {
-				await this.attributeAlbum(album);
-				onProgress?.(i * 100 + index, count);
+			const results = await Promise.allSettled(
+				chunk.map((album) =>
+					this.attributeAlbum(album).finally(() =>
+						onProgress?.(++completed, count),
+					),
+				),
+			);
+			const successIds: string[] = [];
+
+			for (const [index, result] of results.entries()) {
+				const album = chunk[index];
+
+				if (result.status == "fulfilled") {
+					successIds.push(album.uuid);
+				} else {
+					failedUuids.push(album.uuid);
+				}
+			}
+
+			if (successIds.length) {
+				await this.albumManagerService.updateAttributionRunId(
+					runId,
+					successIds,
+				);
 			}
 		}
 	}

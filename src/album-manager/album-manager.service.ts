@@ -20,6 +20,7 @@ import { DBTrack } from "src/tracks/entities/track.entity";
 import {
 	DataSource,
 	DeepPartial,
+	FindManyOptions,
 	FindOptionsWhere,
 	In,
 	Repository,
@@ -84,6 +85,21 @@ export class AlbumManagerService {
 				},
 			},
 		});
+	}
+
+	findManyRaw(options: FindManyOptions<DBAlbum>) {
+		return this.albumsRepository.find(options);
+	}
+
+	async updateAttributionRunId(runId: string, albumUuids: string[]) {
+		await this.albumsRepository.update(
+			{
+				uuid: In(albumUuids),
+			},
+			{
+				lastAttributionRunId: runId,
+			},
+		);
 	}
 
 	async findForArtist(

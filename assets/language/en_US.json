@@ -1,13 +1,32 @@
 {
 	"task.system": "SYSTEM",
 	"task.system.scan-all-libraries.name": "Scan All Libraries",
-	"task.system.attribute-all-libraries.name": "Generate All Library Attributes",
-	"task.system.identify-all-libraries.name": "Identify All Libraries",
-	"task.system.attribute-all-artists.name": "Generate All Artist Attributes",
-	"task.system.identify-all-artists.name": "Identify All Artists",
+
+	"task.system.identify-tracks.name": "Identify Tracks",
+	"task.system.identify-tracks.subtask.all.name": "Identify all tracks",
+	"task.system.identify-tracks.subtask.new.name": "Identify new tracks",
+
+	"task.system.identify-artists.name": "Identify Artists",
+	"task.system.identify-artists.subtask.all.name": "Identify all artists",
+	"task.system.identify-artists.subtask.new.name": "Identify new artists",
+
+	"task.system.identify-albums.name": "Identify Albums",
+	"task.system.identify-albums.subtask.all.name": "Identify all albums",
+	"task.system.identify-albums.subtask.new.name": "Identify new albums",
+
+	"task.system.attribute-tracks.name": "Generate Track Attributes",
+	"task.system.attribute-tracks.subtask.all.name": "Attribute all tracks",
+	"task.system.attribute-tracks.subtask.new.name": "Attribute new tracks",
+
+	"task.system.attribute-artists.name": "Generate Artist Attributes",
+	"task.system.attribute-artists.subtask.all.name": "Attribute all artists",
+	"task.system.attribute-artists.subtask.new.name": "Attribute new artists",
+
+	"task.system.attribute-albums.name": "Generate Album Attributes",
+	"task.system.attribute-albums.subtask.all.name": "Attribute all albums",
+	"task.system.attribute-albums.subtask.new.name": "Attribute new albums",
+
 	"task.system.cache-all-libraries.name": "Cache All Libraries",
-	"task.system.attribute-all-albums.name": "Generate All Album Attributes",
-	"task.system.identify-all-albums.name": "Identify All Albums",
 	"task.system.clean-database.name": "Clean Database",
 
 	"contextmenu.track.view-info": "Track Info",
@@ -26,6 +45,8 @@
 	"contextmenu.playlist.rename": "Rename",
 	"contextmenu.playlist.change-thumbnail": "Change Thumbnail",
 	"contextmenu.playlist.scan-smart-filters": "Scan Smart Filters",
+
+	"contextmenu.top.logout": "Log out",
 
 	"login.title.login": "Log In",
 	"login.title.signup": "Create Account",

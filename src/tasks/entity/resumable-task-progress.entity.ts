@@ -21,6 +21,12 @@ export class DBResumableTaskProgress {
 	runId: string;
 
 	@Column({
+		type: "text",
+		nullable: true,
+	})
+	subTaskId: string | null;
+
+	@Column({
 		type: "double precision",
 	})
 	progress: number;

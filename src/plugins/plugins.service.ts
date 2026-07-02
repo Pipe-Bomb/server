@@ -20,7 +20,7 @@ import { PluginConfigService } from "src/plugin-config/plugin-config.service";
 import { EphemeralService } from "src/ephemeral/ephemeral.service";
 import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
 import { AlbumManagerService } from "src/album-manager/album-manager.service";
-import { DataClient, Plugin } from "@sdk";
+import { DataClient, Plugin, Task } from "@sdk";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { AudioSessionsService } from "src/audio-sessions/audio-sessions.service";
 import { UsersService } from "src/users/users.service";
@@ -214,7 +214,7 @@ export class PluginsService {
 				this.artistManagerService.registerIdentifier(identifier, plugin),
 			registerAlbumIdentifier: (identifier) =>
 				this.albumManagerService.registerIdentifier(identifier, plugin),
-			registerTask: (task) =>
+			registerTask: (task: Task) =>
 				this.tasksService.registerPluginTask(task, plugin),
 			registerLanguageDirectory: (directory) => {
 				this.languagesService.registerLanguageDirectory(

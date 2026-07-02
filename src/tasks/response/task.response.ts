@@ -21,6 +21,12 @@ export class TaskResponse {
 	taskId: string;
 
 	@ApiProperty({
+		type: [String],
+		nullable: true,
+	})
+	subTasks: string[] | null;
+
+	@ApiProperty({
 		enum: TaskStatusResponse,
 	})
 	status: TaskStatusResponse;

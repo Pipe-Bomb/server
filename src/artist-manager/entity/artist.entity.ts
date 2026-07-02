@@ -43,6 +43,12 @@ export class DBArtist {
 	})
 	lastIdentificationRunId: string | null;
 
+	@Column({
+		type: "uuid",
+		nullable: true,
+	})
+	lastAttributionRunId: string | null;
+
 	toResponse(): ArtistResponse {
 		let identities: IdentityResponse[] | null = null;
 		if (this.identities) {

@@ -1,10 +1,11 @@
 import {
+	BadRequestException,
 	ConflictException,
 	Injectable,
 	Logger,
 	NotFoundException,
 } from "@nestjs/common";
-import { Task } from "@sdk";
+import { SimpleTask, SubTask, Task, TaskRunContext } from "@sdk";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { TaskResponse, TaskStatusResponse } from "./response/task.response";
 import { randomUUID } from "crypto";
@@ -50,6 +51,8 @@ export class TasksService {
 		return runId;
 	}
 
+	registerSystemTask(task: SimpleTask): void;
+	registerSystemTask<T extends string = string>(task: SubTask<T>): void;
 	registerSystemTask(task: Task) {
 		for (const existingTask of this.tasks.values()) {
 			if (!existingTask.plugin && task.id == existingTask.task.id) {
@@ -124,9 +127,20 @@ export class TasksService {
 	): TaskResponse {
 		const activeTask = this.activePluginTasks.find((task) => task.uuid == uuid);
 
+		let subTasks: string[] | null = null;
+
+		if ("getSubTasks" in task) {
+			subTasks = [...task.getSubTasks()];
+		}
+
+		if (subTasks && !subTasks.length) {
+			subTasks = null;
+		}
+
 		return {
 			uuid,
 			taskId: task.id,
+			subTasks,
 			pluginId: plugin?.package.name ?? null,
 			status: activeTask
 				? TaskStatusResponse.RUNNING
@@ -156,7 +170,7 @@ export class TasksService {
 		return null;
 	}
 
-	async runTask(uuid: string) {
+	async runTask(uuid: string, subTask: string | null) {
 		if (
 			this.activePluginTasks.some((existingTask) => existingTask.uuid == uuid)
 		) {
@@ -170,6 +184,7 @@ export class TasksService {
 
 		let runId: string;
 		let startingProgress = 0;
+		let isResuming = false;
 
 		if (task.task.resumable) {
 			const resumableProgress =
@@ -180,12 +195,15 @@ export class TasksService {
 			if (resumableProgress) {
 				runId = resumableProgress.runId;
 				startingProgress = Math.max(0, resumableProgress.progress);
+				isResuming = true;
+				subTask = resumableProgress.subTaskId;
 			} else {
 				runId = await this.generateRunId();
 				const newResumableProgress =
 					this.resumableTaskProgressRepository.create({
 						pluginId: task.plugin?.package.name ?? "",
 						taskId: task.task.id,
+						subTaskId: subTask,
 						progress: -1,
 						runId,
 					});
@@ -193,6 +211,21 @@ export class TasksService {
 			}
 		} else {
 			runId = await this.generateRunId();
+		}
+
+		if (!isResuming) {
+			if ("getSubTasks" in task.task) {
+				if (!subTask) {
+					throw new BadRequestException("SubTask ID not specified");
+				}
+				if (!task.task.getSubTasks().includes(subTask)) {
+					throw new NotFoundException("SubTask does not exist");
+				}
+			} else {
+				if (subTask) {
+					throw new BadRequestException("SubTask ID specified for simple task");
+				}
+			}
 		}
 
 		const activeTask: ActiveTask = {
@@ -209,44 +242,52 @@ export class TasksService {
 
 		let lastResumeUpdateTime = 0;
 		let isUpdatingTime = false;
-		task.task
-			.run({
-				update: (percent) => {
-					const normalized = Math.max(Math.min(percent, 1), 0);
-					const newPercent =
-						startingProgress + normalized * (1 - startingProgress);
+		const context: TaskRunContext = {
+			update: (percent) => {
+				const normalized = Math.max(Math.min(percent, 1), 0);
+				const newPercent =
+					startingProgress + normalized * (1 - startingProgress);
 
-					activeTask.percent = newPercent;
-					this.logger.debug(
-						`${title} is at ${Math.round(activeTask.percent * 1000) / 10}%`,
-					);
-					if (task.task.resumable && !isUpdatingTime) {
-						if (lastResumeUpdateTime + 5_000 < Date.now()) {
-							isUpdatingTime = true;
-							this.resumableTaskProgressRepository
-								.update(
-									{
-										runId,
-									},
-									{
-										progress: activeTask.percent,
-									},
-								)
-								.catch((e) =>
-									this.logger.error(
-										`Failed to store Task progress for "${task.task.id}":`,
-										e,
-									),
-								)
-								.finally(() => {
-									isUpdatingTime = false;
-									lastResumeUpdateTime = Date.now();
-								});
-						}
+				activeTask.percent = newPercent;
+				this.logger.debug(
+					`${title} is at ${Math.round(activeTask.percent * 1000) / 10}%`,
+				);
+				if (task.task.resumable && !isUpdatingTime) {
+					if (lastResumeUpdateTime + 5_000 < Date.now()) {
+						isUpdatingTime = true;
+						this.resumableTaskProgressRepository
+							.update(
+								{
+									runId,
+								},
+								{
+									progress: activeTask.percent,
+								},
+							)
+							.catch((e) =>
+								this.logger.error(
+									`Failed to store Task progress for "${task.task.id}":`,
+									e,
+								),
+							)
+							.finally(() => {
+								isUpdatingTime = false;
+								lastResumeUpdateTime = Date.now();
+							});
 					}
-				},
-				getRunId: () => runId,
-			})
+				}
+			},
+			getRunId: () => runId,
+		};
+
+		let promise: Promise<void>;
+		if ("getSubTasks" in task.task) {
+			promise = task.task.run(context, subTask!);
+		} else {
+			promise = task.task.run(context);
+		}
+
+		promise
 			.then(() => {
 				this.logger.log(`Finished ${title}`);
 			})

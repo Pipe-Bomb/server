@@ -6,7 +6,6 @@ import {
 } from "@sdk";
 import { AttributesService } from "src/attributes/attributes.service";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
-import { TracksService } from "src/tracks/tracks.service";
 import { ILibraryFindResult } from "./interface/library-find-result.interface";
 import { TasksService } from "src/tasks/tasks.service";
 import { LoadedLibraryHandler } from "./interface/loaded-library.interface";
@@ -116,10 +115,11 @@ export class LibrariesService {
 			},
 		});
 
-		this.tasksService.registerSystemTask({
-			id: "identify-all-libraries",
+		this.tasksService.registerSystemTask<"all" | "new">({
+			id: "identify-tracks",
 			resumable: true,
-			run: async (context) => {
+			getSubTasks: () => ["all", "new"],
+			run: async (context, subTaskId) => {
 				const libraries = this.allFlat();
 				const sectionPercent = 1 / libraries.length;
 
@@ -130,6 +130,7 @@ export class LibrariesService {
 					await this.identify(
 						library,
 						context.getRunId(),
+						subTaskId == "new",
 						(completed, total) => {
 							context.update(
 								startPercent + (sectionPercent * completed) / total,
@@ -140,10 +141,11 @@ export class LibrariesService {
 			},
 		});
 
-		this.tasksService.registerSystemTask({
-			id: "attribute-all-libraries",
+		this.tasksService.registerSystemTask<"all" | "new">({
+			id: "attribute-tracks",
 			resumable: true,
-			run: async (context) => {
+			getSubTasks: () => ["all", "new"],
+			run: async (context, subTaskId) => {
 				const libraries = this.allFlat();
 				const sectionPercent = 1 / libraries.length;
 
@@ -154,6 +156,7 @@ export class LibrariesService {
 					await this.attribute(
 						library,
 						context.getRunId(),
+						subTaskId == "new",
 						(completed, total) => {
 							context.update(
 								startPercent + (sectionPercent * completed) / total,
@@ -386,6 +389,7 @@ export class LibrariesService {
 	async attribute(
 		library: LoadedLibraryHandler,
 		runId: string,
+		onlyNew: boolean,
 		onProgress?: (completed: number, total: number) => void,
 	) {
 		const CHUNK_SIZE = 30;
@@ -393,16 +397,19 @@ export class LibrariesService {
 
 		const criteria: FindOptionsWhere<DBTrack>[] = [
 			{
-				lastAttributionRunId: Not(runId),
-				libraryId: library.handler.id,
-				pluginId: library.plugin.package.name,
-			},
-			{
 				lastAttributionRunId: IsNull(),
 				libraryId: library.handler.id,
 				pluginId: library.plugin.package.name,
 			},
 		];
+
+		if (!onlyNew) {
+			criteria.push({
+				lastAttributionRunId: Not(runId),
+				libraryId: library.handler.id,
+				pluginId: library.plugin.package.name,
+			});
+		}
 
 		const count = await this.trackManagerService.count(criteria);
 		this.logger.debug(`Attributing ${count} tracks`);
@@ -519,22 +526,26 @@ export class LibrariesService {
 	async identify(
 		library: LoadedLibraryHandler,
 		runId: string,
+		onlyNew: boolean,
 		onProgress?: (completed: number, total: number) => void,
 	) {
 		const CHUNK_SIZE = 30;
 
 		const criteria: FindOptionsWhere<DBTrack>[] = [
 			{
-				lastIdentificationRunId: Not(runId),
-				libraryId: library.handler.id,
-				pluginId: library.plugin.package.name,
-			},
-			{
 				lastIdentificationRunId: IsNull(),
 				libraryId: library.handler.id,
 				pluginId: library.plugin.package.name,
 			},
 		];
+
+		if (!onlyNew) {
+			criteria.push({
+				lastIdentificationRunId: Not(runId),
+				libraryId: library.handler.id,
+				pluginId: library.plugin.package.name,
+			});
+		}
 
 		const count = await this.trackManagerService.count(criteria);
 

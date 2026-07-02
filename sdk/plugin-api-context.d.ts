@@ -13,7 +13,7 @@ import { LibraryHandler } from "./library-handler";
 import { Logger } from "./logger";
 import { PlaylistClient } from "./playlist-client";
 import { PluginPackage } from "./plugin";
-import { Task } from "./task";
+import { SimpleTask, SubTask } from "./task";
 
 export interface PluginApiContext {
 	getServerVersion(): string;
@@ -26,7 +26,8 @@ export interface PluginApiContext {
 	registerAlbumIdentifier(identifier: AlbumIdentifier): void;
 	registerAttributeSource(attributeSource: AttributeSource): void;
 	requestTempDirectory(): Promise<string>;
-	registerTask(task: Task): void;
+	registerTask(task: SimpleTask): void;
+	registerTask<T extends string>(task: SubTask<T>): void;
 	registerLanguageDirectory(path: string): void;
 	registerIconDirectory(path: string): void;
 	registerExternalUrlSource(externalUrlSource: ExternalUrlSource): void;
