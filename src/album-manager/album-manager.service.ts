@@ -20,6 +20,8 @@ import { DBTrack } from "src/tracks/entities/track.entity";
 import {
 	DataSource,
 	DeepPartial,
+	FindOptionsSelect,
+	FindOptionsSelectByString,
 	FindManyOptions,
 	FindOptionsWhere,
 	In,
@@ -69,12 +71,14 @@ export class AlbumManagerService {
 		withIdentities?: boolean;
 		withArtists?: boolean;
 		where?: FindOptionsWhere<DBAlbum> | FindOptionsWhere<DBAlbum>[];
+		select?: FindOptionsSelect<DBAlbum> | FindOptionsSelectByString<DBAlbum>;
 	}) {
 		return this.albumsRepository.find({
 			where: options.where,
 			take: options.amount,
 			skip: options.offset,
 			relationLoadStrategy: "query",
+			select: options.select,
 			relations: {
 				attributes: options.withAttributes,
 				identities: options.withIdentities,

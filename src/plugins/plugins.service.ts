@@ -356,11 +356,11 @@ export class PluginsService {
 			getArtistCount: () => this.artistManagerService.count([]),
 			getAlbumUuids: (amount, offset) =>
 				this.albumManagerService
-					.findMany({ amount, offset })
+					.findMany({ amount, offset, select: ["uuid"] })
 					.then((albums) => albums.map(({ uuid }) => uuid)),
 			getArtistUuids: (amount, offset) =>
 				this.artistManagerService
-					.findMany({ amount, offset })
+					.findMany({ amount, offset, select: ["uuid"] })
 					.then((artists) => artists.map(({ uuid }) => uuid)),
 			getTrack: async (pluginId, libraryId, trackId, { relations } = {}) => {
 				const track = await this.trackManagerService.findOne({
@@ -369,6 +369,7 @@ export class PluginsService {
 						libraryId,
 						trackId,
 					},
+					relationLoadStrategy: "query",
 					relations: {
 						identities: relations?.identities,
 						attributes: relations?.attributes,

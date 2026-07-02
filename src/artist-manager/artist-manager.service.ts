@@ -22,7 +22,9 @@ import {
 	DataSource,
 	In,
 	FindOptionsWhere,
+	FindOptionsSelect,
 	FindManyOptions,
+	FindOptionsSelectByString,
 } from "typeorm";
 import { DBArtistIdentity } from "./entity/artist-identity.entity";
 import { DBArtist } from "./entity/artist.entity";
@@ -210,6 +212,7 @@ export class ArtistManagerService {
 					artistUuid: artist.uuid,
 					trackUuid: In(tracks.map((track) => track.uuid)),
 				},
+				relationLoadStrategy: "query",
 				relations: {
 					track: {
 						attributes: options.withTrackAttributes,
@@ -265,11 +268,13 @@ export class ArtistManagerService {
 		offset?: number;
 		withAttributes?: boolean;
 		withIdentities?: boolean;
+		select?: FindOptionsSelect<DBArtist> | FindOptionsSelectByString<DBArtist>;
 	}) {
 		return this.artistsRepository.find({
 			take: options.amount,
 			skip: options.offset,
 			relationLoadStrategy: "query",
+			select: options.select,
 			relations: {
 				attributes: options.withAttributes,
 				identities: options.withIdentities,

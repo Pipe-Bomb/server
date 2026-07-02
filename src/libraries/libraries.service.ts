@@ -12,7 +12,14 @@ import { LoadedLibraryHandler } from "./interface/loaded-library.interface";
 import { IdentifiersService } from "src/identifiers/identifiers.service";
 import { DBTrack } from "src/tracks/entities/track.entity";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
-import { FindOptionsWhere, In, IsNull, Not } from "typeorm";
+import {
+	FindOptionsSelect,
+	FindOptionsSelectByString,
+	FindOptionsWhere,
+	In,
+	IsNull,
+	Not,
+} from "typeorm";
 import { AudioCacheService } from "src/audio-cache/audio-cache.service";
 import { TrackId } from "src/tracks/interface/track-id.interface";
 
@@ -225,6 +232,7 @@ export class LibrariesService {
 			withIdentities?: boolean;
 			withArtists?: boolean;
 			withAlbums?: boolean;
+			select?: FindOptionsSelect<DBTrack> | FindOptionsSelectByString<DBTrack>;
 		},
 	): Promise<ILibraryFindResult> {
 		const { handler, plugin } = library;
@@ -233,6 +241,7 @@ export class LibrariesService {
 				libraryId: handler.id,
 				pluginId: plugin.package.name,
 			},
+			select: options.select,
 			relationLoadStrategy: "query",
 			relations: {
 				artists: options.withArtists && {
@@ -270,6 +279,7 @@ export class LibrariesService {
 			const { tracks } = await this.findTracks(library, {
 				amount: CHUNK_SIZE,
 				offset: CHUNK_SIZE * i,
+				select: ["trackId"],
 			});
 			if (!tracks.length || isCancelled) {
 				break;
