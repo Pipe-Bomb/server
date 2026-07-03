@@ -134,7 +134,7 @@ If you start Pipe Bomb server with `npm run start:plugin-dev`, the server will a
 
 - ➖ Group playlists
 
-- ➖ Customizable playlist visibility
+- 🚧 Customizable playlist visibility
 
 - ➖ User attributes
 

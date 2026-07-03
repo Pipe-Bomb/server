@@ -16,6 +16,7 @@ import {
 import { UserResponse } from "src/users/response/user.response";
 import { PlaylistTrackResponse } from "./playlist-track.response";
 import { SmartPlaylistFilterGroupResponse } from "./smart-playlist-filter-group.reponse";
+import { PlaylistVisibility } from "../enum/playlist-visibility.enum";
 
 @ApiSchema({ name: "Playlist" })
 @ApiExtraModels(
@@ -47,6 +48,12 @@ export class PlaylistResponse {
 		type: Date,
 	})
 	dateModified: Date;
+
+	@ApiProperty({
+		enum: PlaylistVisibility,
+		enumName: "PlaylistVisibility",
+	})
+	visibility: PlaylistVisibility;
 
 	@ApiProperty({
 		oneOf: [{ $ref: getSchemaPath(AttributeMapResponse) }],

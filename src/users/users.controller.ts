@@ -27,6 +27,8 @@ import { AuthGuard } from "./auth.guard";
 import { ReqUser } from "./user.decorator";
 import { FetchUserPipe } from "./user.pipe";
 import { DBUser } from "./entity/user.entity";
+import { OptionalAuth } from "./optional-auth.decorator";
+import { PlaylistVisibility } from "src/playlists/enum/playlist-visibility.enum";
 
 @Controller("users")
 export class UsersController {
@@ -111,15 +113,25 @@ export class UsersController {
 	@ApiOkResponse({
 		type: UserResponse,
 	})
+	@OptionalAuth()
+	@UseGuards(AuthGuard)
 	@ApiNotFoundResponse()
-	async getUser(@Param("uuid") uuid: string) {
-		const user = await this.usersService.findOne(uuid, {
+	async getUser(
+		@Param("uuid") uuid: string,
+		@ReqUser(FetchUserPipe) user?: DBUser,
+	) {
+		const subject = await this.usersService.findOne(uuid, {
 			withPlaylists: true,
 			withPlaylistAttributes: true,
 		});
-		if (!user) {
+		if (!subject) {
 			throw new NotFoundException("User not found");
 		}
-		return user.toResponse();
+		if (subject.playlists && (!user || user.uuid != uuid)) {
+			subject.playlists = subject.playlists.filter(
+				(playlist) => playlist.visibility == PlaylistVisibility.PUBLIC,
+			);
+		}
+		return subject.toResponse();
 	}
 }

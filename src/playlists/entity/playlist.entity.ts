@@ -14,6 +14,7 @@ import { DBPlaylistTrack } from "./playlist-track.entity";
 import { PlaylistResponse } from "../response/playlist.response";
 import { DBSmartPlaylistFilterGroup } from "./smart-playlist-filter-group.entity";
 import { SavedPlaylist } from "@sdk";
+import { PlaylistVisibility } from "../enum/playlist-visibility.enum";
 
 @Entity("playlists")
 export class DBPlaylist {
@@ -39,6 +40,12 @@ export class DBPlaylist {
 	})
 	dateModified: number;
 
+	@Column({
+		enum: PlaylistVisibility,
+		default: PlaylistVisibility.PUBLIC,
+	})
+	visibility: PlaylistVisibility;
+
 	@OneToMany(
 		() => DBPlaylistAttribute,
 		(attribute) => attribute.entityRelationId,
@@ -58,6 +65,7 @@ export class DBPlaylist {
 			owner: this.owner?.toResponse() ?? null,
 			dateCreated: new Date(this.dateCreated),
 			dateModified: new Date(this.dateModified),
+			visibility: this.visibility,
 			attributes: this.attributes ?? null,
 			filterGroups:
 				this.filterGroups?.map((group) => group.toResponse()) ?? null,

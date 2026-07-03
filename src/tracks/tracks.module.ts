@@ -9,6 +9,7 @@ import { TrackManagerModule } from "src/track-manager/track-manager.module";
 import { AudioSessionsModule } from "src/audio-sessions/audio-sessions.module";
 import { ExternalUrlsModule } from "src/external-urls/external-urls.module";
 import { EphemeralModule } from "src/ephemeral/ephemeral.module";
+import { UsersModule } from "src/users/users.module";
 
 @Module({
 	imports: [
@@ -19,6 +20,7 @@ import { EphemeralModule } from "src/ephemeral/ephemeral.module";
 		AudioSessionsModule,
 		ExternalUrlsModule,
 		EphemeralModule,
+		UsersModule,
 	],
 	controllers: [TracksController],
 	providers: [TracksService],

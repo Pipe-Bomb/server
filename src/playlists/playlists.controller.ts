@@ -13,6 +13,7 @@ import {
 	Patch,
 	Post,
 	Put,
+	Req,
 	UseGuards,
 } from "@nestjs/common";
 import { PlaylistsService } from "./playlists.service";
@@ -46,6 +47,9 @@ import { AttributeSourcesService } from "src/attribute-sources/attribute-sources
 import { UpdatePlaylistTracksDto } from "./dto/update-playlist-tracks.dto";
 import { UpdatePlaylistAttributesDto } from "./dto/update-playlist-attributes.dto";
 import { AttributeUploadSessionResponse } from "src/attributes/response/attribute-upload-session.response";
+import { PlaylistVisibilityDto } from "./dto/playlist-visibility.dto";
+import { PlaylistVisibility } from "./enum/playlist-visibility.enum";
+import { OptionalAuth } from "src/users/optional-auth.decorator";
 
 @Controller("playlists")
 export class PlaylistsController {
@@ -100,6 +104,7 @@ export class PlaylistsController {
 
 	@Get(":uuid")
 	@ApiOperation({ operationId: "getPlaylist" })
+	@OptionalAuth()
 	@UseGuards(AuthGuard)
 	@ApiOkResponse({
 		type: PlaylistResponse,
@@ -108,7 +113,7 @@ export class PlaylistsController {
 	@ApiForbiddenResponse()
 	async getPlaylist(
 		@Param("uuid") uuid: string,
-		@ReqUser(FetchUserPipe) user: DBUser,
+		@ReqUser(FetchUserPipe) user?: DBUser,
 	): Promise<PlaylistResponse> {
 		const playlistInfo = await this.playlistsService.findByUuid(uuid, {
 			withAttributes: true,
@@ -124,8 +129,10 @@ export class PlaylistsController {
 		}
 		const { playlist, trackCount } = playlistInfo;
 
-		if (playlist.ownerUuid != user.uuid) {
-			throw new ForbiddenException();
+		if (playlist.visibility == PlaylistVisibility.PRIVATE) {
+			if (!user || playlist.ownerUuid != user.uuid) {
+				throw new ForbiddenException();
+			}
 		}
 
 		return playlist.toResponse(trackCount);
@@ -133,6 +140,7 @@ export class PlaylistsController {
 
 	@Get(":uuid/all")
 	@ApiOperation({ operationId: "getAllPlaylistTrackIds" })
+	@OptionalAuth()
 	@UseGuards(AuthGuard)
 	@ApiOkResponse({
 		type: [PlaylistTrackResponse],
@@ -142,7 +150,7 @@ export class PlaylistsController {
 	@ApiUnauthorizedResponse()
 	async getAllPlaylistTrackIds(
 		@Param("uuid") uuid: string,
-		@ReqUser(FetchUserPipe) user: DBUser,
+		@ReqUser(FetchUserPipe) user?: DBUser,
 	) {
 		const playlistInfo = await this.playlistsService.findByUuid(uuid);
 		if (!playlistInfo) {
@@ -150,8 +158,10 @@ export class PlaylistsController {
 		}
 		const { playlist } = playlistInfo;
 
-		if (playlist.ownerUuid != user.uuid) {
-			throw new ForbiddenException();
+		if (playlist.visibility == PlaylistVisibility.PRIVATE) {
+			if (!user || playlist.ownerUuid != user.uuid) {
+				throw new ForbiddenException();
+			}
 		}
 
 		const tracks = await this.playlistsService.findAllTracks(playlist);
@@ -160,6 +170,7 @@ export class PlaylistsController {
 
 	@Post(":uuid")
 	@ApiOperation({ operationId: "getPlaylistTracks" })
+	@OptionalAuth()
 	@UseGuards(AuthGuard)
 	@ApiOkResponse({
 		type: [PlaylistTrackResponse],
@@ -170,8 +181,8 @@ export class PlaylistsController {
 	@HttpCode(HttpStatus.OK)
 	async getPlaylistTracks(
 		@Param("uuid") uuid: string,
-		@ReqUser(FetchUserPipe) user: DBUser,
 		@Body() dto: PlaylistTracksQuery,
+		@ReqUser(FetchUserPipe) user?: DBUser,
 	): Promise<PlaylistTrackResponse[]> {
 		const playlistInfo = await this.playlistsService.findByUuid(uuid);
 		if (!playlistInfo) {
@@ -179,8 +190,10 @@ export class PlaylistsController {
 		}
 		const { playlist } = playlistInfo;
 
-		if (playlist.ownerUuid != user.uuid) {
-			throw new ForbiddenException();
+		if (playlist.visibility == PlaylistVisibility.PRIVATE) {
+			if (!user || playlist.ownerUuid != user.uuid) {
+				throw new ForbiddenException();
+			}
 		}
 
 		const tracks = await this.playlistsService.findTracks(playlist, {
@@ -367,6 +380,31 @@ export class PlaylistsController {
 		);
 	}
 
+	@Patch(":uuid/visibility")
+	@ApiOperation({ operationId: "updatePlaylistVisibility" })
+	@UseGuards(AuthGuard)
+	@ApiOkResponse({
+		type: PlaylistResponse,
+	})
+	async updatePlaylistVisibility(
+		@Param("uuid") uuid: string,
+		@ReqUser(FetchUserPipe) user: DBUser,
+		@Body() dto: PlaylistVisibilityDto,
+	) {
+		const playlistInfo = await this.playlistsService.findByUuid(uuid);
+		if (!playlistInfo) {
+			throw new NotFoundException("Playlist not found");
+		}
+		const { playlist } = playlistInfo;
+
+		if (playlist.ownerUuid != user.uuid) {
+			throw new ForbiddenException();
+		}
+
+		await this.playlistsService.setVisibility(playlist.uuid, dto.visibility);
+		return this.getPlaylist(playlist.uuid, user);
+	}
+
 	@Delete(":uuid")
 	@ApiOperation({ operationId: "deletePlaylist" })
 	@UseGuards(AuthGuard)
@@ -394,6 +432,7 @@ export class PlaylistsController {
 
 	@Get(":uuid/pending")
 	@ApiOperation({ operationId: "getPlaylistUpdateProgress" })
+	@OptionalAuth()
 	@UseGuards(AuthGuard)
 	@ApiOkResponse({
 		type: [TrackCreationSessionResponse],
@@ -411,8 +450,10 @@ export class PlaylistsController {
 		}
 		const { playlist } = playlistInfo;
 
-		if (playlist.ownerUuid != user.uuid) {
-			throw new ForbiddenException();
+		if (playlist.visibility == PlaylistVisibility.PRIVATE) {
+			if (!user || playlist.ownerUuid != user.uuid) {
+				throw new ForbiddenException();
+			}
 		}
 
 		const sessions = this.ephemeralService.getCreationSessionsByPlaylistUuid(

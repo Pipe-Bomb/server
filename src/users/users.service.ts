@@ -113,7 +113,7 @@ export class UsersService {
 			});
 			return payload;
 		} catch {
-			throw new UnauthorizedException();
+			throw new UnauthorizedException("Invalid or expired token");
 		}
 	}
 

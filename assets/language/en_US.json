@@ -57,5 +57,9 @@
 
 	"attribute.playlist_track_date_added.name": "Date Added",
 	"attribute.playlist_track_added_by.name": "Added By",
-	"attribute.playlist_track_added_by.system": "SYSTEM"
+	"attribute.playlist_track_added_by.system": "SYSTEM",
+
+	"playlist.visibility.public.name": "Public",
+	"playlist.visibility.unlisted.name": "Unlisted",
+	"playlist.visibility.private.name": "Private"
 }

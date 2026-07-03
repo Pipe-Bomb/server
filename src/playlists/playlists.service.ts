@@ -10,6 +10,7 @@ import { DBTrack } from "src/tracks/entities/track.entity";
 import { AttributeType, AttributeValue, PlaylistClient } from "@sdk";
 import { UsersService } from "src/users/users.service";
 import { AttributeUploadService } from "src/attributes/attribute-upload.service";
+import { PlaylistVisibility } from "./enum/playlist-visibility.enum";
 
 @Injectable()
 export class PlaylistsService {
@@ -201,6 +202,17 @@ export class PlaylistsService {
 			},
 			{
 				dateModified: now,
+			},
+		);
+	}
+
+	async setVisibility(uuid: string, visibility: PlaylistVisibility) {
+		await this.playlistsRepository.update(
+			{
+				uuid,
+			},
+			{
+				visibility,
 			},
 		);
 	}
