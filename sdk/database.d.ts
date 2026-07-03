@@ -132,6 +132,7 @@ export interface SavedPlaylist {
 	owner: SavedUser | null;
 	dateCreated: Date;
 	dateModified: Date;
+	visibility: "public" | "unlisted" | "private";
 	attributes: SavedAttribute[] | null;
 	filters: SavedSmartFilterGroup[] | null;
 	tracks: SavedPlaylistTrack[] | null;

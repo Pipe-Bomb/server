@@ -84,6 +84,7 @@ export class DBPlaylist {
 			owner: this.owner?.toSavedResponse() ?? null,
 			dateCreated: new Date(this.dateCreated),
 			dateModified: new Date(this.dateModified),
+			visibility: this.visibility,
 			attributes:
 				this.attributes?.map((attribute) => attribute.toSavedAttribute()) ??
 				null,
