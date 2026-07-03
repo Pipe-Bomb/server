@@ -126,6 +126,8 @@ If you start Pipe Bomb server with `npm run start:plugin-dev`, the server will a
 
 - ✅ Automatically add tracks to playlist based on attributes matching criteria
 
+- ✅ Customizable playlist visibility
+
 - ➖ Save ephemeral artists and albums without manually copying to a playlist
 
 - ➖ Search Handler for plugins to replace search provided by server
@@ -133,8 +135,6 @@ If you start Pipe Bomb server with `npm run start:plugin-dev`, the server will a
 - ➖ User overridable attributes and identities
 
 - ➖ Group playlists
-
-- 🚧 Customizable playlist visibility
 
 - ➖ User attributes
 
