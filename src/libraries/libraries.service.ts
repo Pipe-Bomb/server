@@ -266,7 +266,11 @@ export class LibrariesService {
 
 	public async forEachTrack(
 		library: LoadedLibraryHandler,
-		callback: (trackId: string, cancel: () => void) => void | Promise<void>,
+		callback: (
+			trackId: string,
+			trackUuid: string,
+			cancel: () => void,
+		) => void | Promise<void>,
 	) {
 		const CHUNK_SIZE = 1_000;
 
@@ -279,13 +283,13 @@ export class LibrariesService {
 			const { tracks } = await this.findTracks(library, {
 				amount: CHUNK_SIZE,
 				offset: CHUNK_SIZE * i,
-				select: ["trackId"],
+				select: ["trackId", "uuid"],
 			});
 			if (!tracks.length || isCancelled) {
 				break;
 			}
 			for (const track of tracks) {
-				await callback(track.trackId, () => {
+				await callback(track.trackId, track.uuid, () => {
 					isCancelled = true;
 				});
 				if (isCancelled) {

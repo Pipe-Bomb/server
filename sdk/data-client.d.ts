@@ -30,7 +30,11 @@ export interface DataClient {
 	forEachTrack(
 		pluginId: string,
 		libraryId: string,
-		callback: (trackId: string, cancel: () => void) => void | Promise<void>,
+		callback: (
+			trackId: string,
+			trackUuid: string,
+			cancel: () => void,
+		) => void | Promise<void>,
 	): Promise<void>;
 
 	forEachAlbum(
