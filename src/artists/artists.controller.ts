@@ -57,6 +57,7 @@ export class ArtistsController {
 			withTrackAlbums: true,
 			withAlbums: true,
 			withAlbumArtists: true,
+			withAlbumArtistAttributes: true,
 			withAlbumAttributes: true,
 		});
 		if (!artist) {

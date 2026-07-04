@@ -241,6 +241,7 @@ export class PlaylistsService {
 			withTrackAttributes?: boolean;
 			withTrackArtists?: boolean;
 			withTrackUsers?: boolean;
+			withTrackAlbums?: boolean;
 			withOwner?: boolean;
 			withTrackCount?: number;
 			withSmartFilters?: boolean;
@@ -277,6 +278,11 @@ export class PlaylistsService {
 								},
 							},
 							attributes: options.withTrackAttributes,
+							albums: options.withTrackAlbums && {
+								album: {
+									attributes: true,
+								},
+							},
 						},
 						addedBy: options.withTrackUsers,
 					},
@@ -324,6 +330,7 @@ export class PlaylistsService {
 			withTrackAttributes?: boolean;
 			withTrackArtists?: boolean;
 			withTrackUsers?: boolean;
+			withTrackAlbums?: boolean;
 		},
 	) {
 		return this.playlistTracksRepository.find({
@@ -338,6 +345,11 @@ export class PlaylistsService {
 						},
 					},
 					attributes: options.withTrackAttributes,
+					albums: !!options.withTrackAlbums && {
+						album: {
+							attributes: true,
+						},
+					},
 				},
 				addedBy: options.withTrackUsers,
 			},

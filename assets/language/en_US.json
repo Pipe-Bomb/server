@@ -61,6 +61,7 @@
 	"attribute.track_plugin_id.name": "Plugin",
 	"attribute.track_library_id.name": "Library",
 	"attribute.track_date_added.name": "Date imported",
+	"attribute.track_album.name": "Album",
 
 	"playlist.visibility.public.name": "Public",
 	"playlist.visibility.unlisted.name": "Unlisted",

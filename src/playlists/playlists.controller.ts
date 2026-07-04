@@ -121,6 +121,7 @@ export class PlaylistsController {
 			withTrackArtists: true,
 			withTrackAttributes: true,
 			withTrackUsers: true,
+			withTrackAlbums: true,
 			withOwner: true,
 			withSmartFilters: true,
 		});
@@ -202,6 +203,7 @@ export class PlaylistsController {
 			withTrackArtists: true,
 			withTrackAttributes: true,
 			withTrackUsers: true,
+			withTrackAlbums: true,
 		});
 
 		return tracks.map((track) => track.toResponse()).filter((track) => !!track);
