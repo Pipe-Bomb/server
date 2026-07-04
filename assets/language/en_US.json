@@ -58,8 +58,9 @@
 	"attribute.playlist_track_date_added.name": "Date Added",
 	"attribute.playlist_track_added_by.name": "Added By",
 	"attribute.playlist_track_added_by.system": "SYSTEM",
-	"attribute.plugin_id.name": "Plugin",
-	"attribute.library_id.name": "Library",
+	"attribute.track_plugin_id.name": "Plugin",
+	"attribute.track_library_id.name": "Library",
+	"attribute.track_date_added.name": "Date imported",
 
 	"playlist.visibility.public.name": "Public",
 	"playlist.visibility.unlisted.name": "Unlisted",
