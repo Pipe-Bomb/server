@@ -291,6 +291,7 @@ export class PlaylistsService {
 						ordinal: "asc",
 					},
 					take: options.withTracks,
+					relationLoadStrategy: "query",
 				});
 
 			playlist.tracks = topTracks;

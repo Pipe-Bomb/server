@@ -2,6 +2,7 @@ import {
 	Column,
 	CreateDateColumn,
 	Entity,
+	Index,
 	JoinColumn,
 	ManyToOne,
 	PrimaryColumn,
@@ -15,6 +16,7 @@ import { SavedPlaylistTrack } from "@sdk";
 
 @Entity("playlist_tracks")
 @Unique("IDX_playlistUuid_trackUuid", ["playlistUuid", "trackUuid"])
+@Index("IDX_playlist_tracks_sort", ["playlistUuid", "dateAdded", "ordinal"])
 export class DBPlaylistTrack {
 	@PrimaryColumn({
 		type: "uuid",
