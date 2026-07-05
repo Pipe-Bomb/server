@@ -237,7 +237,7 @@ export class PlaylistsService {
 		uuid: string,
 		options: {
 			withAttributes?: boolean;
-			withTracks?: boolean;
+			withTracks?: number;
 			withTrackAttributes?: boolean;
 			withTrackArtists?: boolean;
 			withTrackUsers?: boolean;
@@ -290,7 +290,7 @@ export class PlaylistsService {
 						dateAdded: "asc",
 						ordinal: "asc",
 					},
-					take: 50,
+					take: options.withTracks,
 				});
 
 			playlist.tracks = topTracks;

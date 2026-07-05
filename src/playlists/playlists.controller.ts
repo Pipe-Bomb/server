@@ -2,6 +2,7 @@ import {
 	BadRequestException,
 	Body,
 	Controller,
+	DefaultValuePipe,
 	Delete,
 	ForbiddenException,
 	Get,
@@ -10,9 +11,11 @@ import {
 	Logger,
 	NotFoundException,
 	Param,
+	ParseIntPipe,
 	Patch,
 	Post,
 	Put,
+	Query,
 	Req,
 	UseGuards,
 } from "@nestjs/common";
@@ -30,6 +33,7 @@ import {
 	ApiNotFoundResponse,
 	ApiOkResponse,
 	ApiOperation,
+	ApiQuery,
 	ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
 import { DBTrack } from "src/tracks/entities/track.entity";
@@ -111,13 +115,27 @@ export class PlaylistsController {
 	})
 	@ApiUnauthorizedResponse()
 	@ApiForbiddenResponse()
+	@ApiQuery({
+		name: "tracks",
+		required: false,
+		type: Number,
+		minimum: 0,
+		maximum: 200,
+		description: "Maximum number of tracks to include",
+	})
 	async getPlaylist(
 		@Param("uuid") uuid: string,
+		@Query("tracks", new DefaultValuePipe(0), ParseIntPipe)
+		tracks: number,
 		@ReqUser(FetchUserPipe) user?: DBUser,
 	): Promise<PlaylistResponse> {
+		if (tracks < 0 || tracks > 200) {
+			throw new BadRequestException("limit must be between 0 and 200");
+		}
+
 		const playlistInfo = await this.playlistsService.findByUuid(uuid, {
 			withAttributes: true,
-			withTracks: true,
+			withTracks: tracks,
 			withTrackArtists: true,
 			withTrackAttributes: true,
 			withTrackUsers: true,
@@ -344,7 +362,7 @@ export class PlaylistsController {
 			await this.playlistsService.removeTracks(playlist, tracks);
 		}
 
-		return this.getPlaylist(playlist.uuid, user);
+		return this.getPlaylist(playlist.uuid, 50, user);
 	}
 
 	@Patch(":uuid/attributes")
@@ -404,7 +422,7 @@ export class PlaylistsController {
 		}
 
 		await this.playlistsService.setVisibility(playlist.uuid, dto.visibility);
-		return this.getPlaylist(playlist.uuid, user);
+		return this.getPlaylist(playlist.uuid, 50, user);
 	}
 
 	@Delete(":uuid")
