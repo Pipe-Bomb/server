@@ -321,26 +321,20 @@ export class WorkflowsService {
 		if (!workflow.steps) {
 			throw new Error("Steps not included");
 		}
-		for (const workflowStep of workflow.steps) {
-			if (workflowStep.previousStepUuid == step.uuid) {
-				workflowStep.previousStepUuid = step.previousStepUuid;
-				await this.workflowStepsRepository.update(
-					{
-						uuid: workflowStep.uuid,
-					},
-					{
-						previousStepUuid: step.previousStepUuid,
-					},
-				);
-			}
-		}
-		await this.workflowStepsRepository.delete({
-			uuid: step.uuid,
+		await this.dataSource.transaction(async (entityManager) => {
+			await entityManager.update(
+				DBWorkflowStep,
+				{
+					previousStepUuid: step.uuid,
+				},
+				{
+					previousStepUuid: step.previousStepUuid,
+				},
+			);
+			await entityManager.delete(DBWorkflowStep, {
+				uuid: step.uuid,
+			});
 		});
-		workflow.steps = workflow.steps.filter(
-			(workflowStep) => workflowStep.uuid != step.uuid,
-		);
-		return workflow;
 	}
 
 	allStepsAndTriggers(): OptionalLoaded<WorkflowTrigger | WorkflowStep>[] {

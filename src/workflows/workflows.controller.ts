@@ -198,10 +198,11 @@ export class WorkflowsController {
 		@Param("workflowUuid") workflowUuid: string,
 		@Param("stepUuid") stepUuid: string,
 	): Promise<WorkflowResponse> {
-		const workflow = await this.workflowsService.removeStep(
-			stepUuid,
-			workflowUuid,
-		);
+		await this.workflowsService.removeStep(stepUuid, workflowUuid);
+		const workflow = await this.workflowsService.findOne(workflowUuid);
+		if (!workflow) {
+			throw new NotFoundException("Workflow not found");
+		}
 		return workflow.toResponse(
 			this.workflowsService.allStepsAndTriggers(),
 			this.workflowsService.getActive(workflow.uuid),
