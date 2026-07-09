@@ -61,7 +61,7 @@ export interface BaseWorkflowStepContext {
 }
 
 export interface WorkflowTriggerContext extends BaseWorkflowStepContext {
-	activate(): void;
+	activate(allowRerun: boolean): void;
 	getCreateReason(): "startup" | "trigger-add" | "options-update";
 }
 

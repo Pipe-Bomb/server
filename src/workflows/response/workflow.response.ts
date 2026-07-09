@@ -19,4 +19,28 @@ export class WorkflowResponse {
 		nullable: true,
 	})
 	steps: WorkflowStepResponse[] | null;
+
+	@ApiProperty({
+		type: "integer",
+		nullable: true,
+	})
+	currentActiveStepIndex: number | null;
+
+	@ApiProperty({
+		type: "string",
+		nullable: true,
+	})
+	currentActiveStepUuid: string | null;
+
+	@ApiProperty({
+		type: "integer",
+		nullable: true,
+	})
+	totalActiveSteps: number | null;
+
+	@ApiProperty({
+		type: "number",
+		nullable: true,
+	})
+	currentActiveStepPercent: number | null;
 }

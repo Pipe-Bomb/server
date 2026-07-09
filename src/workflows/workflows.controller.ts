@@ -46,7 +46,10 @@ export class WorkflowsController {
 	async getAll(): Promise<WorkflowResponse[]> {
 		const workflows = await this.workflowsService.all();
 		return workflows.map((workflow) =>
-			workflow.toResponse(this.workflowsService.allStepsAndTriggers()),
+			workflow.toResponse(
+				this.workflowsService.allStepsAndTriggers(),
+				this.workflowsService.getActive(workflow.uuid),
+			),
 		);
 	}
 
@@ -66,7 +69,10 @@ export class WorkflowsController {
 		if (!workflow) {
 			throw new NotFoundException("Workflow not found");
 		}
-		return workflow.toResponse(this.workflowsService.allStepsAndTriggers());
+		return workflow.toResponse(
+			this.workflowsService.allStepsAndTriggers(),
+			this.workflowsService.getActive(workflow.uuid),
+		);
 	}
 
 	@ApiOperation({
@@ -81,7 +87,10 @@ export class WorkflowsController {
 	@UseGuards(AuthGuard)
 	async createWorkflow(@Body() dto: CreateWorkflowDto) {
 		const workflow = await this.workflowsService.create(dto.name);
-		return workflow.toResponse(this.workflowsService.allStepsAndTriggers());
+		return workflow.toResponse(
+			this.workflowsService.allStepsAndTriggers(),
+			this.workflowsService.getActive(workflow.uuid),
+		);
 	}
 
 	@ApiOperation({
@@ -133,7 +142,10 @@ export class WorkflowsController {
 		if (!workflow) {
 			throw new NotFoundException("Workflow not found");
 		}
-		return workflow.toResponse(this.workflowsService.allStepsAndTriggers());
+		return workflow.toResponse(
+			this.workflowsService.allStepsAndTriggers(),
+			this.workflowsService.getActive(workflow.uuid),
+		);
 	}
 
 	@ApiOperation({
@@ -165,7 +177,10 @@ export class WorkflowsController {
 		if (!workflow) {
 			throw new NotFoundException("Workflow not found");
 		}
-		return workflow.toResponse(this.workflowsService.allStepsAndTriggers());
+		return workflow.toResponse(
+			this.workflowsService.allStepsAndTriggers(),
+			this.workflowsService.getActive(workflow.uuid),
+		);
 	}
 
 	@ApiOperation({
@@ -187,7 +202,10 @@ export class WorkflowsController {
 			stepUuid,
 			workflowUuid,
 		);
-		return workflow.toResponse(this.workflowsService.allStepsAndTriggers());
+		return workflow.toResponse(
+			this.workflowsService.allStepsAndTriggers(),
+			this.workflowsService.getActive(workflow.uuid),
+		);
 	}
 
 	@ApiOperation({
@@ -219,6 +237,9 @@ export class WorkflowsController {
 		if (!workflow) {
 			throw new NotFoundException("Workflow not found");
 		}
-		return workflow.toResponse(this.workflowsService.allStepsAndTriggers());
+		return workflow.toResponse(
+			this.workflowsService.allStepsAndTriggers(),
+			this.workflowsService.getActive(workflow.uuid),
+		);
 	}
 }

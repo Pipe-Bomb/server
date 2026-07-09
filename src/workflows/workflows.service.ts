@@ -26,6 +26,7 @@ import { WorkflowStepOptionValueDto } from "./dto/workflow-step-option-value.dto
 import { DBWorkflowStepOptionValue } from "./entity/workflow-step-option-value.entity";
 import { WorkflowStepOptionType } from "./enum/workflow-step-option-type.enum";
 import { CronJob, validateCronExpression } from "cron";
+import { ActiveWorkflow } from "./interface/active-workflow.interface";
 
 @Injectable()
 export class WorkflowsService {
@@ -39,6 +40,7 @@ export class WorkflowsService {
 		WorkflowStep | WorkflowTrigger
 	>();
 	private readonly stepDestroyCallbacks = new Map<string, () => void>();
+	private readonly activeWorkflows = new Map<string, ActiveWorkflow>();
 
 	constructor(
 		@InjectRepository(DBWorkflow)
@@ -56,7 +58,7 @@ export class WorkflowsService {
 				getOptions: () => [],
 				create: (ctx) => {
 					if (ctx.getCreateReason() == "startup") {
-						ctx.activate();
+						ctx.activate(false);
 					}
 
 					return () => {};
@@ -74,6 +76,10 @@ export class WorkflowsService {
 						id: "schedule",
 						type: "string",
 					},
+					{
+						id: "rerun",
+						type: "boolean",
+					},
 				],
 				create: (ctx) => {
 					const logger = ctx.getLogger();
@@ -89,7 +95,9 @@ export class WorkflowsService {
 						return () => {};
 					}
 
-					const job = new CronJob(schedule, () => ctx.activate());
+					const job = new CronJob(schedule, () =>
+						ctx.activate(!!ctx.getOption("rerun", "boolean")),
+					);
 					job.start();
 
 					return () => job.stop();
@@ -200,8 +208,8 @@ export class WorkflowsService {
 		return {
 			...this.createBaseContext(step, options),
 			getCreateReason: () => createReason,
-			activate: () => {
-				this.activateWorkflow(step.workflowUuid).catch((e) =>
+			activate: (allowRerun) => {
+				this.activateWorkflow(step.workflowUuid, allowRerun).catch((e) =>
 					this.logger.error(`Failed to start Workflow from Trigger:`, e),
 				);
 			},
@@ -211,12 +219,11 @@ export class WorkflowsService {
 	private createStepContext(
 		step: DBWorkflowStep,
 		options: DBWorkflowStepOptionValue[],
+		onProgress: (percent: number) => void,
 	): WorkflowStepContext {
 		return {
 			...this.createBaseContext(step, options),
-			updateProgress: (percent) => {
-				this.logger.debug(`Step percent: ${percent}`);
-			},
+			updateProgress: onProgress,
 		};
 	}
 
@@ -531,7 +538,11 @@ export class WorkflowsService {
 		}
 	}
 
-	async activateWorkflow(workflowUuid: string) {
+	getActive(uuid: string) {
+		return this.activeWorkflows.get(uuid) ?? null;
+	}
+
+	async activateWorkflow(workflowUuid: string, allowRerun: boolean) {
 		const workflow = await this.workflowsRepository.findOne({
 			where: {
 				uuid: workflowUuid,
@@ -547,11 +558,23 @@ export class WorkflowsService {
 			throw new NotFoundException("Workflow doesn't exist");
 		}
 
-		this.logger.log(`Activating workflow "${workflow.name}"`);
-
 		if (!workflow.steps) {
 			throw new Error("Workflow didn't include steps");
 		}
+
+		const existingActiveWorkflow = this.activeWorkflows.get(workflowUuid);
+		if (existingActiveWorkflow) {
+			if (allowRerun) {
+				this.logger.debug(
+					`Workflow "${workflow.name}" is already running, requesting a re-run`,
+				);
+				existingActiveWorkflow.hasPendingRerun = true;
+			} else {
+				this.logger.debug(`Workflow "${workflow.name}" is already running`);
+			}
+			return;
+		}
+		this.logger.log(`Activating workflow "${workflow.name}"`);
 
 		const steps = orderWorkflowSteps(workflow.steps).filter(
 			(step) => step.stepType != WorkflowStepType.TRIGGER,
@@ -560,11 +583,24 @@ export class WorkflowsService {
 		this.logger.debug(`Workflow "${workflow.name}" has ${steps.length} steps`);
 		const stepDefinitions = this.allSteps();
 
+		const activeWorkflow: ActiveWorkflow = {
+			uuid: workflow.uuid,
+			currentStepIndex: 1,
+			currentStepUuid: "",
+			hasPendingRerun: false,
+			stepPercent: null,
+			totalSteps: steps.length,
+		};
+		this.activeWorkflows.set(workflow.uuid, activeWorkflow);
+
 		try {
 			for (const [index, step] of steps.entries()) {
 				this.logger.debug(
 					`Running step ${index + 1} of workflow "${workflow.name}"`,
 				);
+				activeWorkflow.currentStepIndex = index;
+				activeWorkflow.currentStepUuid = step.uuid;
+				activeWorkflow.stepPercent = null;
 				const definition = stepDefinitions.find(
 					({ plugin, object }) =>
 						(plugin?.package.name ?? null) == step.pluginId &&
@@ -576,11 +612,28 @@ export class WorkflowsService {
 				if (!step.optionValues) {
 					throw new Error(`Step option values not defined`);
 				}
-				const ctx = this.createStepContext(step, step.optionValues);
+				const ctx = this.createStepContext(
+					step,
+					step.optionValues,
+					(percent) => {
+						activeWorkflow.stepPercent = percent;
+						this.logger.debug(
+							`Workflow "${workflow.name}" step ${index + 1} is at ${Math.round(percent * 1000) / 10}%`,
+						);
+					},
+				);
 				await definition.object.run(ctx);
 			}
 		} catch (e) {
 			this.logger.error(`Failed to complete workflow "${workflow.name}":`, e);
+		} finally {
+			setImmediate(() => {
+				this.activeWorkflows.delete(workflow.uuid);
+				if (activeWorkflow.hasPendingRerun) {
+					this.logger.debug(`Re-running workflow "${workflow.name}"`);
+					this.activateWorkflow(workflow.uuid, false);
+				}
+			});
 		}
 	}
 }

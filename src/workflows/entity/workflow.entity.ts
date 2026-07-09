@@ -11,6 +11,7 @@ import { WorkflowStepResponse } from "../response/workflow-step.response";
 import { orderWorkflowSteps } from "../workflows.util";
 import { OptionalLoaded } from "src/types/loaded";
 import { WorkflowStep, WorkflowTrigger } from "@sdk";
+import { ActiveWorkflow } from "../interface/active-workflow.interface";
 
 @Entity("workflows")
 export class DBWorkflow {
@@ -32,6 +33,7 @@ export class DBWorkflow {
 
 	toResponse(
 		loadedSteps: OptionalLoaded<WorkflowTrigger | WorkflowStep>[],
+		active: ActiveWorkflow | null,
 	): WorkflowResponse {
 		let steps: WorkflowStepResponse[] | null = null;
 		if (this.steps) {
@@ -49,6 +51,13 @@ export class DBWorkflow {
 			uuid: this.uuid,
 			name: this.name,
 			dateCreated: new Date(this.dateCreated),
+			currentActiveStepIndex: active?.currentStepIndex ?? null,
+			currentActiveStepUuid: active?.currentStepUuid ?? null,
+			totalActiveSteps: active?.totalSteps ?? null,
+			currentActiveStepPercent:
+				typeof active?.stepPercent == "number"
+					? active.stepPercent * 100
+					: null,
 			steps,
 		};
 	}

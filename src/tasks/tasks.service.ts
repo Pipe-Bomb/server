@@ -24,6 +24,8 @@ import { WorkflowsService } from "src/workflows/workflows.service";
 interface ActiveTask extends LoadedTask {
 	percent: number | null;
 	runId: string;
+	endCallbacks: Set<() => void>;
+	progressCallbacks: Set<(percent: number) => void>;
 }
 
 @Injectable()
@@ -120,6 +122,9 @@ export class TasksService {
 							}
 							await this.runTask(uuid, null);
 						}
+						await this.waitForTask(uuid, (percent) =>
+							ctx.updateProgress(percent),
+						);
 					}
 				},
 			},
@@ -329,6 +334,8 @@ export class TasksService {
 			...task,
 			percent: null,
 			runId,
+			endCallbacks: new Set(),
+			progressCallbacks: new Set(),
 		};
 
 		this.activePluginTasks.push(activeTask);
@@ -349,6 +356,9 @@ export class TasksService {
 				this.logger.debug(
 					`${title} is at ${Math.round(activeTask.percent * 1000) / 10}%`,
 				);
+				for (const progressCallbacks of activeTask.progressCallbacks) {
+					progressCallbacks(newPercent);
+				}
 				if (task.task.resumable && !isUpdatingTime) {
 					if (lastResumeUpdateTime + 5_000 < Date.now()) {
 						isUpdatingTime = true;
@@ -396,6 +406,11 @@ export class TasksService {
 				if (index >= 0) {
 					this.activePluginTasks.splice(index, 1);
 				}
+				for (const callback of activeTask.endCallbacks) {
+					callback();
+				}
+				activeTask.endCallbacks.clear();
+				activeTask.progressCallbacks.clear();
 				if (task.task.resumable) {
 					this.resumableTaskProgressRepository
 						.delete({
@@ -409,5 +424,16 @@ export class TasksService {
 						);
 				}
 			});
+	}
+
+	waitForTask(uuid: string, onProgress?: (percent: number) => void) {
+		return new Promise<void>((resolve) => {
+			const task = this.activePluginTasks.find((task) => task.uuid == uuid);
+			if (!task) {
+				return resolve();
+			}
+			task.progressCallbacks.add((percent) => onProgress?.(percent));
+			task.endCallbacks.add(resolve);
+		});
 	}
 }
