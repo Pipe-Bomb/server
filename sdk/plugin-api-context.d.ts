@@ -12,7 +12,7 @@ import {
 import { LibraryHandler } from "./library-handler";
 import { Logger } from "./logger";
 import { PlaylistClient } from "./playlist-client";
-import { PluginPackage } from "./plugin";
+import { Plugin, PluginPackage } from "./plugin";
 import { SimpleTask, SubTask } from "./task";
 import { WorkflowClient } from "./workflow-client";
 
@@ -21,6 +21,7 @@ export interface PluginApiContext {
 	getServerPort(): number;
 	getLogger(): Logger;
 	getPluginPackage(): PluginPackage;
+	getPlugin<T extends Plugin = Plugin>(id: string): Promise<T | null>;
 	registerLibraryHandler(libraryHandler: LibraryHandler): void;
 	registerTrackIdentifier(identifier: TrackIdentifier): void;
 	registerArtistIdentifier(identifier: ArtistIdentifier): void;

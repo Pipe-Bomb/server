@@ -34,6 +34,8 @@ export class PluginsService {
 	private readonly logger = new Logger("Plugins Service");
 
 	private readonly plugins = new Map<string, LoadedPlugin>();
+	private readonly waitListeners = new Set<() => void>();
+	private isScanning = false;
 
 	constructor(
 		private readonly librariesService: LibrariesService,
@@ -59,6 +61,10 @@ export class PluginsService {
 	}
 
 	private async scan() {
+		if (this.isScanning) {
+			return;
+		}
+		this.isScanning = true;
 		try {
 			if (!existsSync(this.pluginsDirectory)) {
 				this.logger.log(
@@ -180,6 +186,11 @@ export class PluginsService {
 		this.logger.log(
 			`Successfully loaded ${this.plugins.size} plugin${this.plugins.size == 1 ? "" : "s"}`,
 		);
+		this.isScanning = false;
+		for (const listener of this.waitListeners) {
+			listener();
+		}
+		this.waitListeners.clear();
 	}
 
 	private createPluginApiContext(
@@ -191,6 +202,18 @@ export class PluginsService {
 		return {
 			getServerVersion: () => Package.version,
 			getLogger: () => logger,
+			getPlugin: async (id) => {
+				await new Promise<void>((resolve) => {
+					if (this.isScanning) {
+						this.waitListeners.add(resolve);
+					} else {
+						resolve();
+					}
+				});
+
+				const plugin = this.plugins.get(id);
+				return (plugin?.plugin as any) ?? null;
+			},
 			getServerPort: () => 3000, // todo: don't hard code
 			getPluginPackage: () => plugin.package,
 			requestTempDirectory: async () => {
