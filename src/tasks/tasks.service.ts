@@ -55,6 +55,22 @@ export class TasksService {
 						];
 					}
 				}),
+				...this.allPluginTasks().flatMap(({ task, plugin }) => {
+					if ("getSubTasks" in task) {
+						const subTasks = task.getSubTasks();
+						return subTasks.map((subTask) => ({
+							id: `${plugin!.package.name}:${task.id}:${subTask}`,
+							languageKey: `task.plugin.${plugin!.package.name}.${task.id}.subtask.${subTask}.name`,
+						}));
+					} else {
+						return [
+							{
+								id: `${plugin!.package.name}:${task.id}:`,
+								languageKey: `task.plugin.${plugin!.package.name}.${task.id}.name`,
+							},
+						];
+					}
+				}),
 			];
 		};
 
