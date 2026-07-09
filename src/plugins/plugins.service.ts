@@ -25,6 +25,7 @@ import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { AudioSessionsService } from "src/audio-sessions/audio-sessions.service";
 import { UsersService } from "src/users/users.service";
 import { PlaylistsService } from "src/playlists/playlists.service";
+import { WorkflowsService } from "src/workflows/workflows.service";
 
 @Injectable()
 export class PluginsService {
@@ -50,6 +51,7 @@ export class PluginsService {
 		private readonly audioSessionsService: AudioSessionsService,
 		private readonly usersService: UsersService,
 		private readonly playlistsService: PlaylistsService,
+		private readonly workflowsService: WorkflowsService,
 	) {
 		this.logger.debug(`Plugin directory is "${this.pluginsDirectory}"`);
 
@@ -264,6 +266,7 @@ export class PluginsService {
 				};
 			},
 			getPlaylistClient: () => this.playlistsService.createPlaylistClient(),
+			getWorkflowClient: () => this.workflowsService.createClient(plugin),
 		};
 	}
 

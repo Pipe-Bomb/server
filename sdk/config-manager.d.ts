@@ -1,4 +1,4 @@
-export type ValueMap = {
+type ValueMap = {
 	string: string;
 	integer: number;
 	decimal: number;

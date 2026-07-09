@@ -14,6 +14,7 @@ import { Logger } from "./logger";
 import { PlaylistClient } from "./playlist-client";
 import { PluginPackage } from "./plugin";
 import { SimpleTask, SubTask } from "./task";
+import { WorkflowClient } from "./workflow-client";
 
 export interface PluginApiContext {
 	getServerVersion(): string;
@@ -41,4 +42,5 @@ export interface PluginApiContext {
 	getDataClient(): DataClient;
 	requestAuthClient(): AuthClient | null;
 	getPlaylistClient(): PlaylistClient;
+	getWorkflowClient(): WorkflowClient;
 }

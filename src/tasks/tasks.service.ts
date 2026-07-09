@@ -5,7 +5,13 @@ import {
 	Logger,
 	NotFoundException,
 } from "@nestjs/common";
-import { SimpleTask, SubTask, Task, TaskRunContext } from "@sdk";
+import {
+	EnumWorkflowOptionItem,
+	SimpleTask,
+	SubTask,
+	Task,
+	TaskRunContext,
+} from "@sdk";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { TaskResponse, TaskStatusResponse } from "./response/task.response";
 import { randomUUID } from "crypto";
@@ -13,6 +19,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { DBResumableTaskProgress } from "./entity/resumable-task-progress.entity";
 import { FindOptionsWhere, Repository } from "typeorm";
 import { LoadedTask } from "./interface/loaded-task.interface";
+import { WorkflowsService } from "src/workflows/workflows.service";
 
 interface ActiveTask extends LoadedTask {
 	percent: number | null;
@@ -28,7 +35,81 @@ export class TasksService {
 	constructor(
 		@InjectRepository(DBResumableTaskProgress)
 		private readonly resumableTaskProgressRepository: Repository<DBResumableTaskProgress>,
-	) {}
+		private readonly workflowsService: WorkflowsService,
+	) {
+		const getTaskEnums: () => EnumWorkflowOptionItem<string>[] = () => {
+			return [
+				...this.allSystemTasks().flatMap(({ task }) => {
+					if ("getSubTasks" in task) {
+						const subTasks = task.getSubTasks();
+						return subTasks.map((subTask) => ({
+							id: `:${task.id}:${subTask}`,
+							languageKey: `task.system.${task.id}.subtask.${subTask}.name`,
+						}));
+					} else {
+						return [
+							{
+								id: `:${task.id}:`,
+								languageKey: `task.system.${task.id}.name`,
+							},
+						];
+					}
+				}),
+			];
+		};
+
+		this.workflowsService.registerStep(
+			{
+				type: "step",
+				id: "run-task",
+				getOptions: () => [
+					{
+						type: "enum",
+						id: "taskId",
+						enum: getTaskEnums(),
+					},
+				],
+				run: async (ctx) => {
+					const serializedTaskId = ctx.getOption(
+						"taskId",
+						"enum",
+						getTaskEnums().map(({ id }) => id),
+					);
+					if (!serializedTaskId) {
+						throw new Error("Unspecified task");
+					}
+
+					const [pluginId, taskId, subtaskId] = serializedTaskId.split(":");
+					if (!taskId) {
+						throw new Error("Malformed task ID");
+					}
+
+					for (const [uuid, { task, plugin }] of this.tasks.entries()) {
+						if (task.id != taskId) {
+							continue;
+						}
+						if ((plugin?.package.name ?? null) != (pluginId || null)) {
+							continue;
+						}
+
+						if ("getSubTasks" in task) {
+							const subtasks = task.getSubTasks();
+							if (!subtaskId || !subtasks.includes(subtaskId)) {
+								throw new Error("Invalid or unspecified subtask ID");
+							}
+							await this.runTask(uuid, subtaskId);
+						} else {
+							if (subtaskId) {
+								throw new Error("Subtask ID specified for simple task");
+							}
+							await this.runTask(uuid, null);
+						}
+					}
+				},
+			},
+			null,
+		);
+	}
 
 	private generateTaskId() {
 		let uuid: string;

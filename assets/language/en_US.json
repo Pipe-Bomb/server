@@ -65,5 +65,15 @@
 
 	"playlist.visibility.public.name": "Public",
 	"playlist.visibility.unlisted.name": "Unlisted",
-	"playlist.visibility.private.name": "Private"
+	"playlist.visibility.private.name": "Private",
+
+	"workflow.system": "SYSTEM",
+
+	"workflow.system.step.server-start.name": "Server start",
+
+	"workflow.system.step.cron.name": "CRON",
+	"workflow.system.step.cron.option.schedule.name": "CRON Schedule",
+
+	"workflow.system.step.run-task.name": "Run task",
+	"workflow.system.step.run-task.option.taskId.name": "Task"
 }
