@@ -76,5 +76,7 @@
 	"workflow.system.step.cron.option.rerun.name": "Repeat if already running",
 
 	"workflow.system.step.run-task.name": "Run task",
-	"workflow.system.step.run-task.option.taskId.name": "Task"
+	"workflow.system.step.run-task.option.taskId.name": "Task",
+
+	"workflow.system.step.new-tracks.name": "New track added"
 }

@@ -11,6 +11,7 @@ import { AttributeType } from "src/attributes/enum/attribute-type.enum";
 import { DBSmartPlaylistFilterGroup } from "src/playlists/entity/smart-playlist-filter-group.entity";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { DBTrack } from "src/tracks/entities/track.entity";
+import { WorkflowsService } from "src/workflows/workflows.service";
 import {
 	Repository,
 	FindManyOptions,
@@ -23,11 +24,30 @@ import {
 @Injectable()
 export class TrackManagerService {
 	private readonly logger = new Logger("Track Manager Service");
+	private readonly addTrackListeners = new Set<() => void>();
 
 	constructor(
 		@InjectRepository(DBTrack)
 		private readonly tracksRepository: Repository<DBTrack>,
-	) {}
+		private readonly workflowsService: WorkflowsService,
+	) {
+		this.workflowsService.registerStep(
+			{
+				type: "trigger",
+				id: "new-tracks",
+				getOptions: () => [],
+				create: (ctx) => {
+					const listener = () => ctx.activate(true);
+					this.addTrackListeners.add(listener);
+
+					return () => {
+						this.addTrackListeners.delete(listener);
+					};
+				},
+			},
+			null,
+		);
+	}
 
 	queryBuilder(alias?: string) {
 		return this.tracksRepository.createQueryBuilder(alias);
@@ -106,6 +126,10 @@ export class TrackManagerService {
 				},
 				["pluginId", "libraryId", "trackId"],
 			);
+		}
+
+		for (const listener of this.addTrackListeners) {
+			listener();
 		}
 	}
 
