@@ -324,6 +324,12 @@ export class WorkflowsService {
 		await this.dataSource.transaction(async (entityManager) => {
 			await entityManager.update(
 				DBWorkflowStep,
+				{ uuid: step.uuid },
+				{ previousStepUuid: null },
+			);
+
+			await entityManager.update(
+				DBWorkflowStep,
 				{
 					previousStepUuid: step.uuid,
 				},
