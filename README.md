@@ -128,6 +128,8 @@ If you start Pipe Bomb server with `npm run start:plugin-dev`, the server will a
 
 - ✅ Customizable playlist visibility
 
+- 🚧 Custom workflows
+
 - ➖ Save ephemeral artists and albums without manually copying to a playlist
 
 - ➖ Search Handler for plugins to replace search provided by server
