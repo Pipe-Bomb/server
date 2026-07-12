@@ -547,7 +547,7 @@ export class AlbumManagerService {
 			.execute();
 	}
 
-	public async forEachAlbum(
+	public async forEachAlbumId(
 		callback: (albumUuid: string, cancel: () => void) => void | Promise<void>,
 	) {
 		const CHUNK_SIZE = 1_000;

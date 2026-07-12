@@ -264,7 +264,7 @@ export class LibrariesService {
 		return { tracks };
 	}
 
-	public async forEachTrack(
+	public async forEachTrackId(
 		library: LoadedLibraryHandler,
 		callback: (
 			trackId: string,

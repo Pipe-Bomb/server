@@ -362,17 +362,17 @@ export class PluginsService {
 					getAudioProducer: () => session.getProducer(),
 				};
 			},
-			forEachTrack: async (pluginId, libraryId, callback) => {
+			forEachTrackId: async (pluginId, libraryId, callback) => {
 				const library = this.librariesService.findLibrary(pluginId, libraryId);
 				if (!library) {
 					throw new Error("Library does not exist");
 				}
-				await this.librariesService.forEachTrack(library, callback);
+				await this.librariesService.forEachTrackId(library, callback);
 			},
-			forEachAlbum: (callback) =>
-				this.albumManagerService.forEachAlbum(callback),
-			forEachArtist: (callback) =>
-				this.artistManagerService.forEachArtist(callback),
+			forEachAlbumId: (callback) =>
+				this.albumManagerService.forEachAlbumId(callback),
+			forEachArtistId: (callback) =>
+				this.artistManagerService.forEachArtistId(callback),
 			getTrackCount: async (pluginId, libraryId) =>
 				this.trackManagerService.count({
 					pluginId,

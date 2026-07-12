@@ -685,7 +685,7 @@ export class ArtistManagerService {
 			.execute();
 	}
 
-	public async forEachArtist(
+	public async forEachArtistId(
 		callback: (artistUuid: string, cancel: () => void) => void | Promise<void>,
 	) {
 		const CHUNK_SIZE = 1_000;

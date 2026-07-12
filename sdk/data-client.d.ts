@@ -27,7 +27,7 @@ export interface DataClient {
 
 	getTrackCount(pluginId: string, libraryId: string): Promise<number>;
 
-	forEachTrack(
+	forEachTrackId(
 		pluginId: string,
 		libraryId: string,
 		callback: (
@@ -37,7 +37,7 @@ export interface DataClient {
 		) => void | Promise<void>,
 	): Promise<void>;
 
-	forEachAlbum(
+	forEachAlbumId(
 		callback: (albumUuid: string, cancel: () => void) => void | Promise<void>,
 	): Promise<void>;
 
@@ -45,7 +45,7 @@ export interface DataClient {
 
 	getAlbumUuids(amount: number, offset?: number): Promise<string[]>;
 
-	forEachArtist(
+	forEachArtistId(
 		callback: (artistUuid: string, cancel: () => void) => void | Promise<void>,
 	): Promise<void>;
 
