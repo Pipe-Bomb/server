@@ -165,6 +165,7 @@ export class WorkflowsService {
 	): BaseWorkflowStepContext {
 		return {
 			getWorkflowUuid: () => step.workflowUuid,
+			getStepUuid: () => step.uuid,
 			getOption: (id, type, ...args) => {
 				const option = options.find((option) => option.optionId == id);
 				if (!option) {

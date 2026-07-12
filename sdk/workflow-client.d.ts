@@ -49,6 +49,7 @@ type WorkflowStepContextValueMap<T> = {
 
 export interface BaseWorkflowStepContext {
 	getWorkflowUuid(): string;
+	getStepUuid(): string;
 	getOption<
 		E extends string | number,
 		T extends keyof WorkflowStepContextValueMap<E>,
