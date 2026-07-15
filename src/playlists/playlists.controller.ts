@@ -396,6 +396,7 @@ export class PlaylistsController {
 		return await this.playlistsService.updateAttributes(
 			playlist,
 			attributes,
+			null,
 			user,
 		);
 	}
