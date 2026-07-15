@@ -288,7 +288,8 @@ export class PluginsService {
 					},
 				};
 			},
-			getPlaylistClient: () => this.playlistsService.createPlaylistClient(),
+			getPlaylistClient: () =>
+				this.playlistsService.createPlaylistClient(plugin),
 			getWorkflowClient: () => this.workflowsService.createClient(plugin),
 		};
 	}
@@ -348,6 +349,9 @@ export class PluginsService {
 					null
 				);
 			},
+			getUserCount: () => this.usersService.count(),
+			forEachUserId: async (callback) =>
+				this.usersService.forEachUserId(callback),
 			createAudioSession: async (pluginId, libraryId, trackId, type) => {
 				const session = await this.audioSessionsService.createSession(
 					pluginId,

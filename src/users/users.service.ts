@@ -143,4 +143,38 @@ export class UsersService {
 			},
 		});
 	}
+
+	public async forEachUserId(
+		callback: (userUuid: string, cancel: () => void) => void | Promise<void>,
+	) {
+		const CHUNK_SIZE = 1_000;
+
+		let isCancelled = false;
+
+		for (let i = 0; true; i++) {
+			if (isCancelled) {
+				return;
+			}
+			const users = await this.usersRepository.find({
+				take: CHUNK_SIZE,
+				skip: CHUNK_SIZE * i,
+				select: ["uuid"],
+			});
+			if (!users.length || isCancelled) {
+				break;
+			}
+			for (const user of users) {
+				await callback(user.uuid, () => {
+					isCancelled = true;
+				});
+				if (isCancelled) {
+					return;
+				}
+			}
+		}
+	}
+
+	public count() {
+		return this.usersRepository.count();
+	}
 }

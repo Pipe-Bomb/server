@@ -11,6 +11,8 @@ import { AttributeType, AttributeValue, PlaylistClient } from "@sdk";
 import { UsersService } from "src/users/users.service";
 import { AttributeUploadService } from "src/attributes/attribute-upload.service";
 import { PlaylistVisibility } from "./enum/playlist-visibility.enum";
+import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
+import { LoadedAttributeSource } from "src/attributes/interface/loaded-attribute-source.interface";
 
 @Injectable()
 export class PlaylistsService {
@@ -73,6 +75,7 @@ export class PlaylistsService {
 	async updateAttributes(
 		playlist: DBPlaylist,
 		attributes: AttributeValue[],
+		attributeSource: LoadedAttributeSource | null,
 		user?: DBUser,
 	) {
 		const bufferAttributes: AttributeValue<"buffer">[] = [];
@@ -102,7 +105,7 @@ export class PlaylistsService {
 				await this.attributeSourcesService.createPlaylistAttributes(
 					playlist.uuid,
 					supportedAttributes,
-					null,
+					attributeSource,
 				);
 
 			dbAttributes.push(...newAttributes);
@@ -174,7 +177,12 @@ export class PlaylistsService {
 					}
 
 					if (toSave.length) {
-						this.updateAttributes(playlist, attributes, user).catch((e) =>
+						this.updateAttributes(
+							playlist,
+							attributes,
+							attributeSource,
+							user,
+						).catch((e) =>
 							this.logger.error(
 								`Failed to save delayed buffer Attributes to Playlist:`,
 								e,
@@ -401,7 +409,7 @@ export class PlaylistsService {
 		await this.playlistsRepository.remove(playlist);
 	}
 
-	createPlaylistClient(): PlaylistClient {
+	createPlaylistClient(plugin: LoadedPlugin): PlaylistClient {
 		return {
 			getUserPlaylistUuids: async (uuid) => {
 				const playlists = await this.playlistsRepository.find({
@@ -537,11 +545,24 @@ export class PlaylistsService {
 
 				await this.delete(playlist.playlist);
 			},
-			updatePlaylistAttributes: async (uuid, attributes, options = {}) => {
+			updatePlaylistAttributes: async (
+				uuid,
+				attributeSourceId,
+				attributes,
+				options = {},
+			) => {
 				const playlist = await this.findByUuid(uuid);
 
 				if (!playlist) {
 					throw new Error("Playlist doesn't exist");
+				}
+
+				const attributeSource = this.attributeSourcesService.getAttributeSource(
+					plugin.package.name,
+					attributeSourceId,
+				);
+				if (!attributeSource) {
+					throw new Error("Attribute source not registered");
 				}
 
 				let user: DBUser | null = null;
@@ -557,7 +578,7 @@ export class PlaylistsService {
 					}
 				}
 
-				this.updateAttributes(playlist.playlist, attributes);
+				this.updateAttributes(playlist.playlist, attributes, attributeSource);
 			},
 		};
 	}

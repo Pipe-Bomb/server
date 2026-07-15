@@ -95,6 +95,15 @@ export class AttributeSourcesService {
 		);
 	}
 
+	getAttributeSource(pluginId: string, sourceId: string) {
+		return (
+			this.sources.find(
+				({ plugin, source }) =>
+					plugin.package.name == pluginId && source.id == sourceId,
+			) ?? null
+		);
+	}
+
 	doSourcesMatch(
 		source1: LoadedAttributeSource | null,
 		source2: LoadedAttributeSource | null,

@@ -25,6 +25,12 @@ export interface DataClient {
 		type: AudioProducerType | null,
 	): Promise<AudioSession>;
 
+	getUserCount(): Promise<number>;
+
+	forEachUserId(
+		callback: (userUuid: string, cancel: () => void) => void | Promise<void>,
+	): Promise<void>;
+
 	getTrackCount(pluginId: string, libraryId: string): Promise<number>;
 
 	forEachTrackId(
