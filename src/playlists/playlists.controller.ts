@@ -85,7 +85,7 @@ export class PlaylistsController {
 			dto.attributes,
 		);
 
-		const playlist = await this.playlistsService.create(user, attributes);
+		const playlist = await this.playlistsService.create(user, null, attributes);
 		return playlist.toResponse();
 	}
 

@@ -49,7 +49,10 @@ export interface PlaylistClient {
 	createUserPlaylist(
 		ownerUuid: string,
 		options?: {
-			attributes?: AttributeValue[];
+			attributes?: {
+				sourceId: string;
+				attributes: AttributeValue[];
+			};
 		},
 	): Promise<string>;
 

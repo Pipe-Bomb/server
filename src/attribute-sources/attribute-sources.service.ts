@@ -22,7 +22,7 @@ import { PersistentAttributeResponse } from "src/attributes/response/persistent-
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { ResourcesService } from "src/resources/resources.service";
 import { TasksService } from "src/tasks/tasks.service";
-import { DeepPartial, In, Repository } from "typeorm";
+import { DeepPartial, In, IsNull, Repository } from "typeorm";
 
 @Injectable()
 export class AttributeSourcesService {
@@ -503,12 +503,15 @@ export class AttributeSourcesService {
 
 	public async upsertPlaylistAttributes(
 		playlistUuid: string,
+		attributeSource: LoadedAttributeSource | null,
 		attributes: DBPlaylistAttribute[],
 	) {
 		const keys = attributes.map(({ key }) => key);
 
 		await this.playlistAttributesRepository.delete({
 			entityId: playlistUuid,
+			pluginId: attributeSource?.plugin.package.name ?? "",
+			sourceId: attributeSource?.source.id ?? "",
 			key: In(keys),
 		});
 

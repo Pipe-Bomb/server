@@ -39,7 +39,11 @@ export class PlaylistsService {
 		});
 	}
 
-	async create(owner: DBUser, attributes: AttributeValue[]) {
+	async create(
+		owner: DBUser,
+		attributeSource: LoadedAttributeSource | null,
+		attributes: AttributeValue[],
+	) {
 		const playlist = this.playlistsRepository.create({
 			owner,
 		});
@@ -66,6 +70,7 @@ export class PlaylistsService {
 		playlist.attributes = dbAttributes;
 		await this.attributeSourcesService.upsertPlaylistAttributes(
 			playlist.uuid,
+			attributeSource,
 			dbAttributes,
 		);
 
@@ -127,6 +132,7 @@ export class PlaylistsService {
 
 		await this.attributeSourcesService.upsertPlaylistAttributes(
 			playlist.uuid,
+			attributeSource,
 			dbAttributes,
 		);
 
@@ -520,7 +526,22 @@ export class PlaylistsService {
 					throw new Error("User doesn't exist");
 				}
 
-				const playlist = await this.create(user, attributes ?? []);
+				let attributeSource: LoadedAttributeSource | null = null;
+				if (attributes) {
+					attributeSource = this.attributeSourcesService.getAttributeSource(
+						plugin.package.name,
+						attributes.sourceId,
+					);
+					if (!attributeSource) {
+						throw new Error("Attribute source not registered");
+					}
+				}
+
+				const playlist = await this.create(
+					user,
+					attributeSource,
+					attributes?.attributes ?? [],
+				);
 				return playlist.uuid;
 			},
 			deletePlaylist: async (uuid, options = {}) => {
@@ -578,7 +599,11 @@ export class PlaylistsService {
 					}
 				}
 
-				this.updateAttributes(playlist.playlist, attributes, attributeSource);
+				await this.updateAttributes(
+					playlist.playlist,
+					attributes,
+					attributeSource,
+				);
 			},
 		};
 	}
