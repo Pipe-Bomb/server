@@ -5,4 +5,6 @@ export interface ActiveWorkflow {
 	totalSteps: number;
 	stepPercent: number | null;
 	hasPendingRerun: boolean;
+	endCallbacks: Set<(reason: "complete" | "error") => void>;
+	progressCallbacks: Set<(percent: number) => void>;
 }

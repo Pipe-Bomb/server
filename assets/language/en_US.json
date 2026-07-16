@@ -78,5 +78,18 @@
 	"workflow.system.step.run-task.name": "Run task",
 	"workflow.system.step.run-task.option.taskId.name": "Task",
 
-	"workflow.system.step.new-tracks.name": "New track added"
+	"workflow.system.step.new-tracks.name": "New track added",
+
+	"workflow.system.step.run-workflow.name": "Run workflow",
+	"workflow.system.step.run-workflow.option.workflow.name": "Workflow",
+	"workflow.system.step.run-workflow.option.rerun.name": "Repeat if already running",
+	"workflow.system.step.run-workflow.option.wait-for-finish.name": "Wait for finish",
+
+	"workflow.system.step.workflow-end.name": "Workflow end",
+	"workflow.system.step.workflow-end.option.workflow.name": "Workflow",
+	"workflow.system.step.workflow-end.option.end-reason.name": "End reason",
+	"workflow.system.step.workflow-end.option.rerun.name": "Repeat if already running",
+	"workflow.system.step.workflow-end.option.end-reason.enum.complete": "Complete",
+	"workflow.system.step.workflow-end.option.end-reason.enum.error": "Fail",
+	"workflow.system.step.workflow-end.option.end-reason.enum.any": "Any"
 }

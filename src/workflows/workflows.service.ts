@@ -39,8 +39,10 @@ export class WorkflowsService {
 		string,
 		WorkflowStep | WorkflowTrigger
 	>();
+	private readonly workflowNames = new Map<string, string>();
 	private readonly stepDestroyCallbacks = new Map<string, () => void>();
 	private readonly activeWorkflows = new Map<string, ActiveWorkflow>();
+	private readonly workflowStartCallbacks = new Map<string, Set<() => void>>();
 
 	constructor(
 		@InjectRepository(DBWorkflow)
@@ -51,6 +53,16 @@ export class WorkflowsService {
 		private readonly workflowStepOptionValuesRepository: Repository<DBWorkflowStepOptionValue>,
 		private readonly dataSource: DataSource,
 	) {
+		this.workflowsRepository
+			.find({
+				select: ["uuid", "name"],
+			})
+			.then((workflows) => {
+				for (const workflow of workflows) {
+					this.workflowNames.set(workflow.uuid, workflow.name);
+				}
+			});
+
 		this.registerStep(
 			{
 				id: "server-start",
@@ -101,6 +113,145 @@ export class WorkflowsService {
 					job.start();
 
 					return () => job.stop();
+				},
+			},
+			null,
+		);
+
+		this.registerStep(
+			{
+				id: "run-workflow",
+				type: "step",
+				getOptions: () => [
+					{
+						id: "workflow",
+						type: "enum",
+						enum: Array.from(this.workflowNames).map(([id, name]) => ({
+							id,
+							name,
+						})),
+					},
+					{
+						id: "rerun",
+						type: "boolean",
+					},
+					{
+						id: "wait-for-finish",
+						type: "boolean",
+					},
+				],
+				run: async (ctx) => {
+					const workflowId = ctx.getOption(
+						"workflow",
+						"enum",
+						Array.from(this.workflowNames.keys()),
+					);
+					if (!workflowId) {
+						throw new Error("Workflow is not set or not loaded");
+					}
+
+					await this.activateWorkflow(
+						workflowId,
+						!!ctx.getOption("rerun", "boolean"),
+					);
+
+					if (ctx.getOption("wait-for-finish", "boolean")) {
+						await this.waitForWorkflow(workflowId, ctx.updateProgress);
+					}
+				},
+			},
+			null,
+		);
+
+		this.registerStep(
+			{
+				id: "workflow-end",
+				type: "trigger",
+				getOptions: () => [
+					{
+						id: "workflow",
+						type: "enum",
+						enum: Array.from(this.workflowNames).map(([id, name]) => ({
+							id,
+							name,
+						})),
+					},
+					{
+						id: "end-reason",
+						type: "enum",
+						enum: [
+							{
+								id: "complete",
+								languageKey:
+									"workflow.system.step.workflow-end.option.end-reason.enum.complete",
+							},
+							{
+								id: "error",
+								languageKey:
+									"workflow.system.step.workflow-end.option.end-reason.enum.error",
+							},
+							{
+								id: "any",
+								languageKey:
+									"workflow.system.step.workflow-end.option.end-reason.enum.any",
+							},
+						],
+					},
+					{
+						id: "rerun",
+						type: "boolean",
+					},
+				],
+				create: (ctx) => {
+					const logger = ctx.getLogger();
+
+					const workflowId = ctx.getOption(
+						"workflow",
+						"enum",
+						Array.from(this.workflowNames.keys()),
+					);
+					if (!workflowId) {
+						logger.error("Trigger won't run because workflow isn't set");
+						return () => {};
+					}
+					let active = true;
+
+					const endReason = ctx.getOption("end-reason", "enum", [
+						"complete",
+						"error",
+						"any",
+					]);
+
+					const callback = () => {
+						this.waitForWorkflow(workflowId).then((reason) => {
+							if (reason == "not-running" || !active) {
+								return;
+							}
+
+							if (!endReason || endReason == "any" || reason == endReason) {
+								ctx.activate(!!ctx.getOption("rerun", "boolean"));
+							}
+						});
+					};
+					callback();
+
+					const callbackList = this.workflowStartCallbacks.get(workflowId);
+					if (callbackList) {
+						callbackList.add(callback);
+					} else {
+						this.workflowStartCallbacks.set(workflowId, new Set([callback]));
+					}
+
+					return () => {
+						active = false;
+						const callbackList = this.workflowStartCallbacks.get(workflowId);
+						if (callbackList) {
+							callbackList.delete(callback);
+							if (!callbackList.size) {
+								this.workflowStartCallbacks.delete(workflowId);
+							}
+						}
+					};
 				},
 			},
 			null,
@@ -265,13 +416,16 @@ export class WorkflowsService {
 		});
 
 		await this.workflowsRepository.save(workflow);
+		this.workflowNames.set(workflow.uuid, workflow.name);
 		return workflow;
 	}
 
 	async delete(workflow: DBWorkflow) {
+		const uuid = workflow.uuid;
 		await this.workflowsRepository.delete({
-			uuid: workflow.uuid,
+			uuid,
 		});
+		this.workflowNames.delete(uuid);
 	}
 
 	findStep(stepUuid: string) {
@@ -543,98 +697,152 @@ export class WorkflowsService {
 		return this.activeWorkflows.get(uuid) ?? null;
 	}
 
-	async activateWorkflow(workflowUuid: string, allowRerun: boolean) {
-		const workflow = await this.workflowsRepository.findOne({
-			where: {
-				uuid: workflowUuid,
-			},
-			relations: {
-				steps: {
-					optionValues: true,
-				},
-			},
-		});
-
-		if (!workflow) {
-			throw new NotFoundException("Workflow doesn't exist");
-		}
-
-		if (!workflow.steps) {
-			throw new Error("Workflow didn't include steps");
-		}
-
-		const existingActiveWorkflow = this.activeWorkflows.get(workflowUuid);
-		if (existingActiveWorkflow) {
-			if (allowRerun) {
-				this.logger.debug(
-					`Workflow "${workflow.name}" is already running, requesting a re-run`,
-				);
-				existingActiveWorkflow.hasPendingRerun = true;
-			} else {
-				this.logger.debug(`Workflow "${workflow.name}" is already running`);
-			}
-			return;
-		}
-		this.logger.log(`Activating workflow "${workflow.name}"`);
-
-		const steps = orderWorkflowSteps(workflow.steps).filter(
-			(step) => step.stepType != WorkflowStepType.TRIGGER,
-		);
-
-		this.logger.debug(`Workflow "${workflow.name}" has ${steps.length} steps`);
-		const stepDefinitions = this.allSteps();
-
-		const activeWorkflow: ActiveWorkflow = {
-			uuid: workflow.uuid,
-			currentStepIndex: 1,
-			currentStepUuid: "",
-			hasPendingRerun: false,
-			stepPercent: null,
-			totalSteps: steps.length,
-		};
-		this.activeWorkflows.set(workflow.uuid, activeWorkflow);
-
-		try {
-			for (const [index, step] of steps.entries()) {
-				this.logger.debug(
-					`Running step ${index + 1} of workflow "${workflow.name}"`,
-				);
-				activeWorkflow.currentStepIndex = index;
-				activeWorkflow.currentStepUuid = step.uuid;
-				activeWorkflow.stepPercent = null;
-				const definition = stepDefinitions.find(
-					({ plugin, object }) =>
-						(plugin?.package.name ?? null) == step.pluginId &&
-						object.id == step.stepId,
-				);
-				if (!definition) {
-					throw new Error(`Step definition ${step.stepId} is not defined`);
-				}
-				if (!step.optionValues) {
-					throw new Error(`Step option values not defined`);
-				}
-				const ctx = this.createStepContext(
-					step,
-					step.optionValues,
-					(percent) => {
-						activeWorkflow.stepPercent = percent;
-						this.logger.debug(
-							`Workflow "${workflow.name}" step ${index + 1} is at ${Math.round(percent * 1000) / 10}%`,
-						);
+	activateWorkflow(workflowUuid: string, allowRerun: boolean) {
+		return new Promise<void>(async (resolve, reject) => {
+			try {
+				const workflow = await this.workflowsRepository.findOne({
+					where: {
+						uuid: workflowUuid,
 					},
-				);
-				await definition.object.run(ctx);
-			}
-		} catch (e) {
-			this.logger.error(`Failed to complete workflow "${workflow.name}":`, e);
-		} finally {
-			setImmediate(() => {
-				this.activeWorkflows.delete(workflow.uuid);
-				if (activeWorkflow.hasPendingRerun) {
-					this.logger.debug(`Re-running workflow "${workflow.name}"`);
-					this.activateWorkflow(workflow.uuid, false);
+					relations: {
+						steps: {
+							optionValues: true,
+						},
+					},
+				});
+
+				if (!workflow) {
+					throw new NotFoundException("Workflow doesn't exist");
 				}
-			});
-		}
+
+				if (!workflow.steps) {
+					throw new Error("Workflow didn't include steps");
+				}
+
+				const existingActiveWorkflow = this.activeWorkflows.get(workflowUuid);
+				if (existingActiveWorkflow) {
+					if (allowRerun) {
+						this.logger.debug(
+							`Workflow "${workflow.name}" is already running, requesting a re-run`,
+						);
+						existingActiveWorkflow.hasPendingRerun = true;
+					} else {
+						this.logger.debug(`Workflow "${workflow.name}" is already running`);
+					}
+					return;
+				}
+				this.logger.log(`Activating workflow "${workflow.name}"`);
+
+				const steps = orderWorkflowSteps(workflow.steps).filter(
+					(step) => step.stepType != WorkflowStepType.TRIGGER,
+				);
+
+				this.logger.debug(
+					`Workflow "${workflow.name}" has ${steps.length} steps`,
+				);
+				const stepDefinitions = this.allSteps();
+
+				const activeWorkflow: ActiveWorkflow = {
+					uuid: workflow.uuid,
+					currentStepIndex: 1,
+					currentStepUuid: "",
+					hasPendingRerun: false,
+					stepPercent: null,
+					totalSteps: steps.length,
+					endCallbacks: new Set(),
+					progressCallbacks: new Set(),
+				};
+				this.activeWorkflows.set(workflow.uuid, activeWorkflow);
+
+				resolve();
+				const startCallbacks = this.workflowStartCallbacks.get(workflow.uuid);
+				if (startCallbacks) {
+					for (const callback of startCallbacks) {
+						callback();
+					}
+				}
+
+				try {
+					for (const [index, step] of steps.entries()) {
+						this.logger.debug(
+							`Running step ${index + 1} of workflow "${workflow.name}"`,
+						);
+						activeWorkflow.currentStepIndex = index;
+						activeWorkflow.currentStepUuid = step.uuid;
+						activeWorkflow.stepPercent = null;
+						const definition = stepDefinitions.find(
+							({ plugin, object }) =>
+								(plugin?.package.name ?? null) == step.pluginId &&
+								object.id == step.stepId,
+						);
+						if (!definition) {
+							throw new Error(`Step definition ${step.stepId} is not defined`);
+						}
+						if (!step.optionValues) {
+							throw new Error(`Step option values not defined`);
+						}
+						const ctx = this.createStepContext(
+							step,
+							step.optionValues,
+							(percent) => {
+								percent = Math.max(0, Math.min(1, percent));
+								activeWorkflow.stepPercent = percent;
+
+								const fullPercent = (index + percent) / steps.length;
+								for (const callback of activeWorkflow.progressCallbacks) {
+									callback(fullPercent);
+								}
+
+								this.logger.debug(
+									`Workflow "${workflow.name}" step ${index + 1} is at ${Math.round(percent * 1000) / 10}%`,
+								);
+							},
+						);
+						await definition.object.run(ctx);
+					}
+					this.logger.log(`Finished ${workflow.name}`);
+					for (const callback of activeWorkflow.endCallbacks) {
+						callback("complete");
+					}
+				} catch (e) {
+					this.logger.error(
+						`Failed to complete workflow "${workflow.name}":`,
+						e,
+					);
+					for (const callback of activeWorkflow.endCallbacks) {
+						callback("error");
+					}
+				} finally {
+					activeWorkflow.endCallbacks.clear();
+					activeWorkflow.progressCallbacks.clear();
+					setImmediate(() => {
+						this.activeWorkflows.delete(workflow.uuid);
+						if (activeWorkflow.hasPendingRerun) {
+							this.logger.debug(`Re-running workflow "${workflow.name}"`);
+							this.activateWorkflow(workflow.uuid, false).catch((e) =>
+								this.logger.error(
+									`Failed to re-run workflow "${workflow.uuid}":`,
+									e,
+								),
+							);
+						}
+					});
+				}
+			} catch (e) {
+				reject(e);
+			}
+		});
+	}
+
+	waitForWorkflow(uuid: string, onProgress?: (percent: number) => void) {
+		return new Promise<"not-running" | "complete" | "error">((resolve) => {
+			const workflow = this.activeWorkflows.get(uuid);
+			if (!workflow) {
+				return resolve("not-running");
+			}
+
+			workflow.progressCallbacks.add((percent) => onProgress?.(percent));
+			workflow.endCallbacks.add(resolve);
+		});
 	}
 }
