@@ -50,7 +50,7 @@ export interface PlaylistClient {
 		ownerUuid: string,
 		options?: {
 			attributes?: {
-				sourceId: string;
+				sourceId: string | null;
 				attributes: AttributeValue[];
 			};
 		},

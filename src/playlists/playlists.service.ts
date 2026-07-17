@@ -527,7 +527,7 @@ export class PlaylistsService {
 				}
 
 				let attributeSource: LoadedAttributeSource | null = null;
-				if (attributes) {
+				if (attributes?.sourceId) {
 					attributeSource = this.attributeSourcesService.getAttributeSource(
 						plugin.package.name,
 						attributes.sourceId,
