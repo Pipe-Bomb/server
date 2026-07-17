@@ -7,7 +7,7 @@ import { DBUser } from "src/users/entity/user.entity";
 import { DBPlaylistAttribute } from "src/attributes/entities/playlist-attribute.entity";
 import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
 import { DBTrack } from "src/tracks/entities/track.entity";
-import { AttributeType, AttributeValue, PlaylistClient } from "@sdk";
+import { AttributeValue, PlaylistClient } from "@sdk";
 import { UsersService } from "src/users/users.service";
 import { AttributeUploadService } from "src/attributes/attribute-upload.service";
 import { PlaylistVisibility } from "./enum/playlist-visibility.enum";
@@ -578,12 +578,15 @@ export class PlaylistsService {
 					throw new Error("Playlist doesn't exist");
 				}
 
-				const attributeSource = this.attributeSourcesService.getAttributeSource(
-					plugin.package.name,
-					attributeSourceId,
-				);
-				if (!attributeSource) {
-					throw new Error("Attribute source not registered");
+				let attributeSource: LoadedAttributeSource | null = null;
+				if (attributeSourceId) {
+					attributeSource = this.attributeSourcesService.getAttributeSource(
+						plugin.package.name,
+						attributeSourceId,
+					);
+					if (!attributeSource) {
+						throw new Error("Attribute source not registered");
+					}
 				}
 
 				let user: DBUser | null = null;

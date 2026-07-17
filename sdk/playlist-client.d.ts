@@ -65,7 +65,7 @@ export interface PlaylistClient {
 
 	updatePlaylistAttributes(
 		uuid: string,
-		attributeSourceId: string,
+		attributeSourceId: string | null,
 		attributes: AttributeValue[],
 		options?: {
 			asUser?: string;
