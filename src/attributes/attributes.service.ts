@@ -166,21 +166,24 @@ export class AttributesService {
 		const CHUNK_SIZE = 100;
 		const failedUuids: string[] = [];
 
-		const criteria: FindOptionsWhere<DBArtist>[] = [
-			{
-				lastAttributionRunId: IsNull(),
-				uuid: Not(In(failedUuids)),
-			},
-		];
+		const getCriteria = (): FindOptionsWhere<DBArtist>[] => {
+			const criteria: FindOptionsWhere<DBArtist>[] = [
+				{
+					lastAttributionRunId: IsNull(),
+					uuid: Not(In(failedUuids)),
+				},
+			];
 
-		if (!onlyNew) {
-			criteria.push({
-				lastIdentificationRunId: Not(runId),
-				uuid: Not(In(failedUuids)),
-			});
-		}
+			if (!onlyNew) {
+				criteria.push({
+					lastAttributionRunId: Not(runId),
+					uuid: Not(In(failedUuids)),
+				});
+			}
+			return criteria;
+		};
 
-		const count = await this.artistManagerService.count(criteria);
+		const count = await this.artistManagerService.count(getCriteria());
 		if (!count) {
 			return;
 		}
@@ -191,7 +194,7 @@ export class AttributesService {
 
 		while (true) {
 			const chunk = await this.artistManagerService.findManyRaw({
-				where: criteria,
+				where: getCriteria(),
 				take: CHUNK_SIZE,
 			});
 			if (!chunk.length) {
@@ -234,21 +237,24 @@ export class AttributesService {
 		const CHUNK_SIZE = 100;
 		const failedUuids: string[] = [];
 
-		const criteria: FindOptionsWhere<DBAlbum>[] = [
-			{
-				lastAttributionRunId: IsNull(),
-				uuid: Not(In(failedUuids)),
-			},
-		];
+		const getCriteria = (): FindOptionsWhere<DBAlbum>[] => {
+			const criteria: FindOptionsWhere<DBAlbum>[] = [
+				{
+					lastAttributionRunId: IsNull(),
+					uuid: Not(In(failedUuids)),
+				},
+			];
 
-		if (!onlyNew) {
-			criteria.push({
-				lastIdentificationRunId: Not(runId),
-				uuid: Not(In(failedUuids)),
-			});
-		}
+			if (!onlyNew) {
+				criteria.push({
+					lastAttributionRunId: Not(runId),
+					uuid: Not(In(failedUuids)),
+				});
+			}
+			return criteria;
+		};
 
-		const count = await this.albumManagerService.count(criteria);
+		const count = await this.albumManagerService.count(getCriteria());
 		if (!count) {
 			return;
 		}
@@ -259,11 +265,11 @@ export class AttributesService {
 
 		while (true) {
 			const chunk = await this.albumManagerService.findManyRaw({
-				where: criteria,
+				where: getCriteria(),
 				take: CHUNK_SIZE,
 			});
 			if (!chunk.length) {
-				return false;
+				return;
 			}
 
 			const results = await Promise.allSettled(

@@ -729,7 +729,7 @@ export class WorkflowsService {
 					} else {
 						this.logger.debug(`Workflow "${workflow.name}" is already running`);
 					}
-					return;
+					return resolve();
 				}
 				this.logger.log(`Activating workflow "${workflow.name}"`);
 
@@ -813,10 +813,10 @@ export class WorkflowsService {
 						callback("error");
 					}
 				} finally {
+					this.activeWorkflows.delete(workflow.uuid);
 					activeWorkflow.endCallbacks.clear();
 					activeWorkflow.progressCallbacks.clear();
 					setImmediate(() => {
-						this.activeWorkflows.delete(workflow.uuid);
 						if (activeWorkflow.hasPendingRerun) {
 							this.logger.debug(`Re-running workflow "${workflow.name}"`);
 							this.activateWorkflow(workflow.uuid, false).catch((e) =>

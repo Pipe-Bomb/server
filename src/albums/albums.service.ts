@@ -149,21 +149,24 @@ export class AlbumsService {
 		let completed = 0;
 		const failedUuids: string[] = [];
 
-		const criteria: FindOptionsWhere<DBAlbum>[] = [
-			{
-				lastIdentificationRunId: IsNull(),
-				uuid: Not(In(failedUuids)),
-			},
-		];
+		const getCriteria = (): FindOptionsWhere<DBAlbum>[] => {
+			const criteria: FindOptionsWhere<DBAlbum>[] = [
+				{
+					lastIdentificationRunId: IsNull(),
+					uuid: Not(In(failedUuids)),
+				},
+			];
 
-		if (!onlyNew) {
-			criteria.push({
-				lastIdentificationRunId: Not(runId),
-				uuid: Not(In(failedUuids)),
-			});
-		}
+			if (!onlyNew) {
+				criteria.push({
+					lastIdentificationRunId: Not(runId),
+					uuid: Not(In(failedUuids)),
+				});
+			}
+			return criteria;
+		};
 
-		const count = await this.albumManagerService.count(criteria);
+		const count = await this.albumManagerService.count(getCriteria());
 		if (!count) {
 			return;
 		}
@@ -215,7 +218,7 @@ export class AlbumsService {
 				isFinding = true;
 				this.albumsRepository
 					.find({
-						where: criteria,
+						where: getCriteria(),
 						take: CHUNK_SIZE,
 					})
 					.then((albums) => {

@@ -47,21 +47,24 @@ export class ArtistsService {
 		let completed = 0;
 		const failedUuids: string[] = [];
 
-		const criteria: FindOptionsWhere<DBArtist>[] = [
-			{
-				lastIdentificationRunId: IsNull(),
-				uuid: Not(In(failedUuids)),
-			},
-		];
+		const getCriteria = (): FindOptionsWhere<DBArtist>[] => {
+			const criteria: FindOptionsWhere<DBArtist>[] = [
+				{
+					lastIdentificationRunId: IsNull(),
+					uuid: Not(In(failedUuids)),
+				},
+			];
 
-		if (!onlyNew) {
-			criteria.push({
-				lastIdentificationRunId: Not(runId),
-				uuid: Not(In(failedUuids)),
-			});
-		}
+			if (!onlyNew) {
+				criteria.push({
+					lastIdentificationRunId: Not(runId),
+					uuid: Not(In(failedUuids)),
+				});
+			}
+			return criteria;
+		};
 
-		const count = await this.artistManagerService.count(criteria);
+		const count = await this.artistManagerService.count(getCriteria());
 		if (!count) {
 			return;
 		}
@@ -111,7 +114,7 @@ export class ArtistsService {
 				isFinding = true;
 				this.artistsRepository
 					.find({
-						where: criteria,
+						where: getCriteria(),
 						take: CHUNK_SIZE,
 					})
 					.then((artists) => {
