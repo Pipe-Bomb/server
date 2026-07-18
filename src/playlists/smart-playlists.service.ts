@@ -1,11 +1,12 @@
 import {
 	BadRequestException,
 	Injectable,
+	Logger,
 	NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DBSmartPlaylistFilter } from "./entity/smart-playlist-filter.entity";
-import { In, IsNull, Repository } from "typeorm";
+import { Equal, FindOptionsWhere, In, IsNull, Not, Repository } from "typeorm";
 import { DBPlaylist } from "./entity/playlist.entity";
 import { SmartFilterDto } from "./dto/create-smart-filter.dto";
 import { DBSmartPlaylistFilterGroup } from "./entity/smart-playlist-filter-group.entity";
@@ -13,10 +14,16 @@ import { AttributeType } from "src/attributes/enum/attribute-type.enum";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { DBPlaylistTrack } from "./entity/playlist-track.entity";
 import { PlaylistsService } from "./playlists.service";
+import { WorkflowsService } from "src/workflows/workflows.service";
+import { TasksService } from "src/tasks/tasks.service";
 
 @Injectable()
 export class SmartPlaylistsService {
+	private readonly logger = new Logger("Smart Playlists Service");
+
 	constructor(
+		@InjectRepository(DBPlaylist)
+		private readonly playlistsRepository: Repository<DBPlaylist>,
 		@InjectRepository(DBSmartPlaylistFilterGroup)
 		private readonly smartPlaylistFilterGroupsRepository: Repository<DBSmartPlaylistFilterGroup>,
 		@InjectRepository(DBSmartPlaylistFilter)
@@ -25,7 +32,54 @@ export class SmartPlaylistsService {
 		private readonly playlistTracksRepository: Repository<DBPlaylistTrack>,
 		private readonly playlistsService: PlaylistsService,
 		private readonly trackManagerService: TrackManagerService,
-	) {}
+		private readonly tasksService: TasksService,
+	) {
+		this.tasksService.registerSystemTask({
+			id: "scan-smart-filters",
+			resumable: true,
+			run: async (ctx) => {
+				const criteria: FindOptionsWhere<DBPlaylist>[] = [
+					{
+						lastSmartFilterScanRunId: IsNull(),
+					},
+					{
+						lastSmartFilterScanRunId: Not(Equal(ctx.getRunId())),
+					},
+				];
+
+				const count = await this.playlistsRepository.count({
+					where: criteria,
+				});
+
+				let total = 0;
+				while (true) {
+					const playlists = await this.playlistsRepository.find({
+						where: criteria,
+						take: 1_000,
+						select: ["uuid"],
+					});
+
+					if (!playlists.length) {
+						return;
+					}
+
+					for (const playlist of playlists) {
+						await this.runFilters(playlist.uuid);
+						ctx.update(++total / count);
+					}
+
+					await this.playlistsRepository.update(
+						{
+							uuid: In(playlists.map(({ uuid }) => uuid)),
+						},
+						{
+							lastSmartFilterScanRunId: ctx.getRunId(),
+						},
+					);
+				}
+			},
+		});
+	}
 
 	async addFilterGroup(playlist: DBPlaylist, filters: SmartFilterDto[]) {
 		const filterEntities = filters.map((filter) => this.toDBFilter(filter));
@@ -121,7 +175,9 @@ export class SmartPlaylistsService {
 			}
 		}
 
-		console.log(`Removing ${toRemove.length} tracks...`);
+		this.logger.log(
+			`Removing ${toRemove.length} tracks from "${playlistUuid}"...`,
+		);
 		for (let i = 0; i < toRemove.length; i += 500) {
 			await this.playlistTracksRepository.delete({
 				playlistUuid,
@@ -133,7 +189,7 @@ export class SmartPlaylistsService {
 			(trackId) => !existingTracks.includes(trackId),
 		);
 
-		console.log(`Adding ${toAdd.length} tracks...`);
+		this.logger.log(`Adding ${toAdd.length} tracks from "${playlistUuid}"...`);
 		for (let i = 0; i < toAdd.length; i += 500) {
 			await this.playlistsService.addTracks(
 				playlistUuid,
@@ -141,7 +197,6 @@ export class SmartPlaylistsService {
 				null,
 			);
 		}
-		console.log("Finished!");
 	}
 
 	private toDBFilter(filter: SmartFilterDto) {

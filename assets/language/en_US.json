@@ -26,6 +26,8 @@
 	"task.system.attribute-albums.subtask.all.name": "Attribute all albums",
 	"task.system.attribute-albums.subtask.new.name": "Attribute new albums",
 
+	"task.system.scan-smart-filters.name": "Scan Playlist Smart Filters",
+
 	"task.system.cache-all-libraries.name": "Cache All Libraries",
 	"task.system.clean-database.name": "Clean Database",
 

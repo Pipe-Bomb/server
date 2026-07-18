@@ -14,6 +14,8 @@ import { AlbumManagerModule } from "src/album-manager/album-manager.module";
 import { SmartPlaylistsService } from "./smart-playlists.service";
 import { DBSmartPlaylistFilter } from "./entity/smart-playlist-filter.entity";
 import { DBSmartPlaylistFilterGroup } from "./entity/smart-playlist-filter-group.entity";
+import { WorkflowsModule } from "src/workflows/workflows.module";
+import { TasksModule } from "src/tasks/tasks.module";
 
 @Module({
 	imports: [
@@ -30,6 +32,7 @@ import { DBSmartPlaylistFilterGroup } from "./entity/smart-playlist-filter-group
 		LibrariesModule,
 		EphemeralModule,
 		AlbumManagerModule,
+		TasksModule,
 	],
 	controllers: [PlaylistsController],
 	providers: [PlaylistsService, SmartPlaylistsService],

@@ -4,6 +4,7 @@ import {
 	Column,
 	CreateDateColumn,
 	Entity,
+	Index,
 	JoinColumn,
 	ManyToOne,
 	OneToMany,
@@ -45,6 +46,10 @@ export class DBPlaylist {
 		default: PlaylistVisibility.PUBLIC,
 	})
 	visibility: PlaylistVisibility;
+
+	@Column({ type: "uuid", nullable: true })
+	@Index()
+	lastSmartFilterScanRunId: string | null;
 
 	@OneToMany(
 		() => DBPlaylistAttribute,
