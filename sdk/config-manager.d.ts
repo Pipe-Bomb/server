@@ -83,7 +83,7 @@ export interface UserConfigManager {
 
 export interface ConfigSection {}
 
-export type ConfigNodeType = "text" | "heading" | "section";
+export type ConfigNodeType = "text" | "heading" | "section" | "paragraph";
 
 interface BaseConfigNode {
 	type: ConfigNodeType;
@@ -108,8 +108,17 @@ export interface SectionConfigNode extends BaseConfigNode {
 	children: ConfigNode[];
 }
 
+export interface ParagraphConfigNode extends BaseConfigNode {
+	type: "paragraph";
+	content: string;
+}
+
 // export interface CollapsibleSectionConfigNode extends SectionConfigNode {
 // 	collapsed: boolean;
 // }
 
-export type ConfigNode = TextConfigNode | HeadingConfigNode | SectionConfigNode;
+export type ConfigNode =
+	| TextConfigNode
+	| HeadingConfigNode
+	| SectionConfigNode
+	| ParagraphConfigNode;

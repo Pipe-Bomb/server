@@ -60,7 +60,17 @@ export class SectionConfigNodeResponse extends BaseConfigNodeResponse {
 	children: BaseConfigNodeResponse[];
 }
 
+@ApiSchema({ name: "ParagraphConfigNode" })
+export class ParagraphConfigNodeResponse extends BaseConfigNodeResponse {
+	@ApiProperty({ enum: [ConfigNodeType.PARAGRAPH] })
+	type: ConfigNodeType.PARAGRAPH = ConfigNodeType.PARAGRAPH;
+
+	@ApiProperty()
+	content: string;
+}
+
 export type ConfigNodeResponse =
 	| TextConfigNodeResponse
 	| HeadingConfigNodeResponse
-	| SectionConfigNodeResponse;
+	| SectionConfigNodeResponse
+	| ParagraphConfigNodeResponse;

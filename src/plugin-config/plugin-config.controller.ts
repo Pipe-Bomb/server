@@ -208,6 +208,11 @@ export class PluginConfigController {
 					type: ConfigNodeType.SECTION,
 					children: node.children.map((child) => this.toResponse(child)),
 				};
+			case "paragraph":
+				return {
+					type: ConfigNodeType.PARAGRAPH,
+					content: node.content,
+				};
 		}
 	}
 }
