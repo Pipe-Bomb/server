@@ -31,7 +31,12 @@ import { ArtistManagerModule } from "./artist-manager/artist-manager.module";
 import { PlaylistsModule } from "./playlists/playlists.module";
 import { SystemTasksModule } from "./system-tasks/system-tasks.module";
 import { WorkflowsModule } from "./workflows/workflows.module";
+import { PrivilegesModule } from "./privileges/privileges.module";
+import { UserManagerModule } from "./user-manager/user-manager.module";
 import databaseConfig from "./config/database.config";
+import { APP_GUARD } from "@nestjs/core";
+import { AuthGuard } from "./user-manager/auth.guard";
+import { PrivilegeGuard } from "./privileges/privilege.guard";
 
 @Module({
 	imports: [
@@ -69,8 +74,20 @@ import databaseConfig from "./config/database.config";
 		PlaylistsModule,
 		SystemTasksModule,
 		WorkflowsModule,
+		PrivilegesModule,
+		UserManagerModule,
 	],
 	controllers: [AppController],
-	providers: [AppService],
+	providers: [
+		AppService,
+		{
+			provide: APP_GUARD,
+			useClass: AuthGuard,
+		},
+		{
+			provide: APP_GUARD,
+			useClass: PrivilegeGuard,
+		},
+	],
 })
 export class AppModule {}

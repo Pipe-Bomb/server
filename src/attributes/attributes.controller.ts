@@ -26,7 +26,6 @@ import {
 	ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
 import { AttributeUploadService } from "./attribute-upload.service";
-import { AuthGuard } from "src/users/auth.guard";
 import { ReqUser } from "src/users/user.decorator";
 import { FetchUserPipe } from "src/users/user.pipe";
 import { DBUser } from "src/users/entity/user.entity";
@@ -73,7 +72,6 @@ export class AttributesController {
 	@ApiForbiddenResponse()
 	@ApiNotFoundResponse()
 	@ApiUnauthorizedResponse()
-	@UseGuards(AuthGuard)
 	@UseInterceptors(FileInterceptor("file"))
 	@HttpCode(HttpStatus.NO_CONTENT)
 	async uploadAttributeBuffer(

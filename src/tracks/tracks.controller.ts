@@ -26,7 +26,7 @@ import { ExternalUrlResponse } from "src/external-urls/response/external-url.res
 import { TrackIdsDto } from "./dto/track-ids.dto";
 import { EphemeralService } from "src/ephemeral/ephemeral.service";
 import { EphemeralTrackResponse } from "src/ephemeral/response/ephemeral-track.response";
-import { AuthGuard } from "src/users/auth.guard";
+import { AuthGuard } from "src/user-manager/auth.guard";
 
 @Controller("tracks")
 export class TracksController {
@@ -167,7 +167,6 @@ export class TracksController {
 	@ApiNotFoundResponse()
 	@ApiForbiddenResponse()
 	@ApiUnauthorizedResponse()
-	@UseGuards(AuthGuard)
 	async getAudioInfo(
 		@Param("pluginId") pluginId: string,
 		@Param("libraryId") libraryId: string,

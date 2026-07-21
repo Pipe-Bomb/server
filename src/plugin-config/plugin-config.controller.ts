@@ -8,7 +8,6 @@ import {
 	NotFoundException,
 	Param,
 	Post,
-	UseGuards,
 } from "@nestjs/common";
 import { PluginConfigService } from "./plugin-config.service";
 import {
@@ -24,17 +23,25 @@ import { ConfigNode, HeadingConfigNode } from "@sdk";
 import { ConfigNodeType } from "./enum/config-node-type.enum";
 import { HeadingConfigNodeSize } from "./enum/heading-config-node-size.enum";
 import { PluginConfigUpdateDto } from "./dto/plugin-config-update.dto";
-import { AuthGuard } from "src/users/auth.guard";
 import { FetchUserPipe } from "src/users/user.pipe";
 import { ReqUser } from "src/users/user.decorator";
 import { DBUser } from "src/users/entity/user.entity";
 import { UserConfigsResponse } from "./response/user-configs.response";
+import { Privileges } from "src/privileges/privileges.decorator";
+import { PrivilegesService } from "src/privileges/privileges.service";
 
 @Controller("plugin-config")
 export class PluginConfigController {
-	constructor(private readonly pluginConfigService: PluginConfigService) {}
+	constructor(
+		private readonly pluginConfigService: PluginConfigService,
+		private readonly privilegesService: PrivilegesService,
+	) {
+		this.privilegesService.registerPrivilege(null, "view-plugin-configs");
+		this.privilegesService.registerPrivilege(null, "edit-plugin-configs");
+	}
 
 	@Get("plugin")
+	@Privileges("view-plugin-configs")
 	@ApiOperation({ operationId: "getAllPluginConfigs" })
 	@ApiOkResponse({
 		type: PluginConfigsResponse,
@@ -50,7 +57,6 @@ export class PluginConfigController {
 	}
 
 	@Get("user")
-	@UseGuards(AuthGuard)
 	@ApiOperation({ operationId: "getAllUserConfigs" })
 	@ApiOkResponse({
 		type: UserConfigsResponse,
@@ -69,12 +75,12 @@ export class PluginConfigController {
 	}
 
 	@Get("plugin/:pluginId")
+	@Privileges("view-plugin-configs")
 	@ApiOperation({ operationId: "getPluginConfig" })
 	@ApiOkResponse({
 		type: PluginConfigResponse,
 	})
 	@ApiNotFoundResponse()
-	@UseGuards(AuthGuard)
 	async getPluginConfig(
 		@Param("pluginId") pluginId: string,
 	): Promise<PluginConfigResponse> {
@@ -97,7 +103,6 @@ export class PluginConfigController {
 	})
 	@ApiNotFoundResponse()
 	@ApiForbiddenResponse()
-	@UseGuards(AuthGuard)
 	async getUserConfig(
 		@Param("pluginId") pluginId: string,
 		@Param("configId") configId: string,
@@ -123,13 +128,13 @@ export class PluginConfigController {
 	}
 
 	@Post("plugin/:pluginId")
+	@Privileges("edit_plugin_configs")
 	@ApiOperation({ operationId: "updatePluginConfig" })
 	@ApiOkResponse({
 		type: PluginConfigResponse,
 	})
 	@ApiNotFoundResponse()
 	@HttpCode(HttpStatus.OK)
-	@UseGuards(AuthGuard)
 	async updatePluginConfig(
 		@Param("pluginId") pluginId: string,
 		@Body() dto: PluginConfigUpdateDto,
@@ -154,7 +159,6 @@ export class PluginConfigController {
 	@ApiNotFoundResponse()
 	@ApiForbiddenResponse()
 	@HttpCode(HttpStatus.OK)
-	@UseGuards(AuthGuard)
 	async updateUserConfig(
 		@Param("pluginId") pluginId: string,
 		@Param("configId") configId: string,

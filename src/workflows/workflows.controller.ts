@@ -11,10 +11,8 @@ import {
 	Patch,
 	Post,
 	Put,
-	UseGuards,
 } from "@nestjs/common";
 import { WorkflowsService } from "./workflows.service";
-import { AuthGuard } from "src/users/auth.guard";
 import { WorkflowResponse } from "./response/workflow.response";
 import {
 	ApiConflictResponse,
@@ -28,10 +26,20 @@ import {
 import { CreateWorkflowDto } from "./dto/create-workflow.dto";
 import { AddWorkflowStepDto } from "./dto/add-workflow-step.dto";
 import { UpdateWorkflowStepOptionsDto } from "./dto/update-workflow-step-options.dto";
+import { PrivilegesService } from "src/privileges/privileges.service";
+import { Privileges } from "src/privileges/privileges.decorator";
 
 @Controller("workflows")
 export class WorkflowsController {
-	constructor(private readonly workflowsService: WorkflowsService) {}
+	constructor(
+		private readonly workflowsService: WorkflowsService,
+		private readonly privilegesService: PrivilegesService,
+	) {
+		this.privilegesService.registerPrivilege(null, "edit-workflows");
+		this.privilegesService.registerPrivilege(null, "view-workflows", [
+			"edit-workflows",
+		]);
+	}
 
 	@ApiOperation({
 		operationId: "getAllWorkflows",
@@ -42,7 +50,7 @@ export class WorkflowsController {
 	@ApiForbiddenResponse()
 	@ApiUnauthorizedResponse()
 	@Get()
-	@UseGuards(AuthGuard)
+	@Privileges("view-workflows")
 	async getAll(): Promise<WorkflowResponse[]> {
 		const workflows = await this.workflowsService.all();
 		return workflows.map((workflow) =>
@@ -63,7 +71,7 @@ export class WorkflowsController {
 	@ApiUnauthorizedResponse()
 	@ApiNotFoundResponse()
 	@Get(":uuid")
-	@UseGuards(AuthGuard)
+	@Privileges("view-workflows")
 	async getWorkflow(@Param("uuid") uuid: string): Promise<WorkflowResponse> {
 		const workflow = await this.workflowsService.findOne(uuid);
 		if (!workflow) {
@@ -84,7 +92,7 @@ export class WorkflowsController {
 	@ApiForbiddenResponse()
 	@ApiUnauthorizedResponse()
 	@Put()
-	@UseGuards(AuthGuard)
+	@Privileges("edit_workflows")
 	async createWorkflow(@Body() dto: CreateWorkflowDto) {
 		const workflow = await this.workflowsService.create(dto.name);
 		return workflow.toResponse(
@@ -101,7 +109,7 @@ export class WorkflowsController {
 	@ApiUnauthorizedResponse()
 	@ApiNotFoundResponse()
 	@Delete(":uuid")
-	@UseGuards(AuthGuard)
+	@Privileges("edit_workflows")
 	@HttpCode(HttpStatus.NO_CONTENT)
 	async deleteWorkflow(@Param("uuid") uuid: string) {
 		const workflow = await this.workflowsService.findOne(uuid);
@@ -122,7 +130,7 @@ export class WorkflowsController {
 	@ApiConflictResponse()
 	@ApiNotFoundResponse()
 	@Put(":uuid/trigger")
-	@UseGuards(AuthGuard)
+	@Privileges("edit_workflows")
 	async addTrigger(
 		@Param("uuid") uuid: string,
 		@Body() dto: AddWorkflowStepDto,
@@ -159,7 +167,7 @@ export class WorkflowsController {
 	@ApiConflictResponse()
 	@ApiNotFoundResponse()
 	@Post(":uuid/step")
-	@UseGuards(AuthGuard)
+	@Privileges("edit_workflows")
 	@HttpCode(HttpStatus.OK)
 	async addStep(@Param("uuid") uuid: string, @Body() dto: AddWorkflowStepDto) {
 		const steps = this.workflowsService.allSteps();
@@ -193,7 +201,7 @@ export class WorkflowsController {
 	@ApiUnauthorizedResponse()
 	@ApiNotFoundResponse()
 	@Delete(":workflowUuid/step/:stepUuid")
-	@UseGuards(AuthGuard)
+	@Privileges("edit_workflows")
 	async deleteStep(
 		@Param("workflowUuid") workflowUuid: string,
 		@Param("stepUuid") stepUuid: string,
@@ -219,7 +227,7 @@ export class WorkflowsController {
 	@ApiUnauthorizedResponse()
 	@ApiNotFoundResponse()
 	@Patch(":workflowUuid/step/:stepUuid")
-	@UseGuards(AuthGuard)
+	@Privileges("edit_workflows")
 	async updateStepOptions(
 		@Param("workflowUuid") workflowUuid: string,
 		@Param("stepUuid") stepUuid: string,

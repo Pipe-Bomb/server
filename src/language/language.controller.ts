@@ -2,6 +2,7 @@ import { Controller, Get, NotFoundException, Param } from "@nestjs/common";
 import { LanguageService } from "./language.service";
 import { ApiOkResponse, ApiOperation } from "@nestjs/swagger";
 import { LanguageMapResponse } from "./response/language-map.response";
+import { OptionalAuth } from "src/user-manager/optional-auth.decorator";
 
 @Controller("language")
 export class LanguageController {
@@ -21,6 +22,7 @@ export class LanguageController {
 	@ApiOkResponse({
 		type: LanguageMapResponse,
 	})
+	@OptionalAuth() // todo: hide plugin keys from unauthorised clients
 	getMap(@Param("languageId") languageId: string): LanguageMapResponse {
 		const map = this.languageService.getMap(languageId);
 		if (map) {

@@ -3,6 +3,7 @@ import { IconsService } from "./icons.service";
 import { IconsController } from "./icons.controller";
 
 @Module({
+	imports: [],
 	controllers: [IconsController],
 	providers: [IconsService],
 	exports: [IconsService],

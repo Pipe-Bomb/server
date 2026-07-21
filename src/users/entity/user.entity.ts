@@ -8,6 +8,8 @@ import {
 import { UserResponse } from "../response/user.response";
 import { DBPlaylist } from "src/playlists/entity/playlist.entity";
 import { SavedUser } from "@sdk";
+import { DBPrivilege } from "src/privileges/entity/privilege.entity";
+import { PrivilegeResponse } from "src/privileges/response/privilege.response";
 
 @Entity("users")
 export class DBUser {
@@ -35,12 +37,16 @@ export class DBUser {
 	@OneToMany(() => DBPlaylist, (playlist) => playlist.owner)
 	playlists?: DBPlaylist[];
 
-	toResponse(): UserResponse {
+	@OneToMany(() => DBPrivilege, (privilege) => privilege.user)
+	privileges?: DBPrivilege[];
+
+	toResponse(privileges?: PrivilegeResponse[]): UserResponse {
 		return {
 			uuid: this.uuid,
 			username: this.username,
 			playlists:
 				this.playlists?.map((playlist) => playlist.toResponse()) ?? null,
+			privileges: privileges ?? null,
 		};
 	}
 

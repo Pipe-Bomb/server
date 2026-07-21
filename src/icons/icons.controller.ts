@@ -5,17 +5,22 @@ import {
 	Param,
 	Res,
 	StreamableFile,
+	UseGuards,
 } from "@nestjs/common";
 import { IconsService } from "./icons.service";
 import { createReadStream } from "fs";
 import mime from "mime";
 import type { Response } from "express";
+import { AuthGuard } from "src/user-manager/auth.guard";
+import { ApiNotFoundResponse, ApiUnauthorizedResponse } from "@nestjs/swagger";
 
 @Controller("icons")
 export class IconsController {
 	constructor(private readonly iconsService: IconsService) {}
 
 	@Get(":pluginId/:iconId")
+	@ApiUnauthorizedResponse()
+	@ApiNotFoundResponse()
 	getIcon(
 		@Param("pluginId") pluginId: string,
 		@Param("iconId") iconId: string,

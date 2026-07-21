@@ -4,7 +4,6 @@ import { PlaylistsController } from "./playlists.controller";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { DBPlaylist } from "./entity/playlist.entity";
 import { DBPlaylistTrack } from "./entity/playlist-track.entity";
-import { UsersModule } from "src/users/users.module";
 import { AttributesModule } from "src/attributes/attributes.module";
 import { AttributeSourcesModule } from "src/attribute-sources/attribute-sources.module";
 import { TrackManagerModule } from "src/track-manager/track-manager.module";
@@ -14,8 +13,8 @@ import { AlbumManagerModule } from "src/album-manager/album-manager.module";
 import { SmartPlaylistsService } from "./smart-playlists.service";
 import { DBSmartPlaylistFilter } from "./entity/smart-playlist-filter.entity";
 import { DBSmartPlaylistFilterGroup } from "./entity/smart-playlist-filter-group.entity";
-import { WorkflowsModule } from "src/workflows/workflows.module";
 import { TasksModule } from "src/tasks/tasks.module";
+import { UserManagerModule } from "src/user-manager/user-manager.module";
 
 @Module({
 	imports: [
@@ -25,7 +24,7 @@ import { TasksModule } from "src/tasks/tasks.module";
 			DBSmartPlaylistFilter,
 			DBSmartPlaylistFilterGroup,
 		]),
-		UsersModule,
+		UserManagerModule,
 		AttributesModule,
 		AttributeSourcesModule,
 		TrackManagerModule,

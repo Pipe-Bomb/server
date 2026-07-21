@@ -6,7 +6,7 @@ import {
 	ApiOperation,
 	ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
-import { AuthGuard } from "src/users/auth.guard";
+import { AuthGuard } from "src/user-manager/auth.guard";
 import { workflowStepToResponse } from "./workflows.util";
 import { WorkflowStepDefinitionResponse } from "./response/step-declaration.response";
 
@@ -23,7 +23,6 @@ export class WorkflowStepsController {
 	@ApiUnauthorizedResponse()
 	@ApiForbiddenResponse()
 	@Get("triggers")
-	@UseGuards(AuthGuard)
 	getAllTriggers(): WorkflowStepDefinitionResponse[] {
 		const triggers = this.workflowsService.allTriggers();
 		return triggers.map((trigger) => workflowStepToResponse(trigger));
@@ -38,7 +37,6 @@ export class WorkflowStepsController {
 	@ApiUnauthorizedResponse()
 	@ApiForbiddenResponse()
 	@Get("steps")
-	@UseGuards(AuthGuard)
 	getAllSteps(): WorkflowStepDefinitionResponse[] {
 		const triggers = this.workflowsService.allSteps();
 		return triggers.map((trigger) => workflowStepToResponse(trigger));

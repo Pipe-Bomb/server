@@ -5,14 +5,14 @@ import {
 	UnauthorizedException,
 } from "@nestjs/common";
 import { Request } from "express";
-import { UsersService } from "./users.service";
 import { Reflector } from "@nestjs/core";
+import { UserManagerService } from "./user-manager.service";
 import { IS_AUTH_OPTIONAL_KEY } from "./optional-auth.decorator";
 
 @Injectable()
 export class AuthGuard implements CanActivate {
 	constructor(
-		private usersService: UsersService,
+		private userManagerService: UserManagerService,
 		private reflector: Reflector,
 	) {}
 
@@ -41,7 +41,7 @@ export class AuthGuard implements CanActivate {
 		}
 
 		try {
-			const payload = await this.usersService.parseJwt(jwt);
+			const payload = await this.userManagerService.parseJwt(jwt);
 			request.user = payload;
 		} catch (e) {
 			if (isAuthOptional) {

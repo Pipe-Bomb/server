@@ -8,7 +8,7 @@ import { DBPlaylistAttribute } from "src/attributes/entities/playlist-attribute.
 import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
 import { DBTrack } from "src/tracks/entities/track.entity";
 import { AttributeValue, PlaylistClient } from "@sdk";
-import { UsersService } from "src/users/users.service";
+import { UserManagerService } from "src/user-manager/user-manager.service";
 import { AttributeUploadService } from "src/attributes/attribute-upload.service";
 import { PlaylistVisibility } from "./enum/playlist-visibility.enum";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
@@ -24,7 +24,7 @@ export class PlaylistsService {
 		@InjectRepository(DBPlaylistTrack)
 		private readonly playlistTracksRepository: Repository<DBPlaylistTrack>,
 		private readonly attributeSourcesService: AttributeSourcesService,
-		private readonly usersService: UsersService,
+		private readonly userManagerService: UserManagerService,
 		private readonly attributeUploadService: AttributeUploadService,
 	) {
 		this.attributeSourcesService.registerPlaylistAttribute(null, {
@@ -485,7 +485,7 @@ export class PlaylistsService {
 
 				let user: DBUser | null = null;
 				if (options.asUser) {
-					user = await this.usersService.findOne(options.asUser);
+					user = await this.userManagerService.findOne(options.asUser);
 
 					if (!user) {
 						throw new Error("User doesn't exist");
@@ -507,7 +507,7 @@ export class PlaylistsService {
 
 				let user: DBUser | null = null;
 				if (options.asUser) {
-					user = await this.usersService.findOne(options.asUser);
+					user = await this.userManagerService.findOne(options.asUser);
 
 					if (!user) {
 						throw new Error("User doesn't exist");
@@ -521,7 +521,7 @@ export class PlaylistsService {
 				await this.removeTracks(playlist.playlist, trackUuids);
 			},
 			createUserPlaylist: async (ownerUuid, { attributes } = {}) => {
-				const user = await this.usersService.findOne(ownerUuid);
+				const user = await this.userManagerService.findOne(ownerUuid);
 				if (!user) {
 					throw new Error("User doesn't exist");
 				}
@@ -553,7 +553,7 @@ export class PlaylistsService {
 
 				let user: DBUser | null = null;
 				if (options.asUser) {
-					user = await this.usersService.findOne(options.asUser);
+					user = await this.userManagerService.findOne(options.asUser);
 
 					if (!user) {
 						throw new Error("User doesn't exist");
@@ -591,7 +591,7 @@ export class PlaylistsService {
 
 				let user: DBUser | null = null;
 				if (options.asUser) {
-					user = await this.usersService.findOne(options.asUser);
+					user = await this.userManagerService.findOne(options.asUser);
 
 					if (!user) {
 						throw new Error("User doesn't exist");

@@ -21,7 +21,7 @@ import {
 } from "@nestjs/common";
 import { PlaylistsService } from "./playlists.service";
 import { CreatePlaylistDto } from "./dto/create-playlist.dto";
-import { AuthGuard } from "src/users/auth.guard";
+import { AuthGuard } from "src/user-manager/auth.guard";
 import { ReqUser } from "src/users/user.decorator";
 import { FetchUserPipe } from "src/users/user.pipe";
 import { DBUser } from "src/users/entity/user.entity";
@@ -53,7 +53,7 @@ import { UpdatePlaylistAttributesDto } from "./dto/update-playlist-attributes.dt
 import { AttributeUploadSessionResponse } from "src/attributes/response/attribute-upload-session.response";
 import { PlaylistVisibilityDto } from "./dto/playlist-visibility.dto";
 import { PlaylistVisibility } from "./enum/playlist-visibility.enum";
-import { OptionalAuth } from "src/users/optional-auth.decorator";
+import { OptionalAuth } from "src/user-manager/optional-auth.decorator";
 
 @Controller("playlists")
 export class PlaylistsController {
@@ -72,7 +72,6 @@ export class PlaylistsController {
 
 	@Put()
 	@ApiOperation({ operationId: "createPlaylist" })
-	@UseGuards(AuthGuard)
 	@ApiUnauthorizedResponse()
 	@ApiOkResponse({
 		type: PlaylistResponse,
@@ -90,7 +89,6 @@ export class PlaylistsController {
 	}
 
 	@Get()
-	@UseGuards(AuthGuard)
 	@ApiOkResponse({
 		type: [PlaylistResponse],
 	})
@@ -109,7 +107,6 @@ export class PlaylistsController {
 	@Get(":uuid")
 	@ApiOperation({ operationId: "getPlaylist" })
 	@OptionalAuth()
-	@UseGuards(AuthGuard)
 	@ApiOkResponse({
 		type: PlaylistResponse,
 	})
@@ -160,7 +157,6 @@ export class PlaylistsController {
 	@Get(":uuid/all")
 	@ApiOperation({ operationId: "getAllPlaylistTrackIds" })
 	@OptionalAuth()
-	@UseGuards(AuthGuard)
 	@ApiOkResponse({
 		type: [PlaylistTrackResponse],
 	})
@@ -190,7 +186,6 @@ export class PlaylistsController {
 	@Post(":uuid")
 	@ApiOperation({ operationId: "getPlaylistTracks" })
 	@OptionalAuth()
-	@UseGuards(AuthGuard)
 	@ApiOkResponse({
 		type: [PlaylistTrackResponse],
 	})
@@ -229,7 +224,6 @@ export class PlaylistsController {
 
 	@Patch(":uuid/tracks")
 	@ApiOperation({ operationId: "updatePlaylistTracks" })
-	@UseGuards(AuthGuard)
 	@ApiOkResponse({
 		type: PlaylistResponse,
 	})
@@ -367,7 +361,6 @@ export class PlaylistsController {
 
 	@Patch(":uuid/attributes")
 	@ApiOperation({ operationId: "updatePlaylistAttributes" })
-	@UseGuards(AuthGuard)
 	@ApiOkResponse({
 		type: [AttributeUploadSessionResponse],
 	})
@@ -403,7 +396,6 @@ export class PlaylistsController {
 
 	@Patch(":uuid/visibility")
 	@ApiOperation({ operationId: "updatePlaylistVisibility" })
-	@UseGuards(AuthGuard)
 	@ApiOkResponse({
 		type: PlaylistResponse,
 	})
@@ -428,7 +420,6 @@ export class PlaylistsController {
 
 	@Delete(":uuid")
 	@ApiOperation({ operationId: "deletePlaylist" })
-	@UseGuards(AuthGuard)
 	@ApiNoContentResponse()
 	@ApiUnauthorizedResponse()
 	@ApiForbiddenResponse()
@@ -454,7 +445,6 @@ export class PlaylistsController {
 	@Get(":uuid/pending")
 	@ApiOperation({ operationId: "getPlaylistUpdateProgress" })
 	@OptionalAuth()
-	@UseGuards(AuthGuard)
 	@ApiOkResponse({
 		type: [TrackCreationSessionResponse],
 	})
@@ -488,7 +478,6 @@ export class PlaylistsController {
 
 	@Put(":uuid/filters")
 	@ApiOperation({ operationId: "addPlaylistSmartFilterGroup" })
-	@UseGuards(AuthGuard)
 	@ApiNoContentResponse()
 	@ApiUnauthorizedResponse()
 	@ApiForbiddenResponse()
@@ -517,7 +506,6 @@ export class PlaylistsController {
 
 	@Patch(":playlistUuid/filters/:filterGroupUuid")
 	@ApiOperation({ operationId: "updatePlaylistSmartFilterGroup" })
-	@UseGuards(AuthGuard)
 	@ApiNoContentResponse()
 	@ApiUnauthorizedResponse()
 	@ApiForbiddenResponse()
@@ -551,7 +539,6 @@ export class PlaylistsController {
 
 	@Delete(":playlistUuid/filters/:filterGroupUuid")
 	@ApiOperation({ operationId: "deletePlaylistSmartFilterGroup" })
-	@UseGuards(AuthGuard)
 	@ApiNoContentResponse()
 	@ApiUnauthorizedResponse()
 	@ApiForbiddenResponse()
@@ -579,7 +566,6 @@ export class PlaylistsController {
 
 	@Post(":uuid/filters")
 	@ApiOperation({ operationId: "runPlaylistSmartFilters" })
-	@UseGuards(AuthGuard)
 	@ApiNoContentResponse()
 	@ApiUnauthorizedResponse()
 	@ApiForbiddenResponse()

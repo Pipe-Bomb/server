@@ -22,7 +22,7 @@ import { PersistentAttributeResponse } from "src/attributes/response/persistent-
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { ResourcesService } from "src/resources/resources.service";
 import { TasksService } from "src/tasks/tasks.service";
-import { DeepPartial, In, IsNull, Repository } from "typeorm";
+import { DeepPartial, In, Repository } from "typeorm";
 
 @Injectable()
 export class AttributeSourcesService {

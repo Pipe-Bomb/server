@@ -93,5 +93,16 @@
 	"workflow.system.step.workflow-end.option.rerun.name": "Repeat if already running",
 	"workflow.system.step.workflow-end.option.end-reason.enum.complete": "Complete",
 	"workflow.system.step.workflow-end.option.end-reason.enum.error": "Fail",
-	"workflow.system.step.workflow-end.option.end-reason.enum.any": "Any"
+	"workflow.system.step.workflow-end.option.end-reason.enum.any": "Any",
+
+	"privilege.system": "SYSTEM",
+	"privilege.system.*.name": "Admin",
+	"privilege.system.view-workflows.name": "View workflows",
+	"privilege.system.edit-workflows.name": "Edit workflows",
+	"privilege.system.view-tasks.name": "View tasks",
+	"privilege.system.run-tasks.name": "Run tasks",
+	"privilege.system.edit-attribute-source-order.name": "Edit attribute source order",
+	"privilege.system.view-plugin-configs.name": "View plugin configs",
+	"privilege.system.edit-plugin-configs.name": "Edit plugin configs",
+	"privilege.system.view-privileges.name": "View user privileges"
 }

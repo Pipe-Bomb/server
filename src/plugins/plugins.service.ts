@@ -23,7 +23,7 @@ import { AlbumManagerService } from "src/album-manager/album-manager.service";
 import { DataClient, Plugin, Task } from "@sdk";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { AudioSessionsService } from "src/audio-sessions/audio-sessions.service";
-import { UsersService } from "src/users/users.service";
+import { UserManagerService } from "src/user-manager/user-manager.service";
 import { PlaylistsService } from "src/playlists/playlists.service";
 import { WorkflowsService } from "src/workflows/workflows.service";
 
@@ -51,7 +51,7 @@ export class PluginsService {
 		private readonly ephemeralService: EphemeralService,
 		private readonly trackManagerService: TrackManagerService,
 		private readonly audioSessionsService: AudioSessionsService,
-		private readonly usersService: UsersService,
+		private readonly userManagerService: UserManagerService,
 		private readonly playlistsService: PlaylistsService,
 		private readonly workflowsService: WorkflowsService,
 	) {
@@ -270,20 +270,24 @@ export class PluginsService {
 			getDataClient: () => this.createDataClient(),
 			requestAuthClient: () => {
 				return {
-					getUuid: (username) => this.usersService.usernameToUuid(username),
+					getUuid: (username) =>
+						this.userManagerService.usernameToUuid(username),
 					getUsername: (uuid) =>
-						this.usersService
+						this.userManagerService
 							.findOne(uuid)
 							.then((user) => user?.username ?? null),
 					generateUserToken: async (uuid: string) => {
-						const user = await this.usersService.findOne(uuid);
+						const user = await this.userManagerService.findOne(uuid);
 						if (!user) {
 							throw new Error("User not found");
 						}
-						return this.usersService.generateJwt(user, plugin.package.name);
+						return this.userManagerService.generateJwt(
+							user,
+							plugin.package.name,
+						);
 					},
 					getUserFromToken: async (token: string) => {
-						const payload = await this.usersService.parseJwt(token);
+						const payload = await this.userManagerService.parseJwt(token);
 						return payload.sub;
 					},
 				};
@@ -349,9 +353,9 @@ export class PluginsService {
 					null
 				);
 			},
-			getUserCount: () => this.usersService.count(),
+			getUserCount: () => this.userManagerService.count(),
 			forEachUserId: async (callback) =>
-				this.usersService.forEachUserId(callback),
+				this.userManagerService.forEachUserId(callback),
 			createAudioSession: async (pluginId, libraryId, trackId, type) => {
 				const session = await this.audioSessionsService.createSession(
 					pluginId,

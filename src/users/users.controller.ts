@@ -8,13 +8,14 @@ import {
 	Param,
 	Post,
 	Res,
+	UnauthorizedException,
 	UseGuards,
 } from "@nestjs/common";
-import { UsersService } from "./users.service";
 import { LoginDto } from "./dto/login.dto";
 import {
 	ApiConflictResponse,
 	ApiCreatedResponse,
+	ApiForbiddenResponse,
 	ApiNoContentResponse,
 	ApiNotFoundResponse,
 	ApiOkResponse,
@@ -23,16 +24,21 @@ import {
 } from "@nestjs/swagger";
 import { UserResponse } from "./response/user.response";
 import type { Response } from "express";
-import { AuthGuard } from "./auth.guard";
 import { ReqUser } from "./user.decorator";
 import { FetchUserPipe } from "./user.pipe";
 import { DBUser } from "./entity/user.entity";
-import { OptionalAuth } from "./optional-auth.decorator";
+import { OptionalAuth } from "../user-manager/optional-auth.decorator";
 import { PlaylistVisibility } from "src/playlists/enum/playlist-visibility.enum";
+import { UserManagerService } from "src/user-manager/user-manager.service";
+import { PrivilegesService } from "src/privileges/privileges.service";
+import type { UserJwtPayload } from "./interface/user-jwt-payload.interface";
 
 @Controller("users")
 export class UsersController {
-	constructor(private readonly usersService: UsersService) {}
+	constructor(
+		private readonly userManagerService: UserManagerService,
+		private readonly privilegesService: PrivilegesService,
+	) {}
 
 	private setAuthCookie(response: Response, jwt: string) {
 		response.cookie("auth_token", jwt, {
@@ -45,7 +51,22 @@ export class UsersController {
 		});
 	}
 
+	@Get()
+	@ApiOperation({
+		operationId: "getAllUsers",
+	})
+	@ApiOkResponse({
+		type: [UserResponse],
+	})
+	@ApiUnauthorizedResponse()
+	@ApiForbiddenResponse()
+	async getAllUsers(): Promise<UserResponse[]> {
+		const users = await this.userManagerService.all();
+		return users.map((user) => user.toResponse());
+	}
+
 	@Post("login")
+	@OptionalAuth()
 	@ApiOperation({ operationId: "loginUser" })
 	@ApiOkResponse({
 		type: UserResponse,
@@ -56,15 +77,21 @@ export class UsersController {
 		@Body() dto: LoginDto,
 		@Res({ passthrough: true }) response: Response,
 	): Promise<UserResponse> {
-		const user = await this.usersService.login(dto.username, dto.password);
+		const user = await this.userManagerService.login(
+			dto.username,
+			dto.password,
+		);
 
-		const jwt = await this.usersService.generateJwt(user);
+		const jwt = await this.userManagerService.generateJwt(user);
 		this.setAuthCookie(response, jwt);
 
-		return user.toResponse();
+		return user.toResponse(
+			this.privilegesService.toPrivilegeList(user.uuid, user.privileges!),
+		);
 	}
 
 	@Post("signup")
+	@OptionalAuth()
 	@ApiOperation({ operationId: "createUser" })
 	@ApiCreatedResponse({
 		type: UserResponse,
@@ -74,12 +101,15 @@ export class UsersController {
 		@Body() dto: LoginDto,
 		@Res({ passthrough: true }) response: Response,
 	): Promise<UserResponse> {
-		const user = await this.usersService.create(dto.username, dto.password);
+		const user = await this.userManagerService.create(
+			dto.username,
+			dto.password,
+		);
 
-		const jwt = await this.usersService.generateJwt(user);
+		const jwt = await this.userManagerService.generateJwt(user);
 		this.setAuthCookie(response, jwt);
 
-		return user.toResponse();
+		return user.toResponse([]); // no privileges on account create
 	}
 
 	@Get("me")
@@ -88,9 +118,17 @@ export class UsersController {
 		type: UserResponse,
 	})
 	@ApiUnauthorizedResponse()
-	@UseGuards(AuthGuard)
-	getSelf(@ReqUser(FetchUserPipe) user: DBUser): UserResponse {
-		return user.toResponse();
+	async getSelf(@ReqUser() jwt: UserJwtPayload): Promise<UserResponse> {
+		const user = await this.userManagerService.findOne(jwt.sub, {
+			withPrivileges: true,
+		});
+		if (!user) {
+			throw new UnauthorizedException();
+		}
+
+		return user.toResponse(
+			this.privilegesService.toPrivilegeList(user.uuid, user.privileges!),
+		);
 	}
 
 	@Post("logout")
@@ -98,7 +136,6 @@ export class UsersController {
 	@ApiNoContentResponse()
 	@ApiUnauthorizedResponse()
 	@HttpCode(HttpStatus.NO_CONTENT)
-	@UseGuards(AuthGuard)
 	logout(@Res({ passthrough: true }) response: Response) {
 		response.clearCookie("auth_token", {
 			httpOnly: true,
@@ -114,13 +151,12 @@ export class UsersController {
 		type: UserResponse,
 	})
 	@OptionalAuth()
-	@UseGuards(AuthGuard)
 	@ApiNotFoundResponse()
 	async getUser(
 		@Param("uuid") uuid: string,
 		@ReqUser(FetchUserPipe) user?: DBUser,
 	) {
-		const subject = await this.usersService.findOne(uuid, {
+		const subject = await this.userManagerService.findOne(uuid, {
 			withPlaylists: true,
 			withPlaylistAttributes: true,
 		});
