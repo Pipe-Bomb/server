@@ -26,6 +26,7 @@ import { StreamStreamInstance } from "./stream-instance/stream.stream-instance";
 import type { Request, Response } from "express";
 import { HLSStreamInstance } from "./stream-instance/hls.stream-instance";
 import { getBaseUrl } from "src/util/request.util";
+import { OptionalAuth } from "src/user-manager/optional-auth.decorator";
 
 @Controller("streaming")
 export class StreamingCoreController {
@@ -46,6 +47,7 @@ export class StreamingCoreController {
 	}
 
 	@Get(":id/stream")
+	@OptionalAuth()
 	@ApiHeader({
 		name: "Range",
 		description: "Byte range for seeking (e.g., bytes=0-1024)",
@@ -142,6 +144,7 @@ export class StreamingCoreController {
 	}
 
 	@Get(":id/hls/playlist.m3u8")
+	@OptionalAuth()
 	@Header("Content-Type", "application/vnd.apple.mpegurl")
 	async getHLSPlaylist(@Param("id") id: string, @Req() req: Request) {
 		const session = this.get<HLSStreamInstance>(id, "hls");
@@ -154,6 +157,7 @@ export class StreamingCoreController {
 	}
 
 	@Get(":id/hls/segment/:segmentId")
+	@OptionalAuth()
 	async getHLSSegment(
 		@Param("id") id: string,
 		@Param("segmentId") segmentId: string,
