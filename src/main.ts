@@ -18,6 +18,7 @@ import { mkdir, rm } from "fs/promises";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import cookieParser from "cookie-parser";
 import * as DotEnv from "dotenv";
+import { ErrorResponse } from "./response/error.response";
 
 DotEnv.config({
 	quiet: true,
@@ -52,8 +53,66 @@ async function bootstrap() {
 
 	// mkdirSync("openapi", { recursive: true });
 	const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig, {
+		extraModels: [ErrorResponse],
 		operationIdFactory: (_controllerKey, methodKey) => methodKey,
 	});
+
+	const defaultErrorResponse = {
+		description: "Default error response",
+		content: {
+			"application/json": {
+				schema: {
+					$ref: getSchemaPath(ErrorResponse),
+				},
+			},
+		},
+	};
+
+	// default to ErrorResponse for 4xx-5xx
+	for (const pathObj of Object.values(swaggerDocument.paths)) {
+		for (const operation of Object.values(pathObj)) {
+			if (operation && typeof operation === "object" && operation.responses) {
+				for (const [statusCode, responseObj] of Object.entries(
+					operation.responses,
+				)) {
+					const statusNum = parseInt(statusCode, 10);
+
+					const isErrorStatus =
+						(statusNum >= 400 && statusNum < 600) ||
+						statusCode === "default" ||
+						statusCode === "4XX" ||
+						statusCode === "5XX";
+
+					if (isErrorStatus) {
+						const response = responseObj as any;
+
+						if (!response.content) {
+							response.content = {
+								"application/json": {
+									schema: {
+										$ref: getSchemaPath(ErrorResponse),
+									},
+								},
+							};
+						} else if (!response.content["application/json"]?.schema) {
+							response.content["application/json"] = {
+								schema: {
+									$ref: getSchemaPath(ErrorResponse),
+								},
+							};
+						}
+					}
+				}
+
+				const has5xx = Object.keys(operation.responses).some((code) =>
+					code.startsWith("5"),
+				);
+				if (!has5xx) {
+					operation.responses["5XX"] = defaultErrorResponse;
+				}
+			}
+		}
+	}
 
 	swaggerDocument.components!.schemas!["AttributeMap"] = {
 		type: "object",

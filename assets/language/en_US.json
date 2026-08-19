@@ -48,6 +48,7 @@
 	"contextmenu.playlist.change-thumbnail": "Change Thumbnail",
 	"contextmenu.playlist.scan-smart-filters": "Scan Smart Filters",
 
+	"contextmenu.top.view-profile": "View profile",
 	"contextmenu.top.logout": "Log out",
 
 	"login.title.login": "Log In",
@@ -104,5 +105,10 @@
 	"privilege.system.edit-attribute-source-order.name": "Edit attribute source order",
 	"privilege.system.view-plugin-configs.name": "View plugin configs",
 	"privilege.system.edit-plugin-configs.name": "Edit plugin configs",
-	"privilege.system.view-privileges.name": "View user privileges"
+	"privilege.system.view-privileges.name": "View user privileges",
+	"privilege.system.edit-system-config.name": "Edit system config",
+	"privilege.system.view-system-config.name": "View system config",
+
+	"config.system.allow-user-registrations.name": "Allow user registrations",
+	"config.system.allow-user-registrations.description": "Whether new users can register accounts"
 }

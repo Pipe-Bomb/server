@@ -1,6 +1,7 @@
 import {
 	Body,
 	Controller,
+	ForbiddenException,
 	Get,
 	HttpCode,
 	HttpStatus,
@@ -9,7 +10,6 @@ import {
 	Post,
 	Res,
 	UnauthorizedException,
-	UseGuards,
 } from "@nestjs/common";
 import { LoginDto } from "./dto/login.dto";
 import {
@@ -32,13 +32,24 @@ import { PlaylistVisibility } from "src/playlists/enum/playlist-visibility.enum"
 import { UserManagerService } from "src/user-manager/user-manager.service";
 import { PrivilegesService } from "src/privileges/privileges.service";
 import type { UserJwtPayload } from "./interface/user-jwt-payload.interface";
+import { SystemConfigService } from "src/system-config/system-config.service";
 
 @Controller("users")
 export class UsersController {
 	constructor(
 		private readonly userManagerService: UserManagerService,
 		private readonly privilegesService: PrivilegesService,
-	) {}
+		private readonly systemConfigService: SystemConfigService,
+	) {
+		this.systemConfigService.registerOption(
+			"allow-user-registrations",
+			"boolean",
+			{
+				supportsMultiple: false,
+			},
+			true,
+		);
+	}
 
 	private setAuthCookie(response: Response, jwt: string) {
 		response.cookie("auth_token", jwt, {
@@ -97,10 +108,19 @@ export class UsersController {
 		type: UserResponse,
 	})
 	@ApiConflictResponse()
+	@ApiForbiddenResponse()
 	async signup(
 		@Body() dto: LoginDto,
 		@Res({ passthrough: true }) response: Response,
 	): Promise<UserResponse> {
+		const allowRegistrations = await this.systemConfigService.getOption(
+			"allow-user-registrations",
+			"boolean",
+		);
+		if (!allowRegistrations) {
+			throw new ForbiddenException("Registrations are disabled");
+		}
+
 		const user = await this.userManagerService.create(
 			dto.username,
 			dto.password,

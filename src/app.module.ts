@@ -37,6 +37,7 @@ import databaseConfig from "./config/database.config";
 import { APP_GUARD } from "@nestjs/core";
 import { AuthGuard } from "./user-manager/auth.guard";
 import { PrivilegeGuard } from "./privileges/privilege.guard";
+import { SystemConfigModule } from "./system-config/system-config.module";
 
 @Module({
 	imports: [
@@ -76,6 +77,7 @@ import { PrivilegeGuard } from "./privileges/privilege.guard";
 		WorkflowsModule,
 		PrivilegesModule,
 		UserManagerModule,
+		SystemConfigModule,
 	],
 	controllers: [AppController],
 	providers: [
