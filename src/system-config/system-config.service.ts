@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository } from "typeorm";
 import { DBSystemConfig } from "./entity/system-config.entity";
@@ -10,6 +10,8 @@ import {
 import { SystemConfigValue } from "./interface/system-config-value.interface";
 import { SystemConfigOptions } from "./interface/system-config-options.interface";
 import { InvalidSystemConfigValueError } from "./error/invalid-system-config-value.error";
+import { UpdateSystemConfigOptionsDto } from "./dto/update-system-config-options.dto";
+import { UpdateSystemConfigOptionDto } from "./dto/update-system-config-option.dto";
 
 @Injectable()
 export class SystemConfigService {
@@ -306,5 +308,82 @@ export class SystemConfigService {
 		return this.registeredOptions.get(
 			key,
 		) as AnyRegisteredSystemConfigOption | null;
+	}
+
+	async updateOptions(values: UpdateSystemConfigOptionDto[]) {
+		const entries: (UpdateSystemConfigOptionDto & {
+			option: AnyRegisteredSystemConfigOption;
+		})[] = [];
+
+		for (const entry of values) {
+			const option = this.getRegisteredOption(entry.key);
+			if (!option) {
+				throw new BadRequestException(
+					`Option "${entry.key}" is not registered`,
+				);
+			}
+			if (option.type != entry.type) {
+				throw new BadRequestException(
+					`Option "${entry.key}" is type "${option.type}"`,
+				);
+			}
+			if (!option.options.supportsMultiple && entry.values.length != 1) {
+				throw new BadRequestException(
+					`Option "${entry.key}" doesn't support multiple values`,
+				);
+			}
+			for (const value of entry.values) {
+				switch (option.type) {
+					case "string": {
+						const { minLength, maxLength } = option.options;
+						if (
+							minLength !== undefined &&
+							(value as string).length < minLength
+						) {
+							throw new BadRequestException(
+								`Option "${entry.key}" must not be shorter than ${minLength} chars`,
+							);
+						}
+						if (
+							maxLength !== undefined &&
+							(value as string).length > maxLength
+						) {
+							throw new BadRequestException(
+								`Option "${entry.key}" must not be longer than ${maxLength} chars`,
+							);
+						}
+						break;
+					}
+					case "integer":
+					case "decimal": {
+						const { min, max } = option.options;
+						if (min !== undefined && (value as number) < min) {
+							throw new BadRequestException(
+								`Option "${entry.key}" must not be less than ${min}`,
+							);
+						}
+						if (max !== undefined && (value as number) > max) {
+							throw new BadRequestException(
+								`Option "${entry.key}" must not be greater than ${max}`,
+							);
+						}
+						break;
+					}
+				}
+			}
+
+			entries.push({
+				...entry,
+				option,
+			});
+		}
+
+		for (const entry of entries) {
+			await this.setOption(
+				entry.key,
+				entry.type as keyof SystemConfigType,
+				entry.option.options.supportsMultiple ? entry.values : entry.values[0],
+			);
+		}
 	}
 }
