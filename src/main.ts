@@ -17,12 +17,8 @@ import { AttributeInterceptor } from "./attribute-sources/attribute.interceptor"
 import { mkdir, rm } from "fs/promises";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import cookieParser from "cookie-parser";
-import * as DotEnv from "dotenv";
+import { PORT } from "./config/constants";
 import { ErrorResponse } from "./response/error.response";
-
-DotEnv.config({
-	quiet: true,
-});
 
 async function bootstrap() {
 	try {
@@ -154,6 +150,6 @@ async function bootstrap() {
 		process.exit(0);
 	}
 
-	await app.listen(process.env.PORT ?? 3000);
+	await app.listen(PORT);
 }
 bootstrap();

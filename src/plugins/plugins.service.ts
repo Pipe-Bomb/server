@@ -26,6 +26,7 @@ import { AudioSessionsService } from "src/audio-sessions/audio-sessions.service"
 import { UserManagerService } from "src/user-manager/user-manager.service";
 import { PlaylistsService } from "src/playlists/playlists.service";
 import { WorkflowsService } from "src/workflows/workflows.service";
+import { PORT } from "src/config/constants";
 
 @Injectable()
 export class PluginsService {
@@ -214,7 +215,7 @@ export class PluginsService {
 				const plugin = this.plugins.get(id);
 				return (plugin?.plugin as any) ?? null;
 			},
-			getServerPort: () => 3000, // todo: don't hard code
+			getServerPort: () => PORT,
 			getPluginPackage: () => plugin.package,
 			requestTempDirectory: async () => {
 				let dir: string;
