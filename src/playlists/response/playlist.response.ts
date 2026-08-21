@@ -15,6 +15,7 @@ import {
 } from "src/attributes/response/persistent-attribute.response";
 import { UserResponse } from "src/users/response/user.response";
 import { PlaylistTrackResponse } from "./playlist-track.response";
+import { PlaylistMemberResponse } from "./playlist-member.response";
 import { SmartPlaylistFilterGroupResponse } from "./smart-playlist-filter-group.reponse";
 import { PlaylistVisibility } from "../enum/playlist-visibility.enum";
 
@@ -30,8 +31,8 @@ export class PlaylistResponse {
 	@ApiProperty()
 	uuid: string;
 
-	@ApiProperty()
-	ownerUuid: string;
+	@ApiProperty({ nullable: true })
+	ownerUuid: string | null;
 
 	@ApiProperty({
 		type: () => UserResponse,
@@ -78,4 +79,10 @@ export class PlaylistResponse {
 		nullable: true,
 	})
 	trackCount: number | null;
+
+	@ApiProperty({
+		type: [PlaylistMemberResponse],
+		nullable: true,
+	})
+	members: PlaylistMemberResponse[] | null;
 }

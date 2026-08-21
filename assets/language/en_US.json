@@ -47,6 +47,16 @@
 	"contextmenu.playlist.rename": "Rename",
 	"contextmenu.playlist.change-thumbnail": "Change Thumbnail",
 	"contextmenu.playlist.scan-smart-filters": "Scan Smart Filters",
+	"contextmenu.playlist.manage-collaborators": "Manage Collaborators",
+
+	"modal.playlist-collaborators.title": "Collaborators",
+	"modal.playlist-collaborators.empty": "No members yet",
+	"modal.playlist-collaborators.add-section": "Add member",
+	"modal.playlist-collaborators.search-placeholder": "Search users...",
+	"modal.playlist-collaborators.no-results": "No users found",
+	"modal.playlist-collaborators.add-button": "Add",
+	"modal.playlist-collaborators.role.collaborator": "Collaborator",
+	"modal.playlist-collaborators.role.viewer": "Viewer",
 
 	"contextmenu.top.view-profile": "View profile",
 	"contextmenu.top.logout": "Log out",

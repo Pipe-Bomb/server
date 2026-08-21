@@ -1,5 +1,5 @@
 import { AttributeValue } from "./attribute";
-import { SavedPlaylist } from "./database";
+import { SavedPlaylist, SavedPlaylistMember } from "./database";
 
 export interface PlaylistClient {
 	getUserPlaylistUuids(uuid: string): Promise<string[]>;
@@ -46,15 +46,13 @@ export interface PlaylistClient {
 		},
 	): Promise<void>;
 
-	createUserPlaylist(
-		ownerUuid: string,
-		options?: {
-			attributes?: {
-				sourceId: string | null;
-				attributes: AttributeValue[];
-			};
-		},
-	): Promise<string>;
+	createPlaylist(options?: {
+		ownerUuid?: string;
+		attributes?: {
+			sourceId: string | null;
+			attributes: AttributeValue[];
+		};
+	}): Promise<string>;
 
 	deletePlaylist(
 		uuid: string,
@@ -71,4 +69,14 @@ export interface PlaylistClient {
 			asUser?: string;
 		},
 	): Promise<void>;
+
+	addPlaylistMember(
+		playlistUuid: string,
+		userUuid: string,
+		role: "collaborator" | "viewer",
+	): Promise<void>;
+
+	removePlaylistMember(playlistUuid: string, userUuid: string): Promise<void>;
+
+	getPlaylistMembers(playlistUuid: string): Promise<SavedPlaylistMember[]>;
 }

@@ -65,57 +65,64 @@ export class AttributesService {
 		const sources = this.attributeSourcesService.getSources();
 
 		for (const source of sources) {
-			const attributionHelper: TrackAttributionHelper = {
-				...(await library.informationHelper(track)),
-				getCompletedAttributeKeys: () => Array.from(completedAttributes),
-			};
+			try {
+				const attributionHelper: TrackAttributionHelper = {
+					...(await library.informationHelper(track)),
+					getCompletedAttributeKeys: () => Array.from(completedAttributes),
+				};
 
-			const trackMeta =
-				await source.source.getTrackAttributeValues(attributionHelper);
+				const trackMeta =
+					await source.source.getTrackAttributeValues(attributionHelper);
 
-			const dbAttributes =
-				await this.attributeSourcesService.createTrackAttributes(
-					track.uuid,
-					trackMeta.attributes ?? [],
-					source,
-				);
-
-			for (const dbAttribute of dbAttributes) {
-				allTrackAttributes.push(dbAttribute);
-				completedAttributes.add(dbAttribute.key);
-			}
-
-			if (trackMeta.artists?.length) {
-				for (const artist of trackMeta.artists) {
-					const artistUuid = await this.artistManagerService.resolveArtist(
-						artist.pluginId,
-						artist.identityId,
-						artist.identity,
-						ArtistIdentityTarget.TRACK,
-					);
-					if (!artistUuid) {
-						this.logger.warn(
-							`Attribute Source "${source.source.id}" from Plugin "${source.plugin.package.name}" attempted to resolve artist that didn't exist`,
-						);
-						continue;
-					}
-
-					allArtistAttributes.push(
-						...(await this.attributeSourcesService.createArtistAttributes(
-							artistUuid,
-							artist.attributes ?? [],
-							source,
-						)),
+				const dbAttributes =
+					await this.attributeSourcesService.createTrackAttributes(
+						track.uuid,
+						trackMeta.attributes ?? [],
+						source,
 					);
 
-					if (artist.joinPhrase) {
-						await this.artistManagerService.setJoinPhrase(
-							track.uuid,
-							artistUuid,
-							artist.joinPhrase,
+				for (const dbAttribute of dbAttributes) {
+					allTrackAttributes.push(dbAttribute);
+					completedAttributes.add(dbAttribute.key);
+				}
+
+				if (trackMeta.artists?.length) {
+					for (const artist of trackMeta.artists) {
+						const artistUuid = await this.artistManagerService.resolveArtist(
+							artist.pluginId,
+							artist.identityId,
+							artist.identity,
+							ArtistIdentityTarget.TRACK,
 						);
+						if (!artistUuid) {
+							this.logger.warn(
+								`Attribute Source "${source.source.id}" from Plugin "${source.plugin.package.name}" attempted to resolve artist that didn't exist`,
+							);
+							continue;
+						}
+
+						allArtistAttributes.push(
+							...(await this.attributeSourcesService.createArtistAttributes(
+								artistUuid,
+								artist.attributes ?? [],
+								source,
+							)),
+						);
+
+						if (artist.joinPhrase) {
+							await this.artistManagerService.setJoinPhrase(
+								track.uuid,
+								artistUuid,
+								artist.joinPhrase,
+							);
+						}
 					}
 				}
+			} catch (e) {
+				this.logger.error(
+					`Attribute source "${source.source.id}" from plugin "${source.plugin.package.name}" failed for track ${track.uuid}:`,
+					e,
+				);
 			}
 		}
 

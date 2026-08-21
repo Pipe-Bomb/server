@@ -12,7 +12,9 @@ import {
 	UpdateDateColumn,
 } from "typeorm";
 import { DBPlaylistTrack } from "./playlist-track.entity";
+import { DBPlaylistMember } from "./playlist-member.entity";
 import { PlaylistResponse } from "../response/playlist.response";
+import { PlaylistMemberResponse } from "../response/playlist-member.response";
 import { DBSmartPlaylistFilterGroup } from "./smart-playlist-filter-group.entity";
 import { SavedPlaylist } from "@sdk";
 import { PlaylistVisibility } from "../enum/playlist-visibility.enum";
@@ -24,12 +26,13 @@ export class DBPlaylist {
 
 	@Column({
 		type: "uuid",
+		nullable: true,
 	})
-	ownerUuid: string;
+	ownerUuid: string | null;
 
-	@ManyToOne(() => DBUser, { onDelete: "CASCADE" })
+	@ManyToOne(() => DBUser, { onDelete: "CASCADE", nullable: true })
 	@JoinColumn({ name: "ownerUuid" })
-	owner?: DBUser;
+	owner?: DBUser | null;
 
 	@CreateDateColumn({
 		type: "integer",
@@ -63,7 +66,13 @@ export class DBPlaylist {
 	@OneToMany(() => DBSmartPlaylistFilterGroup, (group) => group.playlist)
 	filterGroups?: DBSmartPlaylistFilterGroup[];
 
-	toResponse(trackCount?: number | null): PlaylistResponse {
+	@OneToMany(() => DBPlaylistMember, (member) => member.playlist)
+	members?: DBPlaylistMember[];
+
+	toResponse(
+		trackCount?: number | null,
+		members?: PlaylistMemberResponse[],
+	): PlaylistResponse {
 		return {
 			uuid: this.uuid,
 			ownerUuid: this.ownerUuid,
@@ -79,6 +88,7 @@ export class DBPlaylist {
 					?.map((track) => track.toResponse())
 					.filter((track) => !!track) ?? null,
 			trackCount: trackCount ?? null,
+			members: members ?? null,
 		};
 	}
 

@@ -126,9 +126,17 @@ export interface SavedPlaylistTrack {
 	track: SavedTrack | null;
 }
 
+export interface SavedPlaylistMember {
+	playlistUuid: string;
+	userUuid: string;
+	role: "collaborator" | "viewer";
+	dateAdded: Date;
+	user: SavedUser | null;
+}
+
 export interface SavedPlaylist {
 	uuid: string;
-	ownerUuid: string;
+	ownerUuid: string | null;
 	owner: SavedUser | null;
 	dateCreated: Date;
 	dateModified: Date;

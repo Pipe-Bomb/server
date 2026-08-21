@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DBPlaylist } from "./entity/playlist.entity";
+import { DBPlaylistMember } from "./entity/playlist-member.entity";
 import { In, Repository } from "typeorm";
 import { DBPlaylistTrack } from "./entity/playlist-track.entity";
 import { DBUser } from "src/users/entity/user.entity";
@@ -11,6 +12,7 @@ import { AttributeValue, PlaylistClient } from "@sdk";
 import { UserManagerService } from "src/user-manager/user-manager.service";
 import { AttributeUploadService } from "src/attributes/attribute-upload.service";
 import { PlaylistVisibility } from "./enum/playlist-visibility.enum";
+import { PlaylistMemberRole } from "./enum/playlist-member-role.enum";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { LoadedAttributeSource } from "src/attributes/interface/loaded-attribute-source.interface";
 
@@ -23,6 +25,8 @@ export class PlaylistsService {
 		private readonly playlistsRepository: Repository<DBPlaylist>,
 		@InjectRepository(DBPlaylistTrack)
 		private readonly playlistTracksRepository: Repository<DBPlaylistTrack>,
+		@InjectRepository(DBPlaylistMember)
+		private readonly membersRepository: Repository<DBPlaylistMember>,
 		private readonly attributeSourcesService: AttributeSourcesService,
 		private readonly userManagerService: UserManagerService,
 		private readonly attributeUploadService: AttributeUploadService,
@@ -40,12 +44,12 @@ export class PlaylistsService {
 	}
 
 	async create(
-		owner: DBUser,
+		owner: DBUser | null,
 		attributeSource: LoadedAttributeSource | null,
 		attributes: AttributeValue[],
 	) {
 		const playlist = this.playlistsRepository.create({
-			owner,
+			owner: owner ?? undefined,
 		});
 		await this.playlistsRepository.insert(playlist);
 
@@ -237,14 +241,66 @@ export class PlaylistsService {
 			withAttributes?: boolean;
 		} = {},
 	) {
-		return this.playlistsRepository.find({
-			where: {
-				ownerUuid: user.uuid,
-			},
-			relations: {
-				attributes: options.withAttributes,
-			},
+		const relations = { attributes: !!options.withAttributes };
+
+		const [owned, memberships] = await Promise.all([
+			this.playlistsRepository.find({
+				where: { ownerUuid: user.uuid },
+				relations,
+			}),
+			this.membersRepository.find({
+				where: { userUuid: user.uuid },
+				relations: { playlist: relations },
+			}),
+		]);
+
+		const seen = new Set(owned.map((p) => p.uuid));
+		const memberPlaylists = memberships
+			.map((m) => m.playlist!)
+			.filter((p) => p && !seen.has(p.uuid));
+
+		return [...owned, ...memberPlaylists];
+	}
+
+	async getMemberRole(
+		playlistUuid: string,
+		userUuid: string,
+	): Promise<PlaylistMemberRole | null> {
+		const member = await this.membersRepository.findOne({
+			where: { playlistUuid, userUuid },
+			select: ["role"],
 		});
+		return member?.role ?? null;
+	}
+
+	async findMembers(playlistUuid: string): Promise<DBPlaylistMember[]> {
+		return this.membersRepository.find({
+			where: { playlistUuid },
+			relations: { user: true },
+			order: { dateAdded: "asc" },
+		});
+	}
+
+	async upsertMember(
+		playlistUuid: string,
+		userUuid: string,
+		role: PlaylistMemberRole,
+	): Promise<DBPlaylistMember> {
+		await this.membersRepository.upsert(
+			{ playlistUuid, userUuid, role },
+			{
+				conflictPaths: ["playlistUuid", "userUuid"],
+				skipUpdateIfNoValuesChanged: true,
+			},
+		);
+		return this.membersRepository.findOneOrFail({
+			where: { playlistUuid, userUuid },
+			relations: { user: true },
+		});
+	}
+
+	async removeMember(playlistUuid: string, userUuid: string): Promise<void> {
+		await this.membersRepository.delete({ playlistUuid, userUuid });
 	}
 
 	async findByUuid(
@@ -491,8 +547,14 @@ export class PlaylistsService {
 						throw new Error("User doesn't exist");
 					}
 
-					if (user.uuid != playlist.playlist.ownerUuid) {
-						throw new Error("User cannot modify playlist");
+					if (user.uuid !== playlist.playlist.ownerUuid) {
+						const role = await this.getMemberRole(
+							playlist.playlist.uuid,
+							user.uuid,
+						);
+						if (role !== PlaylistMemberRole.COLLABORATOR) {
+							throw new Error("User cannot modify playlist");
+						}
 					}
 				}
 
@@ -513,17 +575,26 @@ export class PlaylistsService {
 						throw new Error("User doesn't exist");
 					}
 
-					if (user.uuid != playlist.playlist.ownerUuid) {
-						throw new Error("User cannot modify playlist");
+					if (user.uuid !== playlist.playlist.ownerUuid) {
+						const role = await this.getMemberRole(
+							playlist.playlist.uuid,
+							user.uuid,
+						);
+						if (role !== PlaylistMemberRole.COLLABORATOR) {
+							throw new Error("User cannot modify playlist");
+						}
 					}
 				}
 
 				await this.removeTracks(playlist.playlist, trackUuids);
 			},
-			createUserPlaylist: async (ownerUuid, { attributes } = {}) => {
-				const user = await this.userManagerService.findOne(ownerUuid);
-				if (!user) {
-					throw new Error("User doesn't exist");
+			createPlaylist: async ({ ownerUuid, attributes } = {}) => {
+				let owner: DBUser | null = null;
+				if (ownerUuid) {
+					owner = await this.userManagerService.findOne(ownerUuid);
+					if (!owner) {
+						throw new Error("User doesn't exist");
+					}
 				}
 
 				let attributeSource: LoadedAttributeSource | null = null;
@@ -538,7 +609,7 @@ export class PlaylistsService {
 				}
 
 				const playlist = await this.create(
-					user,
+					owner,
 					attributeSource,
 					attributes?.attributes ?? [],
 				);
@@ -607,6 +678,26 @@ export class PlaylistsService {
 					attributes,
 					attributeSource,
 				);
+			},
+			addPlaylistMember: async (playlistUuid, userUuid, role) => {
+				await this.upsertMember(
+					playlistUuid,
+					userUuid,
+					role as PlaylistMemberRole,
+				);
+			},
+			removePlaylistMember: async (playlistUuid, userUuid) => {
+				await this.removeMember(playlistUuid, userUuid);
+			},
+			getPlaylistMembers: async (playlistUuid) => {
+				const members = await this.findMembers(playlistUuid);
+				return members.map((m) => ({
+					playlistUuid: m.playlistUuid,
+					userUuid: m.userUuid,
+					role: m.role as "collaborator" | "viewer",
+					dateAdded: new Date(m.dateAdded),
+					user: m.user?.toSavedResponse() ?? null,
+				}));
 			},
 		};
 	}

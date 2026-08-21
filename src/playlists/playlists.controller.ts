@@ -21,10 +21,14 @@ import {
 } from "@nestjs/common";
 import { PlaylistsService } from "./playlists.service";
 import { CreatePlaylistDto } from "./dto/create-playlist.dto";
+import { UpsertPlaylistMemberDto } from "./dto/upsert-playlist-member.dto";
 import { AuthGuard } from "src/user-manager/auth.guard";
 import { ReqUser } from "src/users/user.decorator";
 import { FetchUserPipe } from "src/users/user.pipe";
 import { DBUser } from "src/users/entity/user.entity";
+import { UserManagerService } from "src/user-manager/user-manager.service";
+import { PlaylistMemberRole } from "./enum/playlist-member-role.enum";
+import { PlaylistMemberResponse } from "./response/playlist-member.response";
 import { AttributeUploadService } from "src/attributes/attribute-upload.service";
 import { PlaylistResponse } from "./response/playlist.response";
 import {
@@ -35,6 +39,7 @@ import {
 	ApiOperation,
 	ApiQuery,
 	ApiUnauthorizedResponse,
+	ApiBadRequestResponse,
 } from "@nestjs/swagger";
 import { DBTrack } from "src/tracks/entities/track.entity";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
@@ -68,6 +73,7 @@ export class PlaylistsController {
 		private readonly ephemeralService: EphemeralService,
 		private readonly albumManagerService: AlbumManagerService,
 		private readonly attributeSourcesService: AttributeSourcesService,
+		private readonly userManagerService: UserManagerService,
 	) {}
 
 	@Put()
@@ -146,12 +152,18 @@ export class PlaylistsController {
 		const { playlist, trackCount } = playlistInfo;
 
 		if (playlist.visibility == PlaylistVisibility.PRIVATE) {
-			if (!user || playlist.ownerUuid != user.uuid) {
-				throw new ForbiddenException();
+			if (!user) throw new ForbiddenException();
+			if (playlist.ownerUuid !== user.uuid) {
+				const role = await this.playlistsService.getMemberRole(
+					playlist.uuid,
+					user.uuid,
+				);
+				if (!role) throw new ForbiddenException();
 			}
 		}
 
-		return playlist.toResponse(trackCount);
+		const members = await this.playlistsService.findMembers(playlist.uuid);
+		return playlist.toResponse(trackCount, members.map((m) => m.toResponse()));
 	}
 
 	@Get(":uuid/all")
@@ -174,8 +186,13 @@ export class PlaylistsController {
 		const { playlist } = playlistInfo;
 
 		if (playlist.visibility == PlaylistVisibility.PRIVATE) {
-			if (!user || playlist.ownerUuid != user.uuid) {
-				throw new ForbiddenException();
+			if (!user) throw new ForbiddenException();
+			if (playlist.ownerUuid !== user.uuid) {
+				const role = await this.playlistsService.getMemberRole(
+					playlist.uuid,
+					user.uuid,
+				);
+				if (!role) throw new ForbiddenException();
 			}
 		}
 
@@ -205,8 +222,13 @@ export class PlaylistsController {
 		const { playlist } = playlistInfo;
 
 		if (playlist.visibility == PlaylistVisibility.PRIVATE) {
-			if (!user || playlist.ownerUuid != user.uuid) {
-				throw new ForbiddenException();
+			if (!user) throw new ForbiddenException();
+			if (playlist.ownerUuid !== user.uuid) {
+				const role = await this.playlistsService.getMemberRole(
+					playlist.uuid,
+					user.uuid,
+				);
+				if (!role) throw new ForbiddenException();
 			}
 		}
 
@@ -241,8 +263,12 @@ export class PlaylistsController {
 		}
 		const { playlist } = playlistInfo;
 
-		if (playlist.ownerUuid != user.uuid) {
-			throw new ForbiddenException();
+		if (playlist.ownerUuid !== user.uuid) {
+			const role = await this.playlistsService.getMemberRole(
+				playlist.uuid,
+				user.uuid,
+			);
+			if (role !== PlaylistMemberRole.COLLABORATOR) throw new ForbiddenException();
 		}
 
 		if (dto.add) {
@@ -462,8 +488,13 @@ export class PlaylistsController {
 		const { playlist } = playlistInfo;
 
 		if (playlist.visibility == PlaylistVisibility.PRIVATE) {
-			if (!user || playlist.ownerUuid != user.uuid) {
-				throw new ForbiddenException();
+			if (!user) throw new ForbiddenException();
+			if (playlist.ownerUuid !== user.uuid) {
+				const role = await this.playlistsService.getMemberRole(
+					playlist.uuid,
+					user.uuid,
+				);
+				if (!role) throw new ForbiddenException();
 			}
 		}
 
@@ -585,5 +616,98 @@ export class PlaylistsController {
 		}
 
 		await this.smartPlaylistsService.runFilters(playlist.uuid);
+	}
+
+	@Get(":uuid/members")
+	@ApiOperation({ operationId: "getPlaylistMembers" })
+	@ApiOkResponse({ type: [PlaylistMemberResponse] })
+	@ApiUnauthorizedResponse()
+	@ApiForbiddenResponse()
+	@ApiNotFoundResponse()
+	async getPlaylistMembers(
+		@Param("uuid") uuid: string,
+		@ReqUser(FetchUserPipe) user: DBUser,
+	): Promise<PlaylistMemberResponse[]> {
+		const playlistInfo = await this.playlistsService.findByUuid(uuid);
+		if (!playlistInfo) {
+			throw new NotFoundException("Playlist not found");
+		}
+		const { playlist } = playlistInfo;
+
+		if (playlist.ownerUuid !== user.uuid) {
+			const role = await this.playlistsService.getMemberRole(
+				playlist.uuid,
+				user.uuid,
+			);
+			if (!role) throw new ForbiddenException();
+		}
+
+		const members = await this.playlistsService.findMembers(playlist.uuid);
+		return members.map((m) => m.toResponse());
+	}
+
+	@Put(":uuid/members/:userUuid")
+	@ApiOperation({ operationId: "upsertPlaylistMember" })
+	@ApiOkResponse({ type: PlaylistMemberResponse })
+	@ApiUnauthorizedResponse()
+	@ApiForbiddenResponse()
+	@ApiNotFoundResponse()
+	@ApiBadRequestResponse()
+	async upsertPlaylistMember(
+		@Param("uuid") uuid: string,
+		@Param("userUuid") targetUserUuid: string,
+		@Body() dto: UpsertPlaylistMemberDto,
+		@ReqUser(FetchUserPipe) user: DBUser,
+	): Promise<PlaylistMemberResponse> {
+		const playlistInfo = await this.playlistsService.findByUuid(uuid);
+		if (!playlistInfo) {
+			throw new NotFoundException("Playlist not found");
+		}
+		const { playlist } = playlistInfo;
+
+		if (playlist.ownerUuid !== user.uuid) {
+			throw new ForbiddenException();
+		}
+
+		if (targetUserUuid === user.uuid) {
+			throw new BadRequestException("Owner cannot be added as a member");
+		}
+
+		const targetUser = await this.userManagerService.findOne(targetUserUuid);
+		if (!targetUser) {
+			throw new NotFoundException("User not found");
+		}
+
+		const member = await this.playlistsService.upsertMember(
+			uuid,
+			targetUserUuid,
+			dto.role,
+		);
+		return member.toResponse();
+	}
+
+	@Delete(":uuid/members/:userUuid")
+	@ApiOperation({ operationId: "removePlaylistMember" })
+	@ApiNoContentResponse()
+	@ApiUnauthorizedResponse()
+	@ApiForbiddenResponse()
+	@ApiNotFoundResponse()
+	@HttpCode(HttpStatus.NO_CONTENT)
+	async removePlaylistMember(
+		@Param("uuid") uuid: string,
+		@Param("userUuid") targetUserUuid: string,
+		@ReqUser(FetchUserPipe) user: DBUser,
+	): Promise<void> {
+		const playlistInfo = await this.playlistsService.findByUuid(uuid);
+		if (!playlistInfo) {
+			throw new NotFoundException("Playlist not found");
+		}
+		const { playlist } = playlistInfo;
+
+		if (playlist.ownerUuid !== user.uuid) {
+			throw new ForbiddenException();
+		}
+
+		await this.playlistsService.removeMember(uuid, targetUserUuid);
 	}
 }

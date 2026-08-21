@@ -8,6 +8,7 @@ import {
 	NotFoundException,
 	Param,
 	Post,
+	Query,
 	Res,
 	UnauthorizedException,
 } from "@nestjs/common";
@@ -163,6 +164,16 @@ export class UsersController {
 			sameSite: "lax",
 			path: "/",
 		});
+	}
+
+	@Get("search")
+	@ApiOperation({ operationId: "searchUsers" })
+	@ApiOkResponse({ type: [UserResponse] })
+	@ApiUnauthorizedResponse()
+	async searchUsers(@Query("q") q: string): Promise<UserResponse[]> {
+		if (!q?.trim()) return [];
+		const users = await this.userManagerService.searchByUsername(q.trim());
+		return users.map((u) => u.toResponse());
 	}
 
 	@Get(":uuid")

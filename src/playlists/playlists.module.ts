@@ -4,6 +4,7 @@ import { PlaylistsController } from "./playlists.controller";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { DBPlaylist } from "./entity/playlist.entity";
 import { DBPlaylistTrack } from "./entity/playlist-track.entity";
+import { DBPlaylistMember } from "./entity/playlist-member.entity";
 import { AttributesModule } from "src/attributes/attributes.module";
 import { AttributeSourcesModule } from "src/attribute-sources/attribute-sources.module";
 import { TrackManagerModule } from "src/track-manager/track-manager.module";
@@ -21,6 +22,7 @@ import { UserManagerModule } from "src/user-manager/user-manager.module";
 		TypeOrmModule.forFeature([
 			DBPlaylist,
 			DBPlaylistTrack,
+			DBPlaylistMember,
 			DBSmartPlaylistFilter,
 			DBSmartPlaylistFilterGroup,
 		]),

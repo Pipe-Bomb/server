@@ -441,6 +441,21 @@ export class LibrariesService {
 		const recentIds = new Set<string>();
 
 		return new Promise<void>((resolve, reject) => {
+			const finalize = () => {
+				if (toSetRunId.length === 0) {
+					resolve();
+					return;
+				}
+				const updateList = toSetRunId.splice(0, toSetRunId.length);
+				this.trackManagerService
+					.setRunId(updateList, runId, "attribute")
+					.then(resolve)
+					.catch((e) => {
+						this.logger.error(e);
+						resolve();
+					});
+			};
+
 			const handle = async () => {
 				activeThreads++;
 				const track = trackPool.shift();
@@ -449,7 +464,7 @@ export class LibrariesService {
 					increaseTrackPool();
 
 					if (!activeThreads && allChunksLoaded) {
-						resolve();
+						finalize();
 					}
 					return;
 				}
@@ -526,7 +541,7 @@ export class LibrariesService {
 						} else {
 							allChunksLoaded = true;
 							if (!activeThreads) {
-								resolve();
+								finalize();
 							}
 						}
 					})

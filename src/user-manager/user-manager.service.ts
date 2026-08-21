@@ -8,7 +8,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { SecretsService } from "src/secrets/secrets.service";
 import { DBUser } from "src/users/entity/user.entity";
 import { UserJwtPayload } from "src/users/interface/user-jwt-payload.interface";
-import { Repository } from "typeorm";
+import { Like, Repository } from "typeorm";
 import * as crypto from "crypto";
 
 @Injectable()
@@ -185,5 +185,12 @@ export class UserManagerService {
 
 	all() {
 		return this.usersRepository.find();
+	}
+
+	searchByUsername(query: string): Promise<DBUser[]> {
+		return this.usersRepository.find({
+			where: { username: Like(`%${query.toLowerCase()}%`) },
+			take: 20,
+		});
 	}
 }
