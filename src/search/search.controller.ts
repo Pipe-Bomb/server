@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, Post } from "@nestjs/common";
+import { Body, Controller, HttpCode, HttpStatus, Post } from "@nestjs/common";
 import { SearchService } from "./search.service";
 import { ApiOkResponse, ApiOperation } from "@nestjs/swagger";
 import { SearchDto } from "./dto/search.dto";
@@ -9,7 +9,7 @@ export class SearchController {
 	constructor(private readonly searchService: SearchService) {}
 
 	@Post()
-	@HttpCode(200)
+	@HttpCode(HttpStatus.OK)
 	@ApiOperation({ operationId: "search" })
 	@ApiOkResponse({
 		type: SearchResultsResponse,
