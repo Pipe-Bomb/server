@@ -364,7 +364,7 @@ export class TrackManagerService {
 			mainQb.limit(amount);
 		}
 
-		const results = (await mainQb.getRawMany()) as { id: string }[];
+		const results = await mainQb.getRawMany();
 		return results.map(({ id }) => id);
 	}
 }

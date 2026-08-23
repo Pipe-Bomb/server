@@ -165,7 +165,7 @@ export class StreamingCoreController {
 	) {
 		const instance = this.get<HLSStreamInstance>(id, "hls");
 
-		const segment = await instance.getSegment(segmentId.split(".")[0]!);
+		const segment = await instance.getSegment(segmentId.split(".")[0]);
 
 		if (!segment) {
 			throw new NotFoundException("Segment not found");

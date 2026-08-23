@@ -150,4 +150,94 @@ export interface DataClient {
 			};
 		},
 	): Promise<SavedArtist | null>;
+
+	getTracks(
+		ids: { pluginId: string; libraryId: string; trackId: string }[],
+		options?: {
+			relations?: {
+				identities?: boolean;
+				attributes?: boolean;
+				artists?:
+					| boolean
+					| {
+							identities?: boolean;
+							attributes?: boolean;
+					  };
+				albums?:
+					| boolean
+					| {
+							identities?: boolean;
+							attributes?: boolean;
+					  };
+			};
+		},
+	): Promise<SavedTrack[]>;
+
+	getAlbums(
+		uuids: string[],
+		options?: {
+			relations?: {
+				identities?: boolean;
+				attributes?: boolean;
+				artists?:
+					| boolean
+					| {
+							identities?: boolean;
+							attributes?: boolean;
+					  };
+				tracks?:
+					| boolean
+					| {
+							identities?: boolean;
+							attributes?: boolean;
+							artists?:
+								| boolean
+								| {
+										identities?: boolean;
+										attributes?: boolean;
+								  };
+					  };
+			};
+		},
+	): Promise<SavedAlbum[]>;
+
+	getArtists(
+		uuids: string[],
+		options?: {
+			relations?: {
+				identities?: boolean;
+				attributes?: boolean;
+				albums?:
+					| boolean
+					| {
+							identities?: boolean;
+							attributes?: boolean;
+							tracks?:
+								| boolean
+								| {
+										identities?: boolean;
+										attributes?: boolean;
+								  };
+							artists?:
+								| boolean
+								| {
+										identities?: boolean;
+										attributes?: boolean;
+								  };
+					  };
+				tracks?:
+					| boolean
+					| {
+							identities?: boolean;
+							attributes?: boolean;
+							artists?:
+								| boolean
+								| {
+										identities?: boolean;
+										attributes?: boolean;
+								  };
+					  };
+			};
+		},
+	): Promise<SavedArtist[]>;
 }

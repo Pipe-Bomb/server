@@ -477,7 +477,7 @@ export class AlbumManagerService {
 				if (multiple) {
 					return matches;
 				}
-				return matches[0]! as any;
+				return matches[0] as any;
 			},
 		});
 	}
@@ -553,6 +553,7 @@ export class AlbumManagerService {
 		const CHUNK_SIZE = 1_000;
 
 		let isCancelled = false;
+		let processed = 0;
 
 		for (let i = 0; true; i++) {
 			if (isCancelled) {
@@ -571,6 +572,9 @@ export class AlbumManagerService {
 				});
 				if (isCancelled) {
 					return;
+				}
+				if (++processed % 50 === 0) {
+					await new Promise<void>((resolve) => setImmediate(resolve));
 				}
 			}
 		}

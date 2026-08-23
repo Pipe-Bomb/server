@@ -30,7 +30,7 @@ export class TracksService {
 				if (multiple) {
 					return matches;
 				}
-				return matches[0]! as any;
+				return matches[0] as any;
 			},
 		});
 	}

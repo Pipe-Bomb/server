@@ -2,6 +2,8 @@ import {
 	Body,
 	Controller,
 	Get,
+	HttpCode,
+	HttpStatus,
 	NotFoundException,
 	Param,
 	Post,
@@ -104,6 +106,7 @@ export class TracksController {
 	}
 
 	@Post()
+	@HttpCode(HttpStatus.OK)
 	@ApiOperation({ operationId: "getTracks" })
 	@ApiOkResponse({
 		type: [TrackResponse],

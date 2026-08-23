@@ -27,6 +27,7 @@ import { UserManagerService } from "src/user-manager/user-manager.service";
 import { PlaylistsService } from "src/playlists/playlists.service";
 import { WorkflowsService } from "src/workflows/workflows.service";
 import { PORT } from "src/config/constants";
+import { In } from "typeorm";
 
 @Injectable()
 export class PluginsService {
@@ -507,6 +508,142 @@ export class PluginsService {
 				});
 
 				return artist?.toSavedResponse() ?? null;
+			},
+			getTracks: async (ids, { relations } = {}) => {
+				if (!ids.length) {
+					return [];
+				}
+				const tracks = await this.trackManagerService.find({
+					where: ids.map(({ pluginId, libraryId, trackId }) => ({
+						pluginId,
+						libraryId,
+						trackId,
+					})),
+					relationLoadStrategy: "query",
+					relations: {
+						identities: relations?.identities,
+						attributes: relations?.attributes,
+						artists: relations?.artists && {
+							artist:
+								typeof relations.artists == "object"
+									? {
+											identities: relations.artists.identities,
+											attributes: relations.artists.attributes,
+										}
+									: true,
+						},
+						albums: relations?.albums && {
+							album:
+								typeof relations.albums == "object"
+									? {
+											identities: relations.albums.identities,
+											attributes: relations.albums.attributes,
+										}
+									: true,
+						},
+					},
+				});
+				return tracks.map((track) => track.toSavedResponse());
+			},
+			getAlbums: async (uuids, { relations } = {}) => {
+				if (!uuids.length) {
+					return [];
+				}
+				const albums = await this.albumManagerService.findManyRaw({
+					where: { uuid: In(uuids) },
+					relationLoadStrategy: "query",
+					relations: {
+						identities: relations?.identities,
+						attributes: relations?.attributes,
+						artists: relations?.artists && {
+							artist:
+								typeof relations.artists == "object"
+									? {
+											identities: relations.artists.identities,
+											attributes: relations.artists.attributes,
+										}
+									: true,
+						},
+						tracks: relations?.tracks && {
+							track:
+								typeof relations.tracks == "object"
+									? {
+											identities: relations.tracks.identities,
+											attributes: relations.tracks.attributes,
+											artists: relations.tracks.artists && {
+												artist:
+													typeof relations.tracks.artists == "object"
+														? {
+																identities: relations.tracks.artists.identities,
+																attributes: relations.tracks.artists.attributes,
+															}
+														: true,
+											},
+										}
+									: true,
+						},
+					},
+				});
+				return albums.map((album) => album.toSavedResponse());
+			},
+			getArtists: async (uuids, { relations } = {}) => {
+				if (!uuids.length) {
+					return [];
+				}
+				const artists = await this.artistManagerService.findManyRaw({
+					where: { uuid: In(uuids) },
+					relationLoadStrategy: "query",
+					relations: {
+						identities: relations?.identities,
+						attributes: relations?.attributes,
+						albums: relations?.albums && {
+							album:
+								typeof relations.albums == "object"
+									? {
+											identities: relations.albums.identities,
+											attributes: relations.albums.attributes,
+											artists: relations.albums.artists && {
+												artist:
+													typeof relations.albums.artists == "object"
+														? {
+																identities: relations.albums.artists.identities,
+																attributes: relations.albums.artists.attributes,
+															}
+														: true,
+											},
+											tracks: relations.albums.tracks && {
+												track:
+													typeof relations.albums.tracks == "object"
+														? {
+																identities: relations.albums.tracks.identities,
+																attributes: relations.albums.tracks.attributes,
+															}
+														: true,
+											},
+										}
+									: true,
+						},
+						tracks: relations?.tracks && {
+							track:
+								typeof relations.tracks == "object"
+									? {
+											identities: relations.tracks.identities,
+											attributes: relations.tracks.attributes,
+											artists: relations.tracks.artists && {
+												artist:
+													typeof relations.tracks.artists == "object"
+														? {
+																identities: relations.tracks.artists.identities,
+																attributes: relations.tracks.artists.attributes,
+															}
+														: true,
+											},
+										}
+									: true,
+						},
+					},
+				});
+				return artists.map((artist) => artist.toSavedResponse());
 			},
 		};
 	}

@@ -275,6 +275,7 @@ export class LibrariesService {
 		const CHUNK_SIZE = 1_000;
 
 		let isCancelled = false;
+		let processed = 0;
 
 		for (let i = 0; true; i++) {
 			if (isCancelled) {
@@ -294,6 +295,9 @@ export class LibrariesService {
 				});
 				if (isCancelled) {
 					return;
+				}
+				if (++processed % 50 === 0) {
+					await new Promise<void>((resolve) => setImmediate(resolve));
 				}
 			}
 		}

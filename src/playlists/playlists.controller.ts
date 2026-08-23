@@ -163,7 +163,10 @@ export class PlaylistsController {
 		}
 
 		const members = await this.playlistsService.findMembers(playlist.uuid);
-		return playlist.toResponse(trackCount, members.map((m) => m.toResponse()));
+		return playlist.toResponse(
+			trackCount,
+			members.map((m) => m.toResponse()),
+		);
 	}
 
 	@Get(":uuid/all")
@@ -268,7 +271,8 @@ export class PlaylistsController {
 				playlist.uuid,
 				user.uuid,
 			);
-			if (role !== PlaylistMemberRole.COLLABORATOR) throw new ForbiddenException();
+			if (role !== PlaylistMemberRole.COLLABORATOR)
+				throw new ForbiddenException();
 		}
 
 		if (dto.add) {

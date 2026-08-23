@@ -53,7 +53,7 @@ export class PlaylistsService {
 		});
 		await this.playlistsRepository.insert(playlist);
 
-		let dbAttributes: DBPlaylistAttribute[] = [];
+		const dbAttributes: DBPlaylistAttribute[] = [];
 		try {
 			const newAttributes =
 				await this.attributeSourcesService.createPlaylistAttributes(
@@ -108,7 +108,7 @@ export class PlaylistsService {
 			}
 		}
 
-		let dbAttributes: DBPlaylistAttribute[] = [];
+		const dbAttributes: DBPlaylistAttribute[] = [];
 		try {
 			const newAttributes =
 				await this.attributeSourcesService.createPlaylistAttributes(

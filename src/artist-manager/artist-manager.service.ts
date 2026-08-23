@@ -474,7 +474,7 @@ export class ArtistManagerService {
 
 				if (existingArtists.length > 1) {
 					existingArtists.sort((a, b) => a.dateAdded - b.dateAdded);
-					const masterArtist = existingArtists[0]!;
+					const masterArtist = existingArtists[0];
 					const allArtistIds = existingArtists.map((a) => a.uuid);
 					const removedArtistIds = allArtistIds.slice(1);
 
@@ -691,6 +691,7 @@ export class ArtistManagerService {
 		const CHUNK_SIZE = 1_000;
 
 		let isCancelled = false;
+		let processed = 0;
 
 		for (let i = 0; true; i++) {
 			if (isCancelled) {
@@ -709,6 +710,9 @@ export class ArtistManagerService {
 				});
 				if (isCancelled) {
 					return;
+				}
+				if (++processed % 50 === 0) {
+					await new Promise<void>((resolve) => setImmediate(resolve));
 				}
 			}
 		}

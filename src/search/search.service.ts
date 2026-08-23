@@ -340,7 +340,7 @@ export class SearchService {
 		}
 
 		queryBuilder.limit(amount);
-		const results = (await queryBuilder.getRawMany()) as { id: string }[];
+		const results = await queryBuilder.getRawMany();
 		return results.map(({ id }) => id);
 	}
 }
