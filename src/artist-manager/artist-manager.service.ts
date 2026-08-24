@@ -711,7 +711,7 @@ export class ArtistManagerService {
 				if (isCancelled) {
 					return;
 				}
-				if (++processed % 50 === 0) {
+				if (++processed % 10 === 0) {
 					await new Promise<void>((resolve) => setImmediate(resolve));
 				}
 			}
