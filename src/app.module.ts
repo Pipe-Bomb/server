@@ -38,6 +38,7 @@ import { APP_GUARD } from "@nestjs/core";
 import { AuthGuard } from "./user-manager/auth.guard";
 import { PrivilegeGuard } from "./privileges/privilege.guard";
 import { SystemConfigModule } from "./system-config/system-config.module";
+import { SetupModule } from "./setup/setup.module";
 
 @Module({
 	imports: [
@@ -78,6 +79,7 @@ import { SystemConfigModule } from "./system-config/system-config.module";
 		PrivilegesModule,
 		UserManagerModule,
 		SystemConfigModule,
+		SetupModule,
 	],
 	controllers: [AppController],
 	providers: [

@@ -1,0 +1,26 @@
+name: Mirror to Atomira
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["*"]
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to Atomira
+        env:
+          ATOMIRA_PAT: ${{ secrets.ATOMIRA_PAT }}
+        run: |
+          # Use PAT authentication in the HTTPS URL
+          git remote add atomira "https://oauth2:${ATOMIRA_PAT}@atomira.dev/o/pipe-bomb/r/server.git"
+
+          # Force sync all tracking branches and tags
+          git push --force --prune atomira refs/remotes/origin/*:refs/heads/*
+          git push --force --tags atomira

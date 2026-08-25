@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DBPrivilege } from "./entity/privilege.entity";
 import {
@@ -13,11 +13,12 @@ import { UpdatePrivilegeDto } from "./dto/update-privilege.dto";
 import { PrivilegeResponse } from "./response/privilege.response";
 
 @Injectable()
-export class PrivilegesService {
+export class PrivilegesService implements OnModuleInit {
 	private readonly adminUuids =
 		process.env.ADMINS?.split(",")
 			.map((username) => username.trim())
 			.filter((username) => !!username) ?? [];
+	private readonly ownerUuids = new Set<string>();
 	private readonly systemPrivileges = new Map<string, SystemPrivilege>();
 
 	private readonly logger = new Logger("Privileges Service");
@@ -25,6 +26,8 @@ export class PrivilegesService {
 	constructor(
 		@InjectRepository(DBPrivilege)
 		private readonly privilegesRepository: Repository<DBPrivilege>,
+		@InjectRepository(DBUser)
+		private readonly usersRepository: Repository<DBUser>,
 		private readonly dataSource: DataSource,
 	) {
 		if (this.adminUuids.length) {
@@ -34,13 +37,33 @@ export class PrivilegesService {
 			}
 		} else {
 			this.logger.warn(
-				"No admin UUIDs specified. Most configuration options are locked.",
+				"No admin UUIDs specified. Set ADMINS env var or use the setup wizard.",
 			);
 		}
 	}
 
+	async onModuleInit() {
+		const owners = await this.usersRepository.find({
+			where: { isOwner: true },
+			select: ["uuid"],
+		});
+		for (const owner of owners) {
+			this.ownerUuids.add(owner.uuid);
+		}
+		if (this.ownerUuids.size) {
+			this.logger.log(
+				`Loaded ${this.ownerUuids.size} owner UUID(s) from database`,
+			);
+		}
+	}
+
+	registerOwner(uuid: string) {
+		this.ownerUuids.add(uuid);
+		this.logger.log(`Registered owner: ${uuid}`);
+	}
+
 	isAdmin(userUuid: string) {
-		return this.adminUuids.includes(userUuid);
+		return this.adminUuids.includes(userUuid) || this.ownerUuids.has(userUuid);
 	}
 
 	async getPrivileges(userUuid: string) {

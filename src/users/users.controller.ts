@@ -114,23 +114,35 @@ export class UsersController {
 		@Body() dto: LoginDto,
 		@Res({ passthrough: true }) response: Response,
 	): Promise<UserResponse> {
-		const allowRegistrations = await this.systemConfigService.getOption(
-			"allow-user-registrations",
-			"boolean",
-		);
-		if (!allowRegistrations) {
-			throw new ForbiddenException("Registrations are disabled");
+		const isFirstUser = (await this.userManagerService.count()) === 0;
+
+		if (!isFirstUser) {
+			const allowRegistrations = await this.systemConfigService.getOption(
+				"allow-user-registrations",
+				"boolean",
+			);
+			if (!allowRegistrations) {
+				throw new ForbiddenException("Registrations are disabled");
+			}
 		}
 
 		const user = await this.userManagerService.create(
 			dto.username,
 			dto.password,
+			isFirstUser,
 		);
+
+		if (isFirstUser) {
+			this.privilegesService.registerOwner(user.uuid);
+		}
 
 		const jwt = await this.userManagerService.generateJwt(user);
 		this.setAuthCookie(response, jwt);
 
-		return user.toResponse([]); // no privileges on account create
+		const privileges = isFirstUser
+			? this.privilegesService.toPrivilegeList(user.uuid, [])
+			: [];
+		return user.toResponse(privileges);
 	}
 
 	@Get("me")

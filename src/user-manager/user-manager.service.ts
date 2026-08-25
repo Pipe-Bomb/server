@@ -48,7 +48,7 @@ export class UserManagerService {
 		});
 	}
 
-	async create(username: string, password: string) {
+	async create(username: string, password: string, isOwner = false) {
 		username = username.toLowerCase();
 
 		// todo: username validation
@@ -67,6 +67,7 @@ export class UserManagerService {
 			username,
 			passwordHash: hash,
 			passwordSalt: salt.toString("hex"),
+			isOwner,
 		});
 
 		await this.usersRepository.insert(user);

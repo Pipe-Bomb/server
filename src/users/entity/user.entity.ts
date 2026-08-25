@@ -34,6 +34,12 @@ export class DBUser {
 	})
 	passwordSalt: string;
 
+	@Column({
+		type: "boolean",
+		default: false,
+	})
+	isOwner: boolean;
+
 	@OneToMany(() => DBPlaylist, (playlist) => playlist.owner)
 	playlists?: DBPlaylist[];
 
