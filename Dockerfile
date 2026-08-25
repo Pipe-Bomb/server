@@ -28,6 +28,7 @@ COPY --from=builder --chown=pipebomb:pipebomb /app/dist ./dist
 COPY --from=builder --chown=pipebomb:pipebomb /app/node_modules ./node_modules
 # package.json is imported at runtime by main.js (one level up from dist/src/)
 COPY --from=builder --chown=pipebomb:pipebomb /app/package.json ./dist/package.json
+COPY --chown=pipebomb:pipebomb assets/ ./assets/
 
 RUN mkdir -p /app/data /app/resources /app/audio-cache /app/plugin-cache /app/temp /app/plugins /app/bin /app/.secrets \
 	&& chown -R pipebomb:pipebomb /app/data /app/resources /app/audio-cache /app/plugin-cache /app/temp /app/plugins /app/bin /app/.secrets
