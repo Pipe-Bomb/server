@@ -19,9 +19,8 @@ jobs:
         env:
           ATOMIRA_PAT: ${{ secrets.ATOMIRA_PAT }}
         run: |
-          # Use PAT authentication in the HTTPS URL
-          git remote add atomira "https://oauth2:${ATOMIRA_PAT}@atomira.dev/o/pipe-bomb/r/server.git"
+          git remote add atomira "https://pipebomb:${ATOMIRA_PAT}@atomira.dev/o/pipe-bomb/r/server" || \
+          git remote set-url atomira "https://pipebomb:${ATOMIRA_PAT}@atomira.dev/o/pipe-bomb/r/server"
 
-          # Force sync all tracking branches and tags
-          git push --force --prune atomira refs/remotes/origin/*:refs/heads/*
-          git push --force --tags atomira
+          git push atomira --all
+          git push atomira --tags
