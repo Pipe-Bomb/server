@@ -29,8 +29,8 @@ COPY --from=builder --chown=pipebomb:pipebomb /app/node_modules ./node_modules
 # package.json is imported at runtime by main.js (one level up from dist/src/)
 COPY --from=builder --chown=pipebomb:pipebomb /app/package.json ./dist/package.json
 
-RUN mkdir -p /app/data /app/resources /app/audio-cache /app/plugin-cache /app/temp /app/plugins /app/bin \
-	&& chown -R pipebomb:pipebomb /app/data /app/resources /app/audio-cache /app/plugin-cache /app/temp /app/plugins /app/bin
+RUN mkdir -p /app/data /app/resources /app/audio-cache /app/plugin-cache /app/temp /app/plugins /app/bin /app/.secrets \
+	&& chown -R pipebomb:pipebomb /app/data /app/resources /app/audio-cache /app/plugin-cache /app/temp /app/plugins /app/bin /app/.secrets
 
 USER pipebomb
 
@@ -42,6 +42,6 @@ ENV PATH="/app/bin:$PATH"
 
 EXPOSE 3000
 
-VOLUME ["/app/data", "/app/resources", "/app/audio-cache", "/app/plugin-cache", "/app/plugins", "/app/temp"]
+VOLUME ["/app/data", "/app/resources", "/app/audio-cache", "/app/plugin-cache", "/app/plugins", "/app/temp", "/app/.secrets"]
 
 CMD ["node", "dist/src/main.js"]
