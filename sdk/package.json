@@ -1,0 +1,15 @@
+{
+	"name": "@pipe-bomb/plugin-sdk",
+	"version": "0.0.2",
+	"description": "Type definitions for the Pipe Bomb plugin SDK",
+	"types": "./index.d.ts",
+	"license": "MIT",
+	"files": [
+		"**/*.d.ts"
+	],
+	"keywords": [
+		"pipe-bomb",
+		"plugin",
+		"sdk"
+	]
+}

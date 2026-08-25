@@ -9,6 +9,7 @@ import {
 	Param,
 	Post,
 	Query,
+	Req,
 	Res,
 	UnauthorizedException,
 } from "@nestjs/common";
@@ -24,7 +25,7 @@ import {
 	ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
 import { UserResponse } from "./response/user.response";
-import type { Response } from "express";
+import type { Request, Response } from "express";
 import { ReqUser } from "./user.decorator";
 import { FetchUserPipe } from "./user.pipe";
 import { DBUser } from "./entity/user.entity";
@@ -52,11 +53,19 @@ export class UsersController {
 		);
 	}
 
-	private setAuthCookie(response: Response, jwt: string) {
+	private isSecure(request: Request): boolean {
+		const publicUrl = process.env.PUBLIC_URL;
+		if (publicUrl) {
+			return publicUrl.startsWith("https://");
+		}
+		return request.secure;
+	}
+
+	private setAuthCookie(request: Request, response: Response, jwt: string) {
 		response.cookie("auth_token", jwt, {
 			domain: process.env.COOKIE_DOMAIN,
 			httpOnly: true,
-			secure: process.env.NODE_ENV == "production",
+			secure: this.isSecure(request),
 			sameSite: "lax",
 			maxAge: 1000 * 60 * 60 * 24 * 30,
 			path: "/",
@@ -86,6 +95,7 @@ export class UsersController {
 	@ApiUnauthorizedResponse()
 	@HttpCode(HttpStatus.OK)
 	async login(
+		@Req() request: Request,
 		@Body() dto: LoginDto,
 		@Res({ passthrough: true }) response: Response,
 	): Promise<UserResponse> {
@@ -95,7 +105,7 @@ export class UsersController {
 		);
 
 		const jwt = await this.userManagerService.generateJwt(user);
-		this.setAuthCookie(response, jwt);
+		this.setAuthCookie(request, response, jwt);
 
 		return user.toResponse(
 			this.privilegesService.toPrivilegeList(user.uuid, user.privileges!),
@@ -111,6 +121,7 @@ export class UsersController {
 	@ApiConflictResponse()
 	@ApiForbiddenResponse()
 	async signup(
+		@Req() request: Request,
 		@Body() dto: LoginDto,
 		@Res({ passthrough: true }) response: Response,
 	): Promise<UserResponse> {
@@ -137,7 +148,7 @@ export class UsersController {
 		}
 
 		const jwt = await this.userManagerService.generateJwt(user);
-		this.setAuthCookie(response, jwt);
+		this.setAuthCookie(request, response, jwt);
 
 		const privileges = isFirstUser
 			? this.privilegesService.toPrivilegeList(user.uuid, [])
@@ -169,10 +180,13 @@ export class UsersController {
 	@ApiNoContentResponse()
 	@ApiUnauthorizedResponse()
 	@HttpCode(HttpStatus.NO_CONTENT)
-	logout(@Res({ passthrough: true }) response: Response) {
+	logout(
+		@Req() request: Request,
+		@Res({ passthrough: true }) response: Response,
+	) {
 		response.clearCookie("auth_token", {
 			httpOnly: true,
-			secure: process.env.NODE_ENV == "production",
+			secure: this.isSecure(request),
 			sameSite: "lax",
 			path: "/",
 		});
