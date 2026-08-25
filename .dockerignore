@@ -1,0 +1,11 @@
+node_modules
+dist
+.git
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+audio-cache
+plugin-cache
+temp
+openapi
+.env
