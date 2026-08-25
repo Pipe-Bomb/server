@@ -19,6 +19,7 @@ import { NestExpressApplication } from "@nestjs/platform-express";
 import cookieParser from "cookie-parser";
 import { PORT } from "./config/constants";
 import { ErrorResponse } from "./response/error.response";
+import { existsSync } from "fs";
 
 async function bootstrap() {
 	try {
@@ -26,7 +27,12 @@ async function bootstrap() {
 			recursive: true,
 		});
 	} catch {}
-	await mkdir("temp");
+	try {
+		await mkdir("temp");
+	} catch {}
+	if (!existsSync("temp")) {
+		throw new Error(`Directory "temp" doesn't exist`);
+	}
 
 	const app = await NestFactory.create<NestExpressApplication>(AppModule);
 	app.enableCors({
