@@ -4,6 +4,7 @@ import { DBPrivilege } from "./entity/privilege.entity";
 import {
 	DataSource,
 	FindOptionsWhere,
+	In,
 	QueryDeepPartialEntity,
 	Repository,
 } from "typeorm";
@@ -54,6 +55,20 @@ export class PrivilegesService implements OnModuleInit {
 			this.logger.log(
 				`Loaded ${this.ownerUuids.size} owner UUID(s) from database`,
 			);
+		}
+
+		if (!this.ownerUuids.size && this.adminUuids.length) {
+			this.logger.warn(
+				"No owner found in database but ADMINS env is set — migrating ADMINS UUIDs to database owners. " +
+					"You can remove the ADMINS env var after this restart.",
+			);
+			await this.usersRepository.update(
+				{ uuid: In(this.adminUuids) },
+				{ isOwner: true },
+			);
+			for (const uuid of this.adminUuids) {
+				this.ownerUuids.add(uuid);
+			}
 		}
 	}
 
