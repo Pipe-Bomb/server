@@ -199,6 +199,10 @@ export class TrackManagerService {
 			this.logger.debug(
 				`Added ${toInsert.length} new Tracks to Library "${libraryHandler.id}" for Plugin "${plugin.package.name}"`,
 			);
+
+			for (const listener of this.addTrackListeners) {
+				listener();
+			}
 		}
 
 		return output as DBTrack[];
