@@ -4,6 +4,8 @@ import {
 	Get,
 	HttpCode,
 	HttpStatus,
+	InternalServerErrorException,
+	Logger,
 	NotFoundException,
 	Param,
 	Post,
@@ -32,6 +34,8 @@ import { AuthGuard } from "src/user-manager/auth.guard";
 
 @Controller("tracks")
 export class TracksController {
+	private readonly logger = new Logger("Tracks Controller");
+
 	constructor(
 		private readonly tracksService: TracksService,
 		private readonly trackManagerService: TrackManagerService,
@@ -82,9 +86,18 @@ export class TracksController {
 			throw new NotFoundException("Track not found");
 		}
 
-		const resolvedTracks = await ephemeralSource.source.resolveTracks([
-			trackId,
-		]);
+		let resolvedTracks: Awaited<
+			ReturnType<typeof ephemeralSource.source.resolveTracks>
+		>;
+		try {
+			resolvedTracks = await ephemeralSource.source.resolveTracks([trackId]);
+		} catch (e) {
+			this.logger.error(
+				`Ephemeral Source "${ephemeralSource.source.id}" from Plugin "${ephemeralSource.plugin.package.name}" failed to resolve track "${trackId}":`,
+				e,
+			);
+			throw new InternalServerErrorException("Failed to resolve track");
+		}
 		if (!resolvedTracks.length) {
 			throw new NotFoundException("Track not found");
 		}

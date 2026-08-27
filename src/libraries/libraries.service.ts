@@ -51,73 +51,80 @@ export class LibrariesService {
 					const startPercent = sectionPercent * index;
 					context.update(startPercent);
 
-					await library.handler.scan({
-						update: (percent) => {
+					try {
+						await library.handler.scan({
+							update: (percent) => {
+								context.update(
+									startPercent +
+										(Math.max(Math.min(percent, 1), 0) * sectionPercent) / 2,
+								);
+							},
+							getRunId: () => context.getRunId(),
+						});
+
+						let chunks = 0;
+						const CHUNK_SIZE = 1_000;
+
+						const where: FindOptionsWhere<DBTrack>[] = [
+							{
+								pluginId: library.plugin.package.name,
+								libraryId: library.handler.id,
+								lastScanRunId: IsNull(),
+							},
+							{
+								pluginId: library.plugin.package.name,
+								libraryId: library.handler.id,
+								lastScanRunId: Not(context.getRunId()),
+							},
+						];
+
+						const toVerifyCount = await this.trackManagerService.count(where);
+						const toDelete = new Set<string>();
+
+						while (true) {
+							const tracks = await this.trackManagerService.find({
+								where,
+								take: CHUNK_SIZE,
+								skip: CHUNK_SIZE * chunks++,
+								select: ["trackId"],
+							});
+							if (!tracks.length) {
+								break;
+							}
+							const trackIds = new Set(tracks.map((track) => track.trackId));
+							const validatedTrackIds = await library.handler.doTracksExist(
+								Array.from(trackIds),
+							);
+							for (const trackId of validatedTrackIds) {
+								trackIds.delete(trackId);
+							}
+							for (const removedId of trackIds) {
+								toDelete.add(removedId);
+							}
+
+							const percent = (CHUNK_SIZE * chunks) / toVerifyCount;
 							context.update(
 								startPercent +
-									(Math.max(Math.min(percent, 1), 0) * sectionPercent) / 2,
+									(Math.max(Math.min(percent, 1), 0) * sectionPercent) / 2 +
+									sectionPercent / 2,
 							);
-						},
-						getRunId: () => context.getRunId(),
-					});
-
-					let chunks = 0;
-					const CHUNK_SIZE = 1_000;
-
-					const where: FindOptionsWhere<DBTrack>[] = [
-						{
-							pluginId: library.plugin.package.name,
-							libraryId: library.handler.id,
-							lastScanRunId: IsNull(),
-						},
-						{
-							pluginId: library.plugin.package.name,
-							libraryId: library.handler.id,
-							lastScanRunId: Not(context.getRunId()),
-						},
-					];
-
-					const toVerifyCount = await this.trackManagerService.count(where);
-					const toDelete = new Set<string>();
-
-					while (true) {
-						const tracks = await this.trackManagerService.find({
-							where,
-							take: CHUNK_SIZE,
-							skip: CHUNK_SIZE * chunks++,
-							select: ["trackId"],
-						});
-						if (!tracks.length) {
-							break;
 						}
-						const trackIds = new Set(tracks.map((track) => track.trackId));
-						const validatedTrackIds = await library.handler.doTracksExist(
-							Array.from(trackIds),
+
+						this.logger.debug(
+							`Removing ${toDelete.size} Tracks from Library "${library.handler.id}" from Plugin "${library.plugin.package.name}"`,
 						);
-						for (const trackId of validatedTrackIds) {
-							trackIds.delete(trackId);
-						}
-						for (const removedId of trackIds) {
-							toDelete.add(removedId);
-						}
 
-						const percent = (CHUNK_SIZE * chunks) / toVerifyCount;
-						context.update(
-							startPercent +
-								(Math.max(Math.min(percent, 1), 0) * sectionPercent) / 2 +
-								sectionPercent / 2,
+						await this.trackManagerService.removeTracks(
+							library.plugin,
+							library.handler,
+							Array.from(toDelete),
+						);
+					} catch (e) {
+						this.logger.error(
+							`An error occured while scanning Library "${library.handler.id}" from Plugin "${library.plugin.package.name}":`,
+							e,
 						);
 					}
-
-					this.logger.debug(
-						`Removing ${toDelete.size} Tracks from Library "${library.handler.id}" from Plugin "${library.plugin.package.name}"`,
-					);
-
-					await this.trackManagerService.removeTracks(
-						library.plugin,
-						library.handler,
-						Array.from(toDelete),
-					);
 				}
 			},
 		});

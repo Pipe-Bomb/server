@@ -8,6 +8,7 @@ import {
 	Get,
 	HttpCode,
 	HttpStatus,
+	InternalServerErrorException,
 	Logger,
 	NotFoundException,
 	Param,
@@ -326,18 +327,43 @@ export class PlaylistsController {
 						if (!ephemeralSource) {
 							throw new NotFoundException("Ephemeral Album not found");
 						}
-						const content = await ephemeralSource.source.resolveAlbumContent(
-							albumInfo.identityId,
-							albumInfo.identity,
-						);
+						let content: Awaited<
+							ReturnType<typeof ephemeralSource.source.resolveAlbumContent>
+						>;
+						try {
+							content = await ephemeralSource.source.resolveAlbumContent(
+								albumInfo.identityId,
+								albumInfo.identity,
+							);
+						} catch (e) {
+							this.logger.error(
+								`Ephemeral Source "${ephemeralSource.source.id}" from Plugin "${ephemeralSource.plugin.package.name}" failed to resolve album content for identity "${albumInfo.identityId}:${albumInfo.identity}":`,
+								e,
+							);
+							throw new InternalServerErrorException(
+								"Failed to resolve album content",
+							);
+						}
 						if (!content) {
 							throw new NotFoundException("Ephemeral Album not found");
 						}
 						if (content.tracks?.length) {
+							let libraryId: string;
+							try {
+								libraryId = ephemeralSource.source.getLibraryHandler().id;
+							} catch (e) {
+								this.logger.error(
+									`Ephemeral Source "${ephemeralSource.source.id}" from Plugin "${ephemeralSource.plugin.package.name}" threw during getLibraryHandler():`,
+									e,
+								);
+								throw new InternalServerErrorException(
+									"Failed to get library handler",
+								);
+							}
 							await resolveTracks(
 								content.tracks.map((track) => ({
 									pluginId: ephemeralSource.plugin.package.name,
-									libraryId: ephemeralSource.source.getLibraryHandler().id,
+									libraryId,
 									trackId: track.id,
 								})),
 							);

@@ -405,10 +405,19 @@ export class ArtistManagerService {
 						(i) => i.identityId == id && (!pluginId || i.pluginId == pluginId),
 					),
 			);
-			const newIdentities = await identifier.identify(
-				helper,
-				new Logger(`PLUGIN ${plugin.package.name}`),
-			);
+			let newIdentities: Awaited<ReturnType<typeof identifier.identify>>;
+			try {
+				newIdentities = await identifier.identify(
+					helper,
+					new Logger(`PLUGIN ${plugin.package.name}`),
+				);
+			} catch (e) {
+				this.logger.error(
+					`An error occured while trying to identify Artist "${artist.uuid}" (Plugin: "${plugin.package.name}") with Identifier "${identifier.id}":`,
+					e,
+				);
+				continue;
+			}
 
 			allIdentities = allIdentities.filter(
 				(i) =>

@@ -5,6 +5,7 @@ import {
 	Get,
 	HttpCode,
 	HttpStatus,
+	InternalServerErrorException,
 	Logger,
 	NotFoundException,
 	Param,
@@ -149,11 +150,21 @@ export class ArtistsController {
 			artist.identities!,
 		);
 
-		return sources.map(({ source, plugin }) => ({
-			id: source.id,
-			pluginId: plugin.package.name,
-			name: source.getName(),
-		}));
+		return sources.map(({ source, plugin }) => {
+			try {
+				return {
+					id: source.id,
+					pluginId: plugin.package.name,
+					name: source.getName(),
+				};
+			} catch (e) {
+				this.logger.error(
+					`Ephemeral Source "${source.id}" from Plugin "${plugin.package.name}" threw during getName():`,
+					e,
+				);
+				throw new InternalServerErrorException("Failed to get source name");
+			}
+		});
 	}
 
 	@Post(":artistUuid/ephemeral")

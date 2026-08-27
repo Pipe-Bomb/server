@@ -178,12 +178,19 @@ export class EphemeralService {
 	) {
 		const attributeSource = this.attributeSources.get(source.source) ?? null;
 
-		const results = await source.source.search(options);
-
-		return {
-			...results,
-			attributeSource,
-		};
+		try {
+			const results = await source.source.search(options);
+			return {
+				...results,
+				attributeSource,
+			};
+		} catch (e) {
+			this.logger.error(
+				`Ephemeral Source "${source.source.id}" from Plugin "${source.plugin.package.name}" failed to search:`,
+				e,
+			);
+			throw e;
+		}
 	}
 
 	async resolveArtists(artistMetas: IdentifiableArtistMetadata[]) {
@@ -265,10 +272,16 @@ export class EphemeralService {
 		identityId: string,
 		identity: string,
 	) {
-		const content = await source.source.resolveArtistContent(
-			identityId,
-			identity,
-		);
+		let content: Awaited<ReturnType<typeof source.source.resolveArtistContent>>;
+		try {
+			content = await source.source.resolveArtistContent(identityId, identity);
+		} catch (e) {
+			this.logger.error(
+				`Ephemeral Source "${source.source.id}" from Plugin "${source.plugin.package.name}" failed to resolve artist content for identity "${identityId}:${identity}":`,
+				e,
+			);
+			throw e;
+		}
 
 		if (!content) {
 			return null;
@@ -302,10 +315,16 @@ export class EphemeralService {
 		identityId: string,
 		identity: string,
 	) {
-		const content = await source.source.resolveAlbumContent(
-			identityId,
-			identity,
-		);
+		let content: Awaited<ReturnType<typeof source.source.resolveAlbumContent>>;
+		try {
+			content = await source.source.resolveAlbumContent(identityId, identity);
+		} catch (e) {
+			this.logger.error(
+				`Ephemeral Source "${source.source.id}" from Plugin "${source.plugin.package.name}" failed to resolve album content for identity "${identityId}:${identity}":`,
+				e,
+			);
+			throw e;
+		}
 
 		if (!content) {
 			return null;
@@ -365,7 +384,16 @@ export class EphemeralService {
 			return null;
 		}
 
-		const album = await source.source.resolveAlbum(identityId, identity);
+		let album: Awaited<ReturnType<typeof source.source.resolveAlbum>>;
+		try {
+			album = await source.source.resolveAlbum(identityId, identity);
+		} catch (e) {
+			this.logger.error(
+				`Ephemeral Source "${source.source.id}" from Plugin "${source.plugin.package.name}" failed to resolve album for identity "${identityId}:${identity}":`,
+				e,
+			);
+			throw e;
+		}
 		if (!album) {
 			return null;
 		}
@@ -424,7 +452,16 @@ export class EphemeralService {
 			return null;
 		}
 
-		const artist = await source.source.resolveArtist(identityId, identity);
+		let artist: Awaited<ReturnType<typeof source.source.resolveArtist>>;
+		try {
+			artist = await source.source.resolveArtist(identityId, identity);
+		} catch (e) {
+			this.logger.error(
+				`Ephemeral Source "${source.source.id}" from Plugin "${source.plugin.package.name}" failed to resolve artist for identity "${identityId}:${identity}":`,
+				e,
+			);
+			throw e;
+		}
 		if (!artist) {
 			return null;
 		}
@@ -685,14 +722,22 @@ export class EphemeralService {
 		attributes: Record<string, PersistentAttributeResponse> | null,
 		artists: TrackArtistResponse[] | null,
 	): EphemeralTrackResponse {
-		return {
-			trackId: track.id,
-			title: track.title,
-			pluginId: source.plugin.package.name,
-			libraryId: source.source.getLibraryHandler().id,
-			attributes,
-			artists,
-		};
+		try {
+			return {
+				trackId: track.id,
+				title: track.title,
+				pluginId: source.plugin.package.name,
+				libraryId: source.source.getLibraryHandler().id,
+				attributes,
+				artists,
+			};
+		} catch (e) {
+			this.logger.error(
+				`Ephemeral Source "${source.source.id}" from Plugin "${source.plugin.package.name}" threw during toTrackResponse for track "${track.id}":`,
+				e,
+			);
+			throw e;
+		}
 	}
 
 	createEphemeralAttributes(

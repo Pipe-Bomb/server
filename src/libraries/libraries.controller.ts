@@ -4,6 +4,8 @@ import {
 	Get,
 	HttpCode,
 	HttpStatus,
+	InternalServerErrorException,
+	Logger,
 	NotFoundException,
 	Param,
 	Post,
@@ -21,6 +23,8 @@ import { AttributeSourcesService } from "src/attribute-sources/attribute-sources
 
 @Controller("libraries")
 export class LibrariesController {
+	private readonly logger = new Logger("Libraries Controller");
+
 	constructor(
 		private readonly librariesService: LibrariesService,
 		private readonly attributeSourcesService: AttributeSourcesService,
@@ -34,11 +38,21 @@ export class LibrariesController {
 	all(): PluginLibrary[] {
 		const pluginLibs = this.librariesService.allFlat();
 
-		return pluginLibs.map(({ handler, plugin }) => ({
-			pluginId: plugin.package.name,
-			id: handler.id,
-			name: handler.getName(),
-		}));
+		return pluginLibs.map(({ handler, plugin }) => {
+			try {
+				return {
+					pluginId: plugin.package.name,
+					id: handler.id,
+					name: handler.getName(),
+				};
+			} catch (e) {
+				this.logger.error(
+					`Library Handler "${handler.id}" from Plugin "${plugin.package.name}" threw during getName():`,
+					e,
+				);
+				throw new InternalServerErrorException("Failed to get library name");
+			}
+		});
 	}
 
 	@Get(":pluginId/:libraryId")
@@ -58,11 +72,19 @@ export class LibrariesController {
 
 		const { plugin, handler } = library;
 
-		return {
-			id: handler.id,
-			name: handler.getName(),
-			pluginId: plugin.package.name,
-		};
+		try {
+			return {
+				id: handler.id,
+				name: handler.getName(),
+				pluginId: plugin.package.name,
+			};
+		} catch (e) {
+			this.logger.error(
+				`Library Handler "${handler.id}" from Plugin "${plugin.package.name}" threw during getName():`,
+				e,
+			);
+			throw new InternalServerErrorException("Failed to get library name");
+		}
 	}
 
 	@Post(":pluginId/:libraryId/search")
