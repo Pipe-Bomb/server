@@ -49,6 +49,8 @@
 	"contextmenu.playlist.scan-smart-filters": "Scan Smart Filters",
 	"contextmenu.playlist.manage-collaborators": "Manage Collaborators",
 
+	"contextmenu.plugin.delete": "Uninstall plugin",
+
 	"modal.playlist-collaborators.title": "Collaborators",
 	"modal.playlist-collaborators.empty": "No members yet",
 	"modal.playlist-collaborators.add-section": "Add member",
@@ -118,6 +120,8 @@
 	"privilege.system.view-privileges.name": "View user privileges",
 	"privilege.system.edit-system-config.name": "Edit system config",
 	"privilege.system.view-system-config.name": "View system config",
+	"privilege.system.modify-plugin-installations.name": "Add and remove plugins",
+	"privilege.system.view-plugins.name": "View plugins",
 
 	"config.system.allow-user-registrations.name": "Allow user registrations",
 	"config.system.allow-user-registrations.description": "Whether new users can register accounts"

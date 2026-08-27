@@ -1,9 +1,11 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { plainToInstance } from "class-transformer";
 import { isUUID, validate } from "class-validator";
+import { execFile } from "child_process";
 import { existsSync } from "fs";
-import { lstat, mkdir, readdir, readFile } from "fs/promises";
+import { lstat, mkdir, readdir, readFile, rename, rm } from "fs/promises";
 import path from "path";
+import { promisify } from "util";
 import { PluginPackageDto } from "./dto/plugin-package.dto";
 import type Sdk from "@sdk";
 import Package from "../../package.json";
@@ -99,87 +101,9 @@ export class PluginsService {
 				this.logger.debug(`Ignoring plugin directory "${child}"`);
 				continue;
 			}
+			const pluginDirPath = path.join(this.pluginsDirectory, child);
 			try {
-				this.logger.debug(`Attempting to parse plugin "${child}"...`);
-				const pluginDirPath = path.join(this.pluginsDirectory, child);
-				const dirInfo = await lstat(pluginDirPath);
-				if (!dirInfo.isDirectory()) {
-					throw new Error(`Plugin path is not a directory`);
-				}
-
-				let packageContents: string;
-				try {
-					packageContents = await readFile(
-						path.join(pluginDirPath, "package.json"),
-						"utf-8",
-					);
-				} catch (e) {
-					throw new Error(`Failed to read "package.json"`);
-				}
-
-				let packageJson: any;
-				try {
-					packageJson = JSON.parse(packageContents);
-				} catch (e) {
-					throw new Error(`"package.json" contains invalid JSON`);
-				}
-
-				const pluginPackage = plainToInstance(PluginPackageDto, packageJson);
-				const errors = await validate(pluginPackage);
-
-				if (errors.length) {
-					this.logger.error(`Issues detected with "package.json":`);
-					for (const error of errors) {
-						if (error.constraints) {
-							for (const constraint of Object.values(error.constraints)) {
-								this.logger.error(` - ${constraint}`);
-							}
-						}
-					}
-					throw new Error(`Failed to parse "packages.json"`);
-				}
-
-				this.logger.log(
-					`Loading "${pluginPackage.name}" v${pluginPackage.version} (${child})...`,
-				);
-
-				const entryFile = path.join(
-					pluginDirPath,
-					pluginPackage.pipebombEntry || pluginPackage.main || "index.js",
-				);
-
-				const pluginImport = await import(entryFile);
-
-				if (
-					!("default" in pluginImport) ||
-					typeof pluginImport.default != "function"
-				) {
-					throw new Error("Entrypoint is invalid");
-				}
-
-				const pluginConstructor = pluginImport.default;
-				if (!this.isValidPlugin(pluginConstructor)) {
-					throw new Error("Entrypoint doesn't expost a valid plugin");
-				}
-
-				const plugin = new pluginConstructor();
-				this.logger.debug(`Successfully instantiated "${pluginPackage.name}"`);
-
-				const loadedPlugin: LoadedPlugin = {
-					plugin,
-					package: pluginPackage,
-				};
-				const pluginApiContext = this.createPluginApiContext(
-					loadedPlugin,
-					pluginDirPath,
-				);
-				plugin.enable(pluginApiContext);
-
-				this.plugins.set(pluginPackage.name, loadedPlugin);
-
-				this.logger.log(
-					`Enabled "${pluginPackage.name}" v${pluginPackage.version}`,
-				);
+				await this.loadPluginFromDirectory(pluginDirPath);
 			} catch (e) {
 				this.logger.error(`Failed to load plugin "${child}":`, e);
 			}
@@ -193,6 +117,171 @@ export class PluginsService {
 			listener();
 		}
 		this.waitListeners.clear();
+	}
+
+	private async requestTempDirectory(): Promise<string> {
+		let dir: string;
+		do {
+			dir = path.join("temp", randomUUID());
+		} while (existsSync(dir));
+		await mkdir(dir);
+		return dir;
+	}
+
+	private async loadPluginFromDirectory(pluginDirPath: string): Promise<void> {
+		const dirInfo = await lstat(pluginDirPath);
+		if (!dirInfo.isDirectory()) {
+			throw new Error(`Plugin path is not a directory`);
+		}
+
+		let packageContents: string;
+		try {
+			packageContents = await readFile(
+				path.join(pluginDirPath, "package.json"),
+				"utf-8",
+			);
+		} catch (e) {
+			throw new Error(`Failed to read "package.json"`);
+		}
+
+		let packageJson: any;
+		try {
+			packageJson = JSON.parse(packageContents);
+		} catch (e) {
+			throw new Error(`"package.json" contains invalid JSON`);
+		}
+
+		const pluginPackage = plainToInstance(PluginPackageDto, packageJson);
+		const errors = await validate(pluginPackage);
+
+		if (errors.length) {
+			this.logger.error(`Issues detected with "package.json":`);
+			for (const error of errors) {
+				if (error.constraints) {
+					for (const constraint of Object.values(error.constraints)) {
+						this.logger.error(` - ${constraint}`);
+					}
+				}
+			}
+			throw new Error(`Failed to parse "package.json"`);
+		}
+
+		this.logger.log(
+			`Loading "${pluginPackage.name}" v${pluginPackage.version}...`,
+		);
+
+		const entryFile = path.join(
+			pluginDirPath,
+			pluginPackage.pipebombEntry || pluginPackage.main || "index.js",
+		);
+
+		if (!existsSync(entryFile)) {
+			throw new Error(`Entrypoint file not found: ${entryFile}`);
+		}
+
+		const pluginImport = await import(entryFile);
+
+		if (
+			!("default" in pluginImport) ||
+			typeof pluginImport.default != "function"
+		) {
+			throw new Error("Entrypoint is invalid");
+		}
+
+		const pluginConstructor = pluginImport.default;
+		if (!this.isValidPlugin(pluginConstructor)) {
+			throw new Error("Entrypoint doesn't export a valid plugin");
+		}
+
+		const plugin = new pluginConstructor();
+		this.logger.debug(`Successfully instantiated "${pluginPackage.name}"`);
+
+		const loadedPlugin: LoadedPlugin = {
+			plugin,
+			package: pluginPackage,
+		};
+		const pluginApiContext = this.createPluginApiContext(
+			loadedPlugin,
+			pluginDirPath,
+		);
+		plugin.enable(pluginApiContext);
+
+		this.plugins.set(pluginPackage.name, loadedPlugin);
+
+		this.logger.log(
+			`Enabled "${pluginPackage.name}" v${pluginPackage.version}`,
+		);
+	}
+
+	public async installPlugin(gitUrl: string, ref?: string): Promise<string> {
+		const exec = promisify(execFile);
+		const tempDir = await this.requestTempDirectory();
+
+		try {
+			const cloneArgs = ref
+				? ["clone", "--depth", "1", "--branch", ref, gitUrl, tempDir]
+				: ["clone", "--depth", "1", gitUrl, tempDir];
+			await exec("git", cloneArgs);
+
+			await exec("npm", ["ci"], { cwd: tempDir });
+
+			let packageJson: any;
+			try {
+				const packageContents = await readFile(
+					path.join(tempDir, "package.json"),
+					"utf-8",
+				);
+				packageJson = JSON.parse(packageContents);
+			} catch (e) {
+				throw new BadRequestException(
+					`Failed to read "package.json" from cloned repository`,
+				);
+			}
+
+			if (packageJson?.scripts?.build) {
+				await exec("npm", ["run", "build"], { cwd: tempDir });
+			}
+
+			const entryRelative =
+				packageJson?.pipebombEntry || packageJson?.main || "index.js";
+			if (!existsSync(path.join(tempDir, entryRelative))) {
+				throw new BadRequestException(
+					`Entrypoint "${entryRelative}" does not exist after build`,
+				);
+			}
+
+			const pluginName: string = packageJson?.name;
+			if (!pluginName) {
+				throw new BadRequestException(
+					`"name" field missing from "package.json"`,
+				);
+			}
+
+			const destDir = path.join(this.pluginsDirectory, pluginName);
+			if (existsSync(destDir)) {
+				throw new BadRequestException(
+					`Plugin "${pluginName}" is already installed`,
+				);
+			}
+
+			await mkdir(this.pluginsDirectory, { recursive: true });
+			await rename(tempDir, destDir);
+
+			try {
+				await this.loadPluginFromDirectory(destDir);
+			} catch (e) {
+				throw new BadRequestException(
+					`Plugin installed but failed to load: ${(e as Error).message}`,
+				);
+			}
+
+			return pluginName;
+		} catch (e) {
+			if (existsSync(tempDir)) {
+				await rm(tempDir, { recursive: true, force: true });
+			}
+			throw e;
+		}
 	}
 
 	private createPluginApiContext(
@@ -218,14 +307,7 @@ export class PluginsService {
 			},
 			getServerPort: () => PORT,
 			getPluginPackage: () => plugin.package,
-			requestTempDirectory: async () => {
-				let dir: string;
-				do {
-					dir = path.join("temp", randomUUID());
-				} while (existsSync(dir));
-				await mkdir(dir);
-				return dir;
-			},
+			requestTempDirectory: () => this.requestTempDirectory(),
 			requestCacheDirectory: async () => {
 				const dir = path.join("plugin-cache", plugin.package.name);
 				await mkdir(dir, {
@@ -658,7 +740,20 @@ export class PluginsService {
 		);
 	}
 
+	public async removePlugin(name: string): Promise<boolean> {
+		if (!this.plugins.has(name)) {
+			return false;
+		}
+		const destDir = path.join(this.pluginsDirectory, name);
+		await rm(destDir, { recursive: true, force: true });
+		return true;
+	}
+
 	public getPlugin(id: string) {
 		return this.plugins.get(id) ?? null;
+	}
+
+	public all() {
+		return Array.from(this.plugins.values());
 	}
 }

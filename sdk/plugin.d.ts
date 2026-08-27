@@ -9,4 +9,5 @@ export interface PluginPackage {
 	readonly name: string;
 	readonly version: string;
 	readonly pipebombEntry: string | undefined;
+	readonly description: string | undefined;
 }

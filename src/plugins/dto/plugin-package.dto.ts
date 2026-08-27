@@ -16,4 +16,8 @@ export class PluginPackageDto implements Sdk.PluginPackage {
 	@IsString()
 	@IsOptional()
 	main: string | undefined;
+
+	@IsString()
+	@IsOptional()
+	description: string | undefined;
 }

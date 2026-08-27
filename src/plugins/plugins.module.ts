@@ -17,6 +17,7 @@ import { AudioSessionsModule } from "src/audio-sessions/audio-sessions.module";
 import { UsersModule } from "src/users/users.module";
 import { PlaylistsModule } from "src/playlists/playlists.module";
 import { WorkflowsModule } from "src/workflows/workflows.module";
+import { PrivilegesModule } from "src/privileges/privileges.module";
 
 @Module({
 	imports: [
@@ -36,6 +37,7 @@ import { WorkflowsModule } from "src/workflows/workflows.module";
 		UsersModule,
 		PlaylistsModule,
 		WorkflowsModule,
+		PrivilegesModule,
 	],
 	controllers: [PluginsController],
 	providers: [PluginsService],
