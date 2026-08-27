@@ -219,6 +219,7 @@ export class PluginsService {
 		const npmEnv = {
 			...process.env,
 			npm_config_cache: path.join(tempDir, ".npm-cache"),
+			NODE_ENV: "development",
 		};
 
 		try {
@@ -227,7 +228,7 @@ export class PluginsService {
 				: ["clone", "--depth", "1", gitUrl, tempDir];
 			await exec("git", cloneArgs);
 
-			await exec("npm", ["ci"], { cwd: tempDir, env: npmEnv });
+			await exec("npm", ["ci", "--include=dev"], { cwd: tempDir, env: npmEnv });
 
 			let packageJson: any;
 			try {
@@ -244,6 +245,10 @@ export class PluginsService {
 
 			if (packageJson?.scripts?.build) {
 				await exec("npm", ["run", "build"], { cwd: tempDir, env: npmEnv });
+				await exec("npm", ["prune", "--omit=dev"], {
+					cwd: tempDir,
+					env: npmEnv,
+				});
 			}
 
 			const entryRelative =
