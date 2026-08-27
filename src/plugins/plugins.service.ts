@@ -3,7 +3,7 @@ import { plainToInstance } from "class-transformer";
 import { isUUID, validate } from "class-validator";
 import { execFile } from "child_process";
 import { existsSync } from "fs";
-import { lstat, mkdir, readdir, readFile, rename, rm } from "fs/promises";
+import { cp, lstat, mkdir, readdir, readFile, rm } from "fs/promises";
 import path from "path";
 import { promisify } from "util";
 import { PluginPackageDto } from "./dto/plugin-package.dto";
@@ -274,7 +274,8 @@ export class PluginsService {
 			}
 
 			await mkdir(this.pluginsDirectory, { recursive: true });
-			await rename(tempDir, destDir);
+			await cp(tempDir, destDir, { recursive: true });
+			await rm(tempDir, { recursive: true, force: true });
 
 			try {
 				await this.loadPluginFromDirectory(destDir);
