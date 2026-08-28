@@ -8,8 +8,6 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { plainToInstance } from "class-transformer";
 import { validateOrReject } from "class-validator";
-import { readFile } from "fs/promises";
-import path from "path";
 import { Repository } from "typeorm";
 import { PluginsService } from "src/plugins/plugins.service";
 import { MarketplaceManifestDto } from "./dto/marketplace-manifest.dto";
@@ -72,37 +70,6 @@ export class MarketplacesService {
 		return instance;
 	}
 
-	private async getGitRemoteUrls(): Promise<Map<string, string>> {
-		const result = new Map<string, string>();
-		const plugins = this.pluginsService.all();
-
-		await Promise.all(
-			plugins.map(async (plugin) => {
-				const gitConfigPath = path.join(
-					this.pluginsService.pluginsDirectory,
-					plugin.package.name,
-					".git",
-					"config",
-				);
-				let contents: string;
-				try {
-					contents = await readFile(gitConfigPath, "utf-8");
-				} catch {
-					return;
-				}
-
-				const match = /\[remote "origin"\][\s\S]*?url\s*=\s*(.+)/.exec(
-					contents,
-				);
-				if (match) {
-					result.set(plugin.package.name, match[1].trim());
-				}
-			}),
-		);
-
-		return result;
-	}
-
 	async addMarketplace(url: string): Promise<MarketplaceResponse> {
 		const existing = await this.marketplaceRepo.findOne({ where: { url } });
 		if (existing) {
@@ -142,17 +109,14 @@ export class MarketplacesService {
 
 	async listPlugins(): Promise<MarketplacePluginResponse[]> {
 		const rows = await this.marketplaceRepo.find();
-		const [manifests, remoteUrls] = await Promise.all([
-			Promise.all(
-				rows.map((row) =>
-					this.fetchManifest(row.url).then((m) => ({ row, manifest: m })),
-				),
+		const manifests = await Promise.all(
+			rows.map((row) =>
+				this.fetchManifest(row.url).then((m) => ({ row, manifest: m })),
 			),
-			this.getGitRemoteUrls(),
-		]);
+		);
 
-		const installedBases = new Set(
-			Array.from(remoteUrls.values()).map((u) => u.split("#")[0]),
+		const installedIds = new Set(
+			this.pluginsService.all().map((p) => p.package.name),
 		);
 
 		const results: MarketplacePluginResponse[] = [];
@@ -161,7 +125,6 @@ export class MarketplacesService {
 				continue;
 			}
 			for (const plugin of manifest.plugins) {
-				const repositoryBase = plugin.repository.split("#")[0];
 				results.push({
 					id: plugin.id,
 					name: plugin.name,
@@ -172,7 +135,7 @@ export class MarketplacesService {
 					repository: plugin.repository,
 					marketplaceUuid: row.uuid,
 					marketplaceName: manifest.name,
-					installed: installedBases.has(repositoryBase),
+					installed: installedIds.has(plugin.id),
 				});
 			}
 		}
