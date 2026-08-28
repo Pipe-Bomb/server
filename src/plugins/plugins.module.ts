@@ -41,5 +41,6 @@ import { PrivilegesModule } from "src/privileges/privileges.module";
 	],
 	controllers: [PluginsController],
 	providers: [PluginsService],
+	exports: [PluginsService],
 })
 export class PluginsModule {}

@@ -51,6 +51,8 @@
 
 	"contextmenu.plugin.delete": "Uninstall plugin",
 
+	"contextmenu.marketplace.delete": "Remove marketplace",
+
 	"modal.playlist-collaborators.title": "Collaborators",
 	"modal.playlist-collaborators.empty": "No members yet",
 	"modal.playlist-collaborators.add-section": "Add member",

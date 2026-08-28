@@ -33,7 +33,7 @@ import { In } from "typeorm";
 
 @Injectable()
 export class PluginsService {
-	private readonly pluginsDirectory =
+	readonly pluginsDirectory =
 		process.env.PLUGIN_DIRECTORY || path.join(process.cwd(), "plugins");
 	private readonly logger = new Logger("Plugins Service");
 

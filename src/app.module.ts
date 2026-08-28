@@ -39,6 +39,7 @@ import { AuthGuard } from "./user-manager/auth.guard";
 import { PrivilegeGuard } from "./privileges/privilege.guard";
 import { SystemConfigModule } from "./system-config/system-config.module";
 import { SetupModule } from "./setup/setup.module";
+import { MarketplacesModule } from "./marketplace/marketplaces.module";
 
 @Module({
 	imports: [
@@ -80,6 +81,7 @@ import { SetupModule } from "./setup/setup.module";
 		UserManagerModule,
 		SystemConfigModule,
 		SetupModule,
+		MarketplacesModule,
 	],
 	controllers: [AppController],
 	providers: [
