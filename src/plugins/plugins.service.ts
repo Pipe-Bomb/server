@@ -204,7 +204,7 @@ export class PluginsService {
 			loadedPlugin,
 			pluginDirPath,
 		);
-		plugin.enable(pluginApiContext);
+		await plugin.enable(pluginApiContext);
 
 		this.plugins.set(pluginPackage.name, loadedPlugin);
 

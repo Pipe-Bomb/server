@@ -1,7 +1,7 @@
 import { PluginApiContext } from "./plugin-api-context";
 
 export interface Plugin {
-	enable(apiContext: PluginApiContext): void;
+	enable(apiContext: PluginApiContext): void | Promise<void>;
 	disable(): void;
 }
 
