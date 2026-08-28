@@ -59,9 +59,9 @@ export class PrivilegesService implements OnModuleInit {
 
 		if (!this.ownerUuids.size && this.adminUuids.length) {
 			this.logger.warn(
-				"No owner found in database but ADMINS env is set — migrating ADMINS UUIDs to database owners. " +
-					"You can remove the ADMINS env var after this restart.",
+				"No owner found in database but ADMINS env is set. Migrating ADMINS UUIDs to database owners.",
 			);
+			this.logger.warn("You can remove the ADMINS env var after this restart.");
 			await this.usersRepository.update(
 				{ uuid: In(this.adminUuids) },
 				{ isOwner: true },
