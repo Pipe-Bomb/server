@@ -27,5 +27,8 @@
 			"@sdk": ["sdk/"]
 		}
 	},
-	"include": ["src/**/*", "sdk/**/*"]
+	"include": ["src/**/*", "sdk/**/*"],
+	"ts-node": {
+		"require": ["tsconfig-paths/register"]
+	}
 }

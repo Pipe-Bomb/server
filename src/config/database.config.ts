@@ -15,7 +15,9 @@ export default registerAs("database", (): TypeOrmModuleOptions => {
 			database: process.env.DB_NAME,
 			// autoLoadEntities: true,
 			entities: [__dirname + "/../**/*.entity{.ts,.js}"],
-			synchronize: true, // todo: change
+			migrations: [__dirname + "/../migrations/*{.ts,.js}"],
+			synchronize: false,
+			migrationsRun: false,
 		};
 	}
 
@@ -25,7 +27,9 @@ export default registerAs("database", (): TypeOrmModuleOptions => {
 		enableWAL: true,
 		// autoLoadEntities: true,
 		entities: [__dirname + "/../**/*.entity{.ts,.js}"],
-		synchronize: true, // todo: change
+		migrations: [__dirname + "/../migrations/*{.ts,.js}"],
+		synchronize: false,
+		migrationsRun: false,
 		prepareDatabase: (db: Database) => {
 			const MEMORY_CACHE_MIB = 512;
 			const MMAP_MB = 1024;

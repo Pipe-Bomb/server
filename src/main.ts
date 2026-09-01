@@ -1,5 +1,7 @@
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
+import { DataSource } from "typeorm";
+import { runMigrationsWithLegacySupport } from "./config/migration-bootstrap";
 import { DocumentBuilder, getSchemaPath, SwaggerModule } from "@nestjs/swagger";
 import packageJson from "../package.json";
 import { DocsService } from "./docs/docs.service";
@@ -34,7 +36,22 @@ async function bootstrap() {
 		throw new Error(`Directory "temp" doesn't exist`);
 	}
 
+	// Run migrations on a standalone DataSource BEFORE NestFactory.create(),
+	// because some module constructors query the DB during instantiation.
+	const migrationDataSource = new DataSource({
+		type: "better-sqlite3",
+		database: process.env.DB_FILE ?? "dev.sqlite",
+		migrations: [__dirname + "/migrations/*{.ts,.js}"],
+	});
+	await migrationDataSource.initialize();
+	try {
+		await runMigrationsWithLegacySupport(migrationDataSource);
+	} finally {
+		await migrationDataSource.destroy();
+	}
+
 	const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
 	app.enableCors({
 		origin: process.env.CORS || "http://127.0.0.1:3001",
 		credentials: true,

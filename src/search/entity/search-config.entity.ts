@@ -1,6 +1,6 @@
 import { Column, Entity, PrimaryColumn } from "typeorm";
 
-@Entity("search-config")
+@Entity("search_config")
 export class DBSearchConfig {
 	@PrimaryColumn({ type: "int" })
 	id: number = 1;
