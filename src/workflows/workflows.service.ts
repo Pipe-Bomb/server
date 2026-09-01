@@ -4,6 +4,7 @@ import {
 	Injectable,
 	Logger,
 	NotFoundException,
+	OnModuleInit,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
@@ -29,7 +30,7 @@ import { CronJob, validateCronExpression } from "cron";
 import { ActiveWorkflow } from "./interface/active-workflow.interface";
 
 @Injectable()
-export class WorkflowsService {
+export class WorkflowsService implements OnModuleInit {
 	private readonly logger = new Logger("Workflows Service");
 	private readonly pluginSteps = new Map<
 		string,
@@ -52,210 +53,208 @@ export class WorkflowsService {
 		@InjectRepository(DBWorkflowStepOptionValue)
 		private readonly workflowStepOptionValuesRepository: Repository<DBWorkflowStepOptionValue>,
 		private readonly dataSource: DataSource,
-	) {
-		this.workflowsRepository
-			.find({
-				select: ["uuid", "name"],
-			})
-			.then((workflows) => {
-				for (const workflow of workflows) {
-					this.workflowNames.set(workflow.uuid, workflow.name);
-				}
-			});
+	) {}
 
-		this.registerStep(
-			{
-				id: "server-start",
-				type: "trigger",
-				getOptions: () => [],
-				create: (ctx) => {
-					if (ctx.getCreateReason() == "startup") {
-						ctx.activate(false);
-					}
+	async onModuleInit() {
+		const workflows = await this.workflowsRepository.find({
+			select: ["uuid", "name"],
+		});
+		for (const workflow of workflows) {
+			this.workflowNames.set(workflow.uuid, workflow.name);
+		}
 
-					return () => {};
-				},
-			},
-			null,
-		);
+		await Promise.all([
+			this.registerStep(
+				{
+					id: "server-start",
+					type: "trigger",
+					getOptions: () => [],
+					create: (ctx) => {
+						if (ctx.getCreateReason() == "startup") {
+							setTimeout(() => ctx.activate(false), 5000);
+						}
 
-		this.registerStep(
-			{
-				id: "cron",
-				type: "trigger",
-				getOptions: () => [
-					{
-						id: "schedule",
-						type: "string",
-					},
-					{
-						id: "rerun",
-						type: "boolean",
-					},
-				],
-				create: (ctx) => {
-					const logger = ctx.getLogger();
-					const schedule = ctx.getOption("schedule", "string");
-					if (!schedule) {
-						logger.warn(`Cron won't run because expression isn't specified`);
 						return () => {};
-					}
-
-					const { valid } = validateCronExpression(schedule);
-					if (!valid) {
-						this.logger.warn(`Cron won't run because expression is invalid`);
-						return () => {};
-					}
-
-					const job = new CronJob(schedule, () =>
-						ctx.activate(!!ctx.getOption("rerun", "boolean")),
-					);
-					job.start();
-
-					return () => job.stop();
+					},
 				},
-			},
-			null,
-		);
+				null,
+			),
+			this.registerStep(
+				{
+					id: "cron",
+					type: "trigger",
+					getOptions: () => [
+						{
+							id: "schedule",
+							type: "string",
+						},
+						{
+							id: "rerun",
+							type: "boolean",
+						},
+					],
+					create: (ctx) => {
+						const logger = ctx.getLogger();
+						const schedule = ctx.getOption("schedule", "string");
+						if (!schedule) {
+							logger.warn(`Cron won't run because expression isn't specified`);
+							return () => {};
+						}
 
-		this.registerStep(
-			{
-				id: "run-workflow",
-				type: "step",
-				getOptions: () => [
-					{
-						id: "workflow",
-						type: "enum",
-						enum: Array.from(this.workflowNames).map(([id, name]) => ({
-							id,
-							name,
-						})),
-					},
-					{
-						id: "rerun",
-						type: "boolean",
-					},
-					{
-						id: "wait-for-finish",
-						type: "boolean",
-					},
-				],
-				run: async (ctx) => {
-					const workflowId = ctx.getOption(
-						"workflow",
-						"enum",
-						Array.from(this.workflowNames.keys()),
-					);
-					if (!workflowId) {
-						throw new Error("Workflow is not set or not loaded");
-					}
+						const { valid } = validateCronExpression(schedule);
+						if (!valid) {
+							this.logger.warn(`Cron won't run because expression is invalid`);
+							return () => {};
+						}
 
-					await this.activateWorkflow(
-						workflowId,
-						!!ctx.getOption("rerun", "boolean"),
-					);
+						const job = new CronJob(schedule, () =>
+							ctx.activate(!!ctx.getOption("rerun", "boolean")),
+						);
+						job.start();
 
-					if (ctx.getOption("wait-for-finish", "boolean")) {
-						await this.waitForWorkflow(workflowId, ctx.updateProgress);
-					}
+						return () => job.stop();
+					},
 				},
-			},
-			null,
-		);
+				null,
+			),
+			this.registerStep(
+				{
+					id: "run-workflow",
+					type: "step",
+					getOptions: () => [
+						{
+							id: "workflow",
+							type: "enum",
+							enum: Array.from(this.workflowNames).map(([id, name]) => ({
+								id,
+								name,
+							})),
+						},
+						{
+							id: "rerun",
+							type: "boolean",
+						},
+						{
+							id: "wait-for-finish",
+							type: "boolean",
+						},
+					],
+					run: async (ctx) => {
+						const workflowId = ctx.getOption(
+							"workflow",
+							"enum",
+							Array.from(this.workflowNames.keys()),
+						);
+						if (!workflowId) {
+							throw new Error("Workflow is not set or not loaded");
+						}
 
-		this.registerStep(
-			{
-				id: "workflow-end",
-				type: "trigger",
-				getOptions: () => [
-					{
-						id: "workflow",
-						type: "enum",
-						enum: Array.from(this.workflowNames).map(([id, name]) => ({
-							id,
-							name,
-						})),
+						await this.activateWorkflow(
+							workflowId,
+							!!ctx.getOption("rerun", "boolean"),
+						);
+
+						if (ctx.getOption("wait-for-finish", "boolean")) {
+							await this.waitForWorkflow(workflowId, ctx.updateProgress);
+						}
 					},
-					{
-						id: "end-reason",
-						type: "enum",
-						enum: [
-							{
-								id: "complete",
-								languageKey:
-									"workflow.system.step.workflow-end.option.end-reason.enum.complete",
-							},
-							{
-								id: "error",
-								languageKey:
-									"workflow.system.step.workflow-end.option.end-reason.enum.error",
-							},
-							{
-								id: "any",
-								languageKey:
-									"workflow.system.step.workflow-end.option.end-reason.enum.any",
-							},
-						],
-					},
-					{
-						id: "rerun",
-						type: "boolean",
-					},
-				],
-				create: (ctx) => {
-					const logger = ctx.getLogger();
+				},
+				null,
+			),
+			this.registerStep(
+				{
+					id: "workflow-end",
+					type: "trigger",
+					getOptions: () => [
+						{
+							id: "workflow",
+							type: "enum",
+							enum: Array.from(this.workflowNames).map(([id, name]) => ({
+								id,
+								name,
+							})),
+						},
+						{
+							id: "end-reason",
+							type: "enum",
+							enum: [
+								{
+									id: "complete",
+									languageKey:
+										"workflow.system.step.workflow-end.option.end-reason.enum.complete",
+								},
+								{
+									id: "error",
+									languageKey:
+										"workflow.system.step.workflow-end.option.end-reason.enum.error",
+								},
+								{
+									id: "any",
+									languageKey:
+										"workflow.system.step.workflow-end.option.end-reason.enum.any",
+								},
+							],
+						},
+						{
+							id: "rerun",
+							type: "boolean",
+						},
+					],
+					create: (ctx) => {
+						const logger = ctx.getLogger();
 
-					const workflowId = ctx.getOption(
-						"workflow",
-						"enum",
-						Array.from(this.workflowNames.keys()),
-					);
-					if (!workflowId) {
-						logger.error("Trigger won't run because workflow isn't set");
-						return () => {};
-					}
-					let active = true;
+						const workflowId = ctx.getOption(
+							"workflow",
+							"enum",
+							Array.from(this.workflowNames.keys()),
+						);
+						if (!workflowId) {
+							logger.error("Trigger won't run because workflow isn't set");
+							return () => {};
+						}
+						let active = true;
 
-					const endReason = ctx.getOption("end-reason", "enum", [
-						"complete",
-						"error",
-						"any",
-					]);
+						const endReason = ctx.getOption("end-reason", "enum", [
+							"complete",
+							"error",
+							"any",
+						]);
 
-					const callback = () => {
-						this.waitForWorkflow(workflowId).then((reason) => {
-							if (reason == "not-running" || !active) {
-								return;
-							}
+						const callback = () => {
+							this.waitForWorkflow(workflowId).then((reason) => {
+								if (reason == "not-running" || !active) {
+									return;
+								}
 
-							if (!endReason || endReason == "any" || reason == endReason) {
-								ctx.activate(!!ctx.getOption("rerun", "boolean"));
-							}
-						});
-					};
-					callback();
+								if (!endReason || endReason == "any" || reason == endReason) {
+									ctx.activate(!!ctx.getOption("rerun", "boolean"));
+								}
+							});
+						};
+						callback();
 
-					const callbackList = this.workflowStartCallbacks.get(workflowId);
-					if (callbackList) {
-						callbackList.add(callback);
-					} else {
-						this.workflowStartCallbacks.set(workflowId, new Set([callback]));
-					}
-
-					return () => {
-						active = false;
 						const callbackList = this.workflowStartCallbacks.get(workflowId);
 						if (callbackList) {
-							callbackList.delete(callback);
-							if (!callbackList.size) {
-								this.workflowStartCallbacks.delete(workflowId);
-							}
+							callbackList.add(callback);
+						} else {
+							this.workflowStartCallbacks.set(workflowId, new Set([callback]));
 						}
-					};
+
+						return () => {
+							active = false;
+							const callbackList = this.workflowStartCallbacks.get(workflowId);
+							if (callbackList) {
+								callbackList.delete(callback);
+								if (!callbackList.size) {
+									this.workflowStartCallbacks.delete(workflowId);
+								}
+							}
+						};
+					},
 				},
-			},
-			null,
-		);
+				null,
+			),
+		]);
 	}
 
 	async registerStep(
