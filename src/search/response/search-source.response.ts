@@ -33,6 +33,21 @@ export class FilterableAttributeResponse {
 	supportsFuzzy: boolean | null;
 }
 
+@ApiSchema({ name: "SearchSourceSummary" })
+export class SearchSourceSummaryResponse {
+	@ApiProperty()
+	pluginId: string;
+
+	@ApiProperty()
+	sourceId: string;
+
+	@ApiProperty()
+	name: string;
+
+	@ApiProperty()
+	active: boolean;
+}
+
 @ApiSchema({ name: "SearchSource" })
 export class SearchSourceResponse {
 	@ApiProperty()

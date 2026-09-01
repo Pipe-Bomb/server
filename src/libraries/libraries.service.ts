@@ -241,16 +241,16 @@ export class LibrariesService {
 			withArtists?: boolean;
 			withAlbums?: boolean;
 			select?: FindOptionsSelect<DBTrack> | FindOptionsSelectByString<DBTrack>;
-			sort?: { attributeKey: string; direction: "asc" | "desc" };
+			sort?: { key: string; direction: "asc" | "desc" };
 		},
 	): Promise<ILibraryFindResult> {
 		const { handler, plugin } = library;
 
 		const dir = options.sort?.direction === "desc" ? "DESC" : "ASC";
 		const order: FindOptionsOrder<DBTrack> = {};
-		if (options.sort?.attributeKey === "title") {
+		if (options.sort?.key === "title") {
 			order.title = dir;
-		} else if (options.sort?.attributeKey === "dateAdded") {
+		} else if (options.sort?.key === "date-added") {
 			order.dateAdded = dir;
 		}
 

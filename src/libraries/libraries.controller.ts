@@ -20,6 +20,9 @@ import { PluginLibrary } from "./response/loaded-library.response";
 import { LibrarySearchDto } from "./dto/library-search.dto";
 import { LibraryFindResponse } from "./response/library-find.response";
 import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
+import { SearchSourceService } from "src/search/search-source.service";
+import { TrackManagerService } from "src/track-manager/track-manager.service";
+import { In } from "typeorm";
 
 @Controller("libraries")
 export class LibrariesController {
@@ -28,6 +31,8 @@ export class LibrariesController {
 	constructor(
 		private readonly librariesService: LibrariesService,
 		private readonly attributeSourcesService: AttributeSourcesService,
+		private readonly searchSourceService: SearchSourceService,
+		private readonly trackManagerService: TrackManagerService,
 	) {}
 
 	@Get()
@@ -104,12 +109,53 @@ export class LibrariesController {
 			throw new NotFoundException("Library not found");
 		}
 
+		if (this.searchSourceService.hasSource()) {
+			const allowedUuids = await this.librariesService.getTrackUuids(handler);
+
+			const raw = await this.searchSourceService.search({
+				sort: dto.sort,
+				entities: {
+					tracks: {
+						limit: dto.pageSize,
+						page: dto.page,
+						allowedUuids,
+					},
+				},
+			});
+
+			const orderedUuids = raw.tracks ?? [];
+			const fetched = orderedUuids.length
+				? await this.trackManagerService.find({
+						where: { uuid: In(orderedUuids) },
+						relationLoadStrategy: "query",
+						relations: {
+							attributes: true,
+							artists: { artist: { attributes: true } },
+							albums: { album: { attributes: true } },
+						},
+					})
+				: [];
+
+			const trackByUuid = new Map(fetched.map((t) => [t.uuid, t]));
+			const tracks = orderedUuids
+				.map((uuid) => trackByUuid.get(uuid))
+				.filter((t): t is (typeof fetched)[number] => t !== undefined);
+
+			const totalPages =
+				raw.trackTotal !== undefined
+					? Math.ceil(raw.trackTotal / dto.pageSize)
+					: undefined;
+
+			return { tracks: tracks.map((t) => t.toResponse()), totalPages };
+		}
+
 		const result = await this.librariesService.findTracks(handler, {
 			amount: dto.pageSize,
 			offset: dto.pageSize * (dto.page - 1),
 			withAttributes: true,
 			withArtists: true,
 			withAlbums: true,
+			sort: dto.sort,
 		});
 
 		return {

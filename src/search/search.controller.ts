@@ -1,10 +1,12 @@
 import {
 	Body,
 	Controller,
+	Delete,
 	Get,
 	HttpCode,
 	HttpStatus,
 	Post,
+	Put,
 	Query,
 } from "@nestjs/common";
 import { SearchService } from "./search.service";
@@ -15,8 +17,10 @@ import { SearchSourceService } from "./search-source.service";
 import {
 	FilterableAttributeResponse,
 	SearchSourceResponse,
+	SearchSourceSummaryResponse,
 	SortMethodResponse,
 } from "./response/search-source.response";
+import { SearchSourceDto } from "./dto/search-source.dto";
 
 @Controller("search")
 export class SearchController {
@@ -46,6 +50,31 @@ export class SearchController {
 			artists: results.artists.map((artist) => artist.toResponse()),
 			albums: results.albums.map((album) => album.toResponse()),
 		};
+	}
+
+	@Get("sources")
+	@ApiOperation({ operationId: "getSearchSources" })
+	@ApiOkResponse({ type: [SearchSourceSummaryResponse] })
+	getSearchSources(): SearchSourceSummaryResponse[] {
+		return this.searchSourceService.getAll();
+	}
+
+	@Put("source")
+	@HttpCode(HttpStatus.OK)
+	@ApiOperation({ operationId: "setActiveSearchSource" })
+	@ApiOkResponse()
+	async setActiveSearchSource(@Body() dto: SearchSourceDto): Promise<void> {
+		console.log("Setting", dto);
+		await this.searchSourceService.setActive(dto.pluginId, dto.sourceId);
+	}
+
+	@Delete("source")
+	@HttpCode(HttpStatus.OK)
+	@ApiOperation({ operationId: "clearActiveSearchSource" })
+	@ApiOkResponse()
+	async clearActiveSearchSource(): Promise<void> {
+		console.log("Clearing");
+		await this.searchSourceService.clearActive();
 	}
 
 	@Get("source")
@@ -97,7 +126,7 @@ export class SearchController {
 			})) ?? null;
 
 		return {
-			pluginId: loaded.pluginId,
+			pluginId: loaded.plugin.package.name,
 			sourceId: loaded.source.id,
 			name: loaded.source.getName(),
 			sortMethods,

@@ -28,7 +28,7 @@ export class SearchService {
 
 	async search(options: {
 		query?: string;
-		sort?: { attributeKey: string; direction: "asc" | "desc" };
+		sort?: { key: string; direction: "asc" | "desc" };
 		trackAmount: number;
 		artistAmount: number;
 		albumAmount: number;
