@@ -1,4 +1,4 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { TrackResponse } from "src/tracks/response/track.response";
 
 export class LibraryFindResponse {
@@ -6,4 +6,7 @@ export class LibraryFindResponse {
 		type: [TrackResponse],
 	})
 	tracks: TrackResponse[];
+
+	@ApiPropertyOptional({ type: Number })
+	totalPages?: number;
 }

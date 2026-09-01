@@ -13,6 +13,7 @@ import { IdentifiersService } from "src/identifiers/identifiers.service";
 import { DBTrack } from "src/tracks/entities/track.entity";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
 import {
+	FindOptionsOrder,
 	FindOptionsSelect,
 	FindOptionsSelectByString,
 	FindOptionsWhere,
@@ -240,15 +241,26 @@ export class LibrariesService {
 			withArtists?: boolean;
 			withAlbums?: boolean;
 			select?: FindOptionsSelect<DBTrack> | FindOptionsSelectByString<DBTrack>;
+			sort?: { key: string; direction: "asc" | "desc" };
 		},
 	): Promise<ILibraryFindResult> {
 		const { handler, plugin } = library;
+
+		const dir = options.sort?.direction === "desc" ? "DESC" : "ASC";
+		const order: FindOptionsOrder<DBTrack> = {};
+		if (options.sort?.key === "title") {
+			order.title = dir;
+		} else if (options.sort?.key === "date-added") {
+			order.dateAdded = dir;
+		}
+
 		const tracks = await this.trackManagerService.find({
 			where: {
 				libraryId: handler.id,
 				pluginId: plugin.package.name,
 			},
 			select: options.select,
+			order,
 			relationLoadStrategy: "query",
 			relations: {
 				artists: options.withArtists && {
@@ -269,6 +281,18 @@ export class LibrariesService {
 		});
 
 		return { tracks };
+	}
+
+	public async getTrackUuids(library: LoadedLibraryHandler): Promise<string[]> {
+		const { handler, plugin } = library;
+		const tracks = await this.trackManagerService.find({
+			where: {
+				libraryId: handler.id,
+				pluginId: plugin.package.name,
+			},
+			select: { uuid: true },
+		});
+		return tracks.map((t) => t.uuid);
 	}
 
 	public async forEachTrackId(

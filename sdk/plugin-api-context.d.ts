@@ -1,4 +1,5 @@
 import { AttributeSource } from "./attribute-source";
+import { SearchSource } from "./search-source";
 import { AuthClient } from "./auth-client";
 import { ConfigManager, UserConfigManager } from "./config-manager";
 import { DataClient } from "./data-client";
@@ -40,6 +41,7 @@ export interface PluginApiContext {
 		userConfigManager: UserConfigManager,
 	): void;
 	registerEphemeralSource(ephemeralSource: EphemeralSource): void;
+	registerSearchSource(searchSource: SearchSource): void;
 	getDataClient(): DataClient;
 	requestAuthClient(): AuthClient | null;
 	getPlaylistClient(): PlaylistClient;

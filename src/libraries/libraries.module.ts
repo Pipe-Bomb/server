@@ -7,6 +7,7 @@ import { IdentifiersModule } from "src/identifiers/identifiers.module";
 import { AttributeSourcesModule } from "src/attribute-sources/attribute-sources.module";
 import { TrackManagerModule } from "src/track-manager/track-manager.module";
 import { AudioCacheModule } from "src/audio-cache/audio-cache.module";
+import { SearchModule } from "src/search/search.module";
 
 @Module({
 	imports: [
@@ -16,6 +17,7 @@ import { AudioCacheModule } from "src/audio-cache/audio-cache.module";
 		IdentifiersModule,
 		AttributeSourcesModule,
 		AudioCacheModule,
+		SearchModule,
 	],
 	controllers: [LibrariesController],
 	providers: [LibrariesService],

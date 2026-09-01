@@ -1,5 +1,7 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { IsInt, Max, Min } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { IsInt, IsOptional, Max, Min, ValidateNested } from "class-validator";
+import { Type } from "class-transformer";
+import { SearchSortDto } from "src/search/dto/search-sort.dto";
 
 export class ArtistsSearchDto {
 	@IsInt()
@@ -19,4 +21,10 @@ export class ArtistsSearchDto {
 		minimum: 1,
 	})
 	page: number;
+
+	@IsOptional()
+	@ValidateNested()
+	@Type(() => SearchSortDto)
+	@ApiPropertyOptional({ type: SearchSortDto })
+	sort?: SearchSortDto;
 }
