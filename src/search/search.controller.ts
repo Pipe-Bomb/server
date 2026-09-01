@@ -21,13 +21,21 @@ import {
 	SortMethodResponse,
 } from "./response/search-source.response";
 import { SearchSourceDto } from "./dto/search-source.dto";
+import { PrivilegesService } from "src/privileges/privileges.service";
+import { Privileges } from "src/privileges/privileges.decorator";
 
 @Controller("search")
 export class SearchController {
 	constructor(
 		private readonly searchService: SearchService,
 		private readonly searchSourceService: SearchSourceService,
-	) {}
+		private readonly privilegesService: PrivilegesService,
+	) {
+		this.privilegesService.registerPrivilege(null, "select-search-source");
+		this.privilegesService.registerPrivilege(null, "view-search-sources", [
+			"select-search-source",
+		]);
+	}
 
 	@Post()
 	@HttpCode(HttpStatus.OK)
@@ -55,6 +63,7 @@ export class SearchController {
 	@Get("sources")
 	@ApiOperation({ operationId: "getSearchSources" })
 	@ApiOkResponse({ type: [SearchSourceSummaryResponse] })
+	@Privileges("view-search-sources")
 	getSearchSources(): SearchSourceSummaryResponse[] {
 		return this.searchSourceService.getAll();
 	}
@@ -63,6 +72,7 @@ export class SearchController {
 	@HttpCode(HttpStatus.OK)
 	@ApiOperation({ operationId: "setActiveSearchSource" })
 	@ApiOkResponse()
+	@Privileges("select-search-source")
 	async setActiveSearchSource(@Body() dto: SearchSourceDto): Promise<void> {
 		console.log("Setting", dto);
 		await this.searchSourceService.setActive(dto.pluginId, dto.sourceId);
@@ -72,6 +82,7 @@ export class SearchController {
 	@HttpCode(HttpStatus.OK)
 	@ApiOperation({ operationId: "clearActiveSearchSource" })
 	@ApiOkResponse()
+	@Privileges("select-search-source")
 	async clearActiveSearchSource(): Promise<void> {
 		console.log("Clearing");
 		await this.searchSourceService.clearActive();
