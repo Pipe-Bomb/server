@@ -4,7 +4,7 @@ import { AlbumManagerService } from "src/album-manager/album-manager.service";
 import { DBArtist } from "src/artist-manager/entity/artist.entity";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { In, Repository } from "typeorm";
-import { SearchSourceService } from "./search-source.service";
+import { SearchSourcesService } from "./search-sources.service";
 import {
 	BooleanSearchAttributeDto,
 	BufferSearchAttributeDto,
@@ -23,7 +23,7 @@ export class SearchService {
 		@InjectRepository(DBArtist)
 		private readonly artistsRepository: Repository<DBArtist>,
 		private readonly albumManagerService: AlbumManagerService,
-		private readonly searchSourceService: SearchSourceService,
+		private readonly SearchSourcesService: SearchSourcesService,
 	) {}
 
 	async search(options: {
@@ -34,12 +34,12 @@ export class SearchService {
 		albumAmount: number;
 		attributes: SearchAttributeDto[];
 	}) {
-		if (!this.searchSourceService.hasSource()) {
+		if (!this.SearchSourcesService.hasSource()) {
 			return { tracks: [], artists: [], albums: [] };
 		}
 
 		const filters = this.mapAttributesToFilters(options.attributes);
-		const raw = await this.searchSourceService.search({
+		const raw = await this.SearchSourcesService.search({
 			query: options.query,
 			sort: options.sort,
 			filters: filters.length ? filters : undefined,

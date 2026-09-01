@@ -111,6 +111,12 @@ export interface SearchSourceResults {
 	albumTotal?: number;
 }
 
+export interface SearchSourceInfo {
+	pluginId: string;
+	sourceId: string;
+	source: SearchSource;
+}
+
 export interface SearchSource {
 	readonly id: string;
 	enable(context: SearchSourceApiContext): void | Promise<void>;

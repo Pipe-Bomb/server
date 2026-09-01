@@ -20,7 +20,7 @@ import { PluginLibrary } from "./response/loaded-library.response";
 import { LibrarySearchDto } from "./dto/library-search.dto";
 import { LibraryFindResponse } from "./response/library-find.response";
 import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
-import { SearchSourceService } from "src/search/search-source.service";
+import { SearchSourcesService } from "src/search/search-sources.service";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { In } from "typeorm";
 
@@ -31,7 +31,7 @@ export class LibrariesController {
 	constructor(
 		private readonly librariesService: LibrariesService,
 		private readonly attributeSourcesService: AttributeSourcesService,
-		private readonly searchSourceService: SearchSourceService,
+		private readonly SearchSourcesService: SearchSourcesService,
 		private readonly trackManagerService: TrackManagerService,
 	) {}
 
@@ -109,10 +109,10 @@ export class LibrariesController {
 			throw new NotFoundException("Library not found");
 		}
 
-		if (this.searchSourceService.hasSource()) {
+		if (this.SearchSourcesService.hasSource()) {
 			const allowedUuids = await this.librariesService.getTrackUuids(handler);
 
-			const raw = await this.searchSourceService.search({
+			const raw = await this.SearchSourcesService.search({
 				sort: dto.sort,
 				entities: {
 					tracks: {

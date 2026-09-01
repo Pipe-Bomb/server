@@ -13,7 +13,7 @@ import { SearchService } from "./search.service";
 import { ApiOkResponse, ApiOperation, ApiQuery } from "@nestjs/swagger";
 import { SearchDto } from "./dto/search.dto";
 import { SearchResultsResponse } from "./response/search-results.response";
-import { SearchSourceService } from "./search-source.service";
+import { SearchSourcesService } from "./search-sources.service";
 import {
 	FilterableAttributeResponse,
 	SearchSourceResponse,
@@ -28,7 +28,7 @@ import { Privileges } from "src/privileges/privileges.decorator";
 export class SearchController {
 	constructor(
 		private readonly searchService: SearchService,
-		private readonly searchSourceService: SearchSourceService,
+		private readonly SearchSourcesService: SearchSourcesService,
 		private readonly privilegesService: PrivilegesService,
 	) {
 		this.privilegesService.registerPrivilege(null, "select-search-source");
@@ -65,7 +65,7 @@ export class SearchController {
 	@ApiOkResponse({ type: [SearchSourceSummaryResponse] })
 	@Privileges("view-search-sources")
 	getSearchSources(): SearchSourceSummaryResponse[] {
-		return this.searchSourceService.getAll();
+		return this.SearchSourcesService.getAll();
 	}
 
 	@Put("source")
@@ -75,7 +75,7 @@ export class SearchController {
 	@Privileges("select-search-source")
 	async setActiveSearchSource(@Body() dto: SearchSourceDto): Promise<void> {
 		console.log("Setting", dto);
-		await this.searchSourceService.setActive(dto.pluginId, dto.sourceId);
+		await this.SearchSourcesService.setActive(dto.pluginId, dto.sourceId);
 	}
 
 	@Delete("source")
@@ -85,7 +85,7 @@ export class SearchController {
 	@Privileges("select-search-source")
 	async clearActiveSearchSource(): Promise<void> {
 		console.log("Clearing");
-		await this.searchSourceService.clearActive();
+		await this.SearchSourcesService.clearActive();
 	}
 
 	@Get("source")
@@ -99,7 +99,7 @@ export class SearchController {
 		@Query("albums") albums?: string,
 		@Query("artists") artists?: string,
 	): SearchSourceResponse | null {
-		const loaded = this.searchSourceService.getLoaded();
+		const loaded = this.SearchSourcesService.getLoaded();
 		if (!loaded) {
 			return null;
 		}

@@ -6,7 +6,12 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { SearchQuery, SearchSource, SearchSourceResults } from "@sdk";
+import {
+	SearchQuery,
+	SearchSource,
+	SearchSourceInfo,
+	SearchSourceResults,
+} from "@sdk";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { DBSearchConfig } from "./entity/search-config.entity";
 
@@ -28,8 +33,8 @@ interface ActiveSource {
 }
 
 @Injectable()
-export class SearchSourceService {
-	private readonly logger = new Logger(SearchSourceService.name);
+export class SearchSourcesService {
+	private readonly logger = new Logger("Search Sources Service");
 	private readonly sources = new Map<string, Map<string, LoadedSearchSource>>();
 	private activeSource: ActiveSource | null = null;
 
@@ -86,6 +91,20 @@ export class SearchSourceService {
 
 	getLoaded(): LoadedSearchSource | null {
 		return this.getActive();
+	}
+
+	getSource(pluginId: string, sourceId: string): SearchSource | null {
+		return this.sources.get(pluginId)?.get(sourceId)?.source ?? null;
+	}
+
+	getAllSources(): SearchSourceInfo[] {
+		const result: SearchSourceInfo[] = [];
+		for (const [pluginId, pluginSources] of this.sources) {
+			for (const [sourceId, loaded] of pluginSources) {
+				result.push({ pluginId, sourceId, source: loaded.source });
+			}
+		}
+		return result;
 	}
 
 	getAll(): SearchSourceSummary[] {

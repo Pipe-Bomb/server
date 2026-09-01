@@ -30,7 +30,7 @@ import { ArtistEphemeralContentResponse } from "./response/artist-ephemeral-cont
 import { EphemeralSourceResponse } from "src/ephemeral/response/ephemeral-source.response";
 import { randomUUID } from "crypto";
 import { AttributesService } from "src/attributes/attributes.service";
-import { SearchSourceService } from "src/search/search-source.service";
+import { SearchSourcesService } from "src/search/search-sources.service";
 import { In } from "typeorm";
 
 @Controller("artists")
@@ -42,7 +42,7 @@ export class ArtistsController {
 		private readonly artistManagerService: ArtistManagerService,
 		private readonly ephemeralService: EphemeralService,
 		private readonly attributesService: AttributesService,
-		private readonly searchSourceService: SearchSourceService,
+		private readonly SearchSourcesService: SearchSourcesService,
 	) {}
 
 	@Get(":artistUuid")
@@ -273,8 +273,8 @@ export class ArtistsController {
 	})
 	@Post()
 	async search(@Body() dto: ArtistsSearchDto): Promise<ArtistsSearchResponse> {
-		if (this.searchSourceService.hasSource()) {
-			const raw = await this.searchSourceService.search({
+		if (this.SearchSourcesService.hasSource()) {
+			const raw = await this.SearchSourcesService.search({
 				sort: dto.sort,
 				entities: { artists: { limit: dto.pageSize, page: dto.page } },
 			});

@@ -25,7 +25,7 @@ import { EphemeralService } from "src/ephemeral/ephemeral.service";
 import { EphemeralSourceResponse } from "src/ephemeral/response/ephemeral-source.response";
 import { AlbumEphemeralContentResponse } from "./response/album-ephemeral-content.response";
 import { EphemeralSourceDto } from "src/ephemeral/dto/ephemeral-source.dto";
-import { SearchSourceService } from "src/search/search-source.service";
+import { SearchSourcesService } from "src/search/search-sources.service";
 import { In } from "typeorm";
 
 @Controller("albums")
@@ -34,7 +34,7 @@ export class AlbumsController {
 		private readonly albumsService: AlbumsService,
 		private readonly albumManagerService: AlbumManagerService,
 		private readonly ephemeralService: EphemeralService,
-		private readonly searchSourceService: SearchSourceService,
+		private readonly SearchSourcesService: SearchSourcesService,
 	) {}
 
 	@Get(":albumUuid")
@@ -222,8 +222,8 @@ export class AlbumsController {
 	})
 	@Post()
 	async search(@Body() dto: AlbumsSearchDto): Promise<AlbumsSearchResponse> {
-		if (this.searchSourceService.hasSource()) {
-			const raw = await this.searchSourceService.search({
+		if (this.SearchSourcesService.hasSource()) {
+			const raw = await this.SearchSourcesService.search({
 				sort: dto.sort,
 				entities: { albums: { limit: dto.pageSize, page: dto.page } },
 			});

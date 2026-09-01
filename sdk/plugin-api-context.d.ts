@@ -1,5 +1,5 @@
 import { AttributeSource } from "./attribute-source";
-import { SearchSource } from "./search-source";
+import { SearchSource, SearchSourceInfo } from "./search-source";
 import { AuthClient } from "./auth-client";
 import { ConfigManager, UserConfigManager } from "./config-manager";
 import { DataClient } from "./data-client";
@@ -42,6 +42,9 @@ export interface PluginApiContext {
 	): void;
 	registerEphemeralSource(ephemeralSource: EphemeralSource): void;
 	registerSearchSource(searchSource: SearchSource): void;
+	getSearchSources(): SearchSourceInfo[];
+	getSearchSource(pluginId: string, sourceId: string): SearchSource | null;
+	getActiveSearchSource(): SearchSource | null;
 	getDataClient(): DataClient;
 	requestAuthClient(): AuthClient | null;
 	getPlaylistClient(): PlaylistClient;
