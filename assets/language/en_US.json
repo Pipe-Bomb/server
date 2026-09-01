@@ -124,6 +124,10 @@
 	"privilege.system.view-system-config.name": "View system config",
 	"privilege.system.modify-plugin-installations.name": "Add and remove plugins",
 	"privilege.system.view-plugins.name": "View plugins",
+	"privilege.system.modify-plugin-marketplaces.name": "Modify plugin marketplaces",
+	"privilege.system.view-plugin-marketplaces.name": "View plugin marketplaces",
+	"privilege.system.select-search-source.name": "Select search source",
+	"privilege.system.view-search-sources.name": "View search sources",
 
 	"config.system.allow-user-registrations.name": "Allow user registrations",
 	"config.system.allow-user-registrations.description": "Whether new users can register accounts"
