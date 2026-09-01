@@ -30,6 +30,7 @@ import { PlaylistsService } from "src/playlists/playlists.service";
 import { WorkflowsService } from "src/workflows/workflows.service";
 import { PORT } from "src/config/constants";
 import { In } from "typeorm";
+import { SearchSourceService } from "src/search/search-source.service";
 
 @Injectable()
 export class PluginsService {
@@ -58,6 +59,7 @@ export class PluginsService {
 		private readonly userManagerService: UserManagerService,
 		private readonly playlistsService: PlaylistsService,
 		private readonly workflowsService: WorkflowsService,
+		private readonly searchSourceService: SearchSourceService,
 	) {
 		this.logger.debug(`Plugin directory is "${this.pluginsDirectory}"`);
 
@@ -361,6 +363,8 @@ export class PluginsService {
 				),
 			registerEphemeralSource: (source) =>
 				this.ephemeralService.registerEphemeralSource(source, plugin),
+			registerSearchSource: (source) =>
+				this.searchSourceService.register(source, plugin),
 			getDataClient: () => this.createDataClient(),
 			requestAuthClient: () => {
 				return {

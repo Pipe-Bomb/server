@@ -30,6 +30,8 @@ import { ArtistEphemeralContentResponse } from "./response/artist-ephemeral-cont
 import { EphemeralSourceResponse } from "src/ephemeral/response/ephemeral-source.response";
 import { randomUUID } from "crypto";
 import { AttributesService } from "src/attributes/attributes.service";
+import { SearchSourceService } from "src/search/search-source.service";
+import { In } from "typeorm";
 
 @Controller("artists")
 export class ArtistsController {
@@ -40,6 +42,7 @@ export class ArtistsController {
 		private readonly artistManagerService: ArtistManagerService,
 		private readonly ephemeralService: EphemeralService,
 		private readonly attributesService: AttributesService,
+		private readonly searchSourceService: SearchSourceService,
 	) {}
 
 	@Get(":artistUuid")
@@ -270,6 +273,37 @@ export class ArtistsController {
 	})
 	@Post()
 	async search(@Body() dto: ArtistsSearchDto): Promise<ArtistsSearchResponse> {
+		if (this.searchSourceService.hasSource()) {
+			const raw = await this.searchSourceService.search({
+				sort: dto.sort,
+				entities: { artists: { limit: dto.pageSize, page: dto.page } },
+			});
+
+			const orderedUuids = raw.artists ?? [];
+			const fetched = orderedUuids.length
+				? await this.artistManagerService.findManyRaw({
+						where: { uuid: In(orderedUuids) },
+						relationLoadStrategy: "query",
+						relations: { attributes: true, identities: true },
+					})
+				: [];
+
+			const artistByUuid = new Map(fetched.map((a) => [a.uuid, a]));
+			const artists = orderedUuids
+				.map((uuid) => artistByUuid.get(uuid))
+				.filter((a): a is (typeof fetched)[number] => a !== undefined);
+
+			const totalPages =
+				raw.artistTotal !== undefined
+					? Math.ceil(raw.artistTotal / dto.pageSize)
+					: null;
+
+			return {
+				artists: artists.map((artist) => artist.toResponse()),
+				totalPages,
+			};
+		}
+
 		const artists = await this.artistManagerService.findMany({
 			amount: dto.pageSize,
 			offset: (dto.page - 1) * dto.pageSize,
@@ -279,6 +313,7 @@ export class ArtistsController {
 
 		return {
 			artists: artists.map((artist) => artist.toResponse()),
+			totalPages: null,
 		};
 	}
 

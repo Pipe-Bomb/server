@@ -8,6 +8,7 @@ import { DBArtist } from "src/artist-manager/entity/artist.entity";
 import { EphemeralService } from "src/ephemeral/ephemeral.service";
 import { EphemeralModule } from "src/ephemeral/ephemeral.module";
 import { AttributesModule } from "src/attributes/attributes.module";
+import { SearchModule } from "src/search/search.module";
 
 @Module({
 	imports: [
@@ -16,6 +17,7 @@ import { AttributesModule } from "src/attributes/attributes.module";
 		ArtistManagerModule,
 		EphemeralModule,
 		AttributesModule,
+		SearchModule,
 	],
 	controllers: [ArtistsController],
 	providers: [ArtistsService],

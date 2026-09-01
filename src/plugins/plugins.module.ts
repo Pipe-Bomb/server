@@ -18,6 +18,7 @@ import { UsersModule } from "src/users/users.module";
 import { PlaylistsModule } from "src/playlists/playlists.module";
 import { WorkflowsModule } from "src/workflows/workflows.module";
 import { PrivilegesModule } from "src/privileges/privileges.module";
+import { SearchModule } from "src/search/search.module";
 
 @Module({
 	imports: [
@@ -38,6 +39,7 @@ import { PrivilegesModule } from "src/privileges/privileges.module";
 		PlaylistsModule,
 		WorkflowsModule,
 		PrivilegesModule,
+		SearchModule,
 	],
 	controllers: [PluginsController],
 	providers: [PluginsService],

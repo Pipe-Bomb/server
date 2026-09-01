@@ -1,7 +1,13 @@
-import { ApiExtraModels, ApiProperty, getSchemaPath } from "@nestjs/swagger";
+import {
+	ApiExtraModels,
+	ApiProperty,
+	ApiPropertyOptional,
+	getSchemaPath,
+} from "@nestjs/swagger";
 import {
 	IsArray,
 	IsBoolean,
+	IsOptional,
 	IsString,
 	ValidateIf,
 	ValidateNested,
@@ -17,6 +23,7 @@ import {
 } from "./search-attribute.dto";
 import { Type } from "class-transformer";
 import { AttributeType } from "src/attributes/enum/attribute-type.enum";
+import { SearchSortDto } from "./search-sort.dto";
 
 @ApiExtraModels(
 	StringSearchAttributeDto,
@@ -84,4 +91,15 @@ export class SearchDto {
 		},
 	})
 	attributes: SearchAttributeDto[] | null;
+
+	@IsOptional()
+	@IsString()
+	@ApiPropertyOptional()
+	query?: string;
+
+	@IsOptional()
+	@ValidateNested()
+	@Type(() => SearchSortDto)
+	@ApiPropertyOptional({ type: SearchSortDto })
+	sort?: SearchSortDto;
 }

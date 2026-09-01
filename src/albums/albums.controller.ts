@@ -25,6 +25,8 @@ import { EphemeralService } from "src/ephemeral/ephemeral.service";
 import { EphemeralSourceResponse } from "src/ephemeral/response/ephemeral-source.response";
 import { AlbumEphemeralContentResponse } from "./response/album-ephemeral-content.response";
 import { EphemeralSourceDto } from "src/ephemeral/dto/ephemeral-source.dto";
+import { SearchSourceService } from "src/search/search-source.service";
+import { In } from "typeorm";
 
 @Controller("albums")
 export class AlbumsController {
@@ -32,6 +34,7 @@ export class AlbumsController {
 		private readonly albumsService: AlbumsService,
 		private readonly albumManagerService: AlbumManagerService,
 		private readonly ephemeralService: EphemeralService,
+		private readonly searchSourceService: SearchSourceService,
 	) {}
 
 	@Get(":albumUuid")
@@ -219,6 +222,36 @@ export class AlbumsController {
 	})
 	@Post()
 	async search(@Body() dto: AlbumsSearchDto): Promise<AlbumsSearchResponse> {
+		if (this.searchSourceService.hasSource()) {
+			const raw = await this.searchSourceService.search({
+				sort: dto.sort,
+				entities: { albums: { limit: dto.pageSize, page: dto.page } },
+			});
+
+			const orderedUuids = raw.albums ?? [];
+			const fetched = orderedUuids.length
+				? await this.albumManagerService.findMany({
+						where: { uuid: In(orderedUuids) },
+						withArtists: true,
+						withAttributes: true,
+						withIdentities: true,
+						amount: orderedUuids.length,
+					})
+				: [];
+
+			const albumByUuid = new Map(fetched.map((a) => [a.uuid, a]));
+			const albums = orderedUuids
+				.map((uuid) => albumByUuid.get(uuid))
+				.filter((a): a is (typeof fetched)[number] => a !== undefined);
+
+			const totalPages =
+				raw.albumTotal !== undefined
+					? Math.ceil(raw.albumTotal / dto.pageSize)
+					: null;
+
+			return { albums: albums.map((album) => album.toResponse()), totalPages };
+		}
+
 		const albums = await this.albumManagerService.findMany({
 			amount: dto.pageSize,
 			offset: (dto.page - 1) * dto.pageSize,
@@ -229,6 +262,7 @@ export class AlbumsController {
 
 		return {
 			albums: albums.map((album) => album.toResponse()),
+			totalPages: null,
 		};
 	}
 

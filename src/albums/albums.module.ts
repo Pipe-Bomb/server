@@ -8,6 +8,7 @@ import { TasksModule } from "src/tasks/tasks.module";
 import { AlbumManagerModule } from "src/album-manager/album-manager.module";
 import { ArtistManagerModule } from "src/artist-manager/artist-manager.module";
 import { EphemeralModule } from "src/ephemeral/ephemeral.module";
+import { SearchModule } from "src/search/search.module";
 
 @Module({
 	imports: [
@@ -16,6 +17,7 @@ import { EphemeralModule } from "src/ephemeral/ephemeral.module";
 		TasksModule,
 		AlbumManagerModule,
 		EphemeralModule,
+		SearchModule,
 	],
 	controllers: [AlbumsController],
 	providers: [AlbumsService],

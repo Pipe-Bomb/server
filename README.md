@@ -19,7 +19,7 @@ The server will start on port 3000.
 
 The "access-control-allow-origin" header can be configured using the environment variable `CORS`.
 
-Pipe Bomb server supports sending "httpOnly" cookies to the client for use with the official [Pipe Bomb frontend](https://github.com/Pipe-Bomb/website). In this case, the cookie domain can be configured using the environment variable `COOKIE_DOMAIN`. To have the cookie be shared across subdomains, including a leading ".". If you wish to run the server at a sub-path, you can do so prepare the server for this using the `BASE_PATH` environment variable.
+Pipe Bomb server supports sending "httpOnly" cookies to the client for use with the official [Pipe Bomb frontend](https://github.com/Pipe-Bomb/frontend). In this case, the cookie domain can be configured using the environment variable `COOKIE_DOMAIN`. To have the cookie be shared across subdomains, including a leading ".". If you wish to run the server at a sub-path, you can do so prepare the server for this using the `BASE_PATH` environment variable.
 
 Example ".env" file:
 
@@ -132,13 +132,13 @@ If you start Pipe Bomb server with `npm run start:plugin-dev`, the server will a
 
 - ✅ Permissions system for users
 
+- ✅ Group playlists
+
 - ➖ Save ephemeral artists and albums without manually copying to a playlist
 
 - ➖ Search Handler for plugins to replace search provided by server
 
 - ➖ User overridable attributes and identities
-
-- ➖ Group playlists
 
 - ➖ User attributes
 

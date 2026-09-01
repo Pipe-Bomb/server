@@ -1,4 +1,4 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { ArtistResponse } from "../../artist-manager/response/artist.response";
 
 export class ArtistsSearchResponse {
@@ -6,4 +6,10 @@ export class ArtistsSearchResponse {
 		type: [ArtistResponse],
 	})
 	artists: ArtistResponse[];
+
+	@ApiProperty({
+		type: Number,
+		nullable: true,
+	})
+	totalPages: number | null;
 }
