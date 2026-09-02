@@ -3,6 +3,9 @@ FROM node:24-bookworm-slim AS builder
 WORKDIR /app
 
 COPY package*.json ./
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3 make g++ libvips-dev \
+    && rm -rf /var/lib/apt/lists/*
 RUN npm ci
 
 COPY nest-cli.json tsconfig.json tsconfig.build.json ./
@@ -16,7 +19,7 @@ RUN npm run build && npm prune --omit=dev
 FROM node:24-bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-		ffmpeg git ca-certificates \
+		ffmpeg git ca-certificates libvips \
 	&& rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
