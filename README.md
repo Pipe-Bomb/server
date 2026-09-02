@@ -7,6 +7,8 @@ The self hosted server for Pipe Bomb, which acts as a plugin host and aggregator
 
 ## Getting Started
 
+The easiest way to get Pipe Bomb up and running is using the [Docker Compose](https://github.com/Pipe-Bomb/docker) file. You can also directly run the Pipe Bomb server standalone using the following instructions:
+
 Pipe Bomb server requires Node.js 24 and FFmpeg. Clone the repository, then run:
 
 ```bash
@@ -15,11 +17,13 @@ npm run build
 npm run start:prod
 ```
 
-The server will start on port 3000.
+The server will start on port 3000 by default but can be configured using the environment variable `PORT`.
 
 The "access-control-allow-origin" header can be configured using the environment variable `CORS`.
 
 Pipe Bomb server supports sending "httpOnly" cookies to the client for use with the official [Pipe Bomb frontend](https://github.com/Pipe-Bomb/frontend). In this case, the cookie domain can be configured using the environment variable `COOKIE_DOMAIN`. To have the cookie be shared across subdomains, including a leading ".". If you wish to run the server at a sub-path, you can do so prepare the server for this using the `BASE_PATH` environment variable.
+
+The SQLite database location can be configured using the environment variable `DB_FILE`.
 
 Example ".env" file:
 
@@ -27,9 +31,8 @@ Example ".env" file:
 CORS="https://pipebomb.net"
 COOKIE_DOMAIN=".pipebomb.net"
 BASE_PATH="/api"
+DB_FILE="./database/pipebomb.sqlite"
 ```
-
-If you wish
 
 ## Data Storage
 
@@ -68,6 +71,10 @@ Ephemeral sources connect to a Library Handler and provide searchability to coll
 
 External Url Sources take an Identity for a track, artist or album and return a URL. These can be used to link to public pages such as Spotify Artist pages, or internal tools.
 
+### [Search Source](https://github.com/Pipe-Bomb/server/blob/master/sdk/search-source.d.ts)
+
+Search Sources provide the search engine for Pipe Bomb, allowing search across Tracks, Artists and Albums.
+
 ---
 
 **Plugins can implement as many or as few of these components as necessary. Example use cases:**
@@ -96,16 +103,10 @@ The [Pipe Bomb Community](https://github.com/pipe-bomb-community) organisation m
 
 The plugins listed above are a great place to start understanding how Pipe Bomb's internals work. To make a new plugin, create a directory inside your server's `plugins` directory.
 
-All necessary types are located in `/sdk`. If using TypeScript, you can add the following snippet to your `tsconfig.json`:
+The plugin SDK is available on [NPM](https://www.npmjs.com/package/@pipe-bomb/plugin-sdk):
 
-```json
-{
-	"compilerOptions": {
-		"paths": {
-			"@sdk": ["../../sdk/index.d.ts"]
-		}
-	}
-}
+```bash
+npm install @pipe-bomb/plugin-sdk
 ```
 
 Pipe Bomb server expects plugins to be plain JavaScript, so ensure you transpile any TypeScript code.
