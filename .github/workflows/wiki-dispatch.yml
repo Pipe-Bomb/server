@@ -1,0 +1,11 @@
+name: Notify landing site on wiki update
+on: gollum
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.WEBSITE_DISPATCH }}
+          repository: Pipe-Bomb/website
+          event-type: wiki-updated
