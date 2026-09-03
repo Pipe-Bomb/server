@@ -7,7 +7,7 @@ The self hosted server for Pipe Bomb, which acts as a plugin host and aggregator
 
 ## Getting Started
 
-The easiest way to get Pipe Bomb up and running is using the [Docker Compose](https://github.com/Pipe-Bomb/docker) file. You can also directly run the Pipe Bomb server standalone using the following instructions:
+Full installation instructions for Pipe Bomb are on the [Pipe Bomb Wiki](https://pipebomb.net/wiki/installation). You can also directly run the Pipe Bomb server standalone using the following instructions:
 
 Pipe Bomb server requires Node.js 24 and FFmpeg. Clone the repository, then run:
 
