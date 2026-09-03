@@ -124,7 +124,7 @@ export class PluginsService {
 	private async requestTempDirectory(): Promise<string> {
 		let dir: string;
 		do {
-			dir = path.join("temp", randomUUID());
+			dir = path.resolve("temp", randomUUID());
 		} while (existsSync(dir));
 		await mkdir(dir);
 		return dir;
@@ -216,6 +216,8 @@ export class PluginsService {
 	}
 
 	public async installPlugin(gitUrl: string, ref?: string): Promise<string> {
+		this.logger.debug(`Requested to install plugin "${gitUrl}"`);
+
 		const exec = promisify(execFile);
 		const tempDir = await this.requestTempDirectory();
 		const npmEnv = {
@@ -224,16 +226,22 @@ export class PluginsService {
 			NODE_ENV: "development",
 		};
 
+		this.logger.debug(`Installing plugin into "${tempDir}"`);
+
 		try {
+			this.logger.debug("Cloning plugin repository");
 			const cloneArgs = ref
 				? ["clone", "--depth", "1", "--branch", ref, gitUrl, tempDir]
 				: ["clone", "--depth", "1", gitUrl, tempDir];
 			await exec("git", cloneArgs);
 
+			this.logger.debug("Installing plugin dependencies");
+
 			await exec("npm", ["ci", "--include=dev"], { cwd: tempDir, env: npmEnv });
 
 			let packageJson: any;
 			try {
+				this.logger.debug("Reading plugin package.json");
 				const packageContents = await readFile(
 					path.join(tempDir, "package.json"),
 					"utf-8",
@@ -246,6 +254,7 @@ export class PluginsService {
 			}
 
 			if (packageJson?.scripts?.build) {
+				this.logger.debug("Executing plugin build script");
 				await exec("npm", ["run", "build"], { cwd: tempDir, env: npmEnv });
 				await exec("npm", ["prune", "--omit=dev"], {
 					cwd: tempDir,
@@ -275,11 +284,15 @@ export class PluginsService {
 				);
 			}
 
+			this.logger.debug("Creating plugins directory");
 			await mkdir(this.pluginsDirectory, { recursive: true });
+			this.logger.debug("Copying plugin to final destination");
 			await cp(tempDir, destDir, { recursive: true });
+			this.logger.debug("Cleaning up temp directory");
 			await rm(tempDir, { recursive: true, force: true });
 
 			try {
+				this.logger.debug("Loading newly installed plugin");
 				await this.loadPluginFromDirectory(destDir);
 			} catch (e) {
 				throw new BadRequestException(
