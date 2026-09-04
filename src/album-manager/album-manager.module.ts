@@ -6,6 +6,7 @@ import { DBAlbum } from "src/albums/entity/album.entity";
 import { DBAlbumArtist } from "src/albums/entity/album-artist.entity";
 import { DBAlbumIdentity } from "src/albums/entity/album-identity.entity";
 import { DBAlbumTrack } from "src/albums/entity/album-track.entity";
+import { DBAlbumMerge } from "src/albums/entity/album-merge.entity";
 import { ExternalUrlsModule } from "src/external-urls/external-urls.module";
 
 @Module({
@@ -15,6 +16,7 @@ import { ExternalUrlsModule } from "src/external-urls/external-urls.module";
 			DBAlbumArtist,
 			DBAlbumIdentity,
 			DBAlbumTrack,
+			DBAlbumMerge,
 		]),
 		ExternalUrlsModule,
 	],
