@@ -84,7 +84,7 @@ export class ArtistsService {
 				}
 
 				try {
-					const { mergedArtists, identities } =
+					const { mergedArtists, identities, splitCount } =
 						await this.artistManagerService.identifyArtist(artist, runId);
 					this.logger.debug(
 						`Identified ${identities.length} identities to Artist #${completed + 1}`,

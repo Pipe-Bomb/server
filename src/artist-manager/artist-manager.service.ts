@@ -29,6 +29,7 @@ import {
 import { DBArtistIdentity } from "./entity/artist-identity.entity";
 import { DBArtist } from "./entity/artist.entity";
 import { DBTrackArtist } from "./entity/track-artist.entity";
+import { DBArtistMerge } from "./entity/artist-merge.entity";
 import { DBAlbumArtist } from "src/albums/entity/album-artist.entity";
 
 @Injectable()
@@ -49,6 +50,8 @@ export class ArtistManagerService {
 		private readonly identitiesRepository: Repository<DBArtistIdentity>,
 		@InjectRepository(DBTrackArtist)
 		private readonly trackArtistsRepository: Repository<DBTrackArtist>,
+		@InjectRepository(DBArtistMerge)
+		private readonly mergesRepository: Repository<DBArtistMerge>,
 		private readonly externalUrlsService: ExternalUrlsService,
 		private readonly trackManagerService: TrackManagerService,
 		private readonly albumManagerService: AlbumManagerService,
@@ -116,6 +119,7 @@ export class ArtistManagerService {
 				identity: identityValue,
 				target,
 				ordinal: 0,
+				originalArtistUuid: savedArtist.uuid,
 			});
 			await manager.save(newIdentity);
 
@@ -393,7 +397,7 @@ export class ArtistManagerService {
 			this.logger.warn(
 				`Cannot identify Artist "${artist.uuid}" because no identifiers are registered`,
 			);
-			return { identities: [], mergedArtists: [artist.uuid] };
+			return { identities: [], mergedArtists: [artist.uuid], splitCount: 0 };
 		}
 
 		// 1. RUN IDENTIFIERS (Standard logic)
@@ -435,6 +439,7 @@ export class ArtistManagerService {
 						identity,
 						target: ArtistIdentityTarget.ARTIST,
 						ordinal,
+						originalArtistUuid: artist.uuid,
 					});
 
 					allIdentities.push(newIdentity);
@@ -448,7 +453,7 @@ export class ArtistManagerService {
 				{ uuid: artist.uuid },
 				{ lastIdentificationRunId: runId },
 			);
-			return { identities: [], mergedArtists: [artist.uuid] };
+			return { identities: [], mergedArtists: [artist.uuid], splitCount: 0 };
 		}
 
 		// 2. FIND MERGE CANDIDATES
@@ -595,7 +600,21 @@ export class ArtistManagerService {
 						lastIdentificationRunId: runId,
 					});
 
-					return { mergedArtists: allArtistIds, identities: masterIdentities };
+					// --- E. MERGE TOMBSTONES ---
+					const mergeRepo = tm.getRepository(DBArtistMerge);
+					await mergeRepo.insert(
+						removedArtistIds.map((mergedUuid) => ({
+							mergedUuid,
+							masterUuid: masterArtist.uuid,
+							mergedAt: Date.now(),
+						})),
+					);
+
+					return {
+						mergedArtists: allArtistIds,
+						identities: masterIdentities,
+						splitCount: 0,
+					};
 				} else {
 					// Standard single-artist update
 					await artistsRepo.update(artist.uuid, {
@@ -609,7 +628,11 @@ export class ArtistManagerService {
 						})),
 					);
 					await idRepo.insert(newEntries);
-					return { mergedArtists: [artist.uuid], identities: newEntries };
+					return {
+						mergedArtists: [artist.uuid],
+						identities: newEntries,
+						splitCount: 0,
+					};
 				}
 			},
 		);

@@ -51,6 +51,9 @@ export class DBArtistIdentity {
 	@Index()
 	identity: string;
 
+	@Column({ type: "uuid", nullable: true })
+	originalArtistUuid: string | null;
+
 	toResponse(): IdentityResponse {
 		return {
 			pluginId: this.pluginId,
