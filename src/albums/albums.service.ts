@@ -18,6 +18,8 @@ import { TasksService } from "src/tasks/tasks.service";
 import { ArtistIdentityTarget } from "src/artist-manager/enum/artist-identity-target.enum";
 import { AlbumManagerService } from "src/album-manager/album-manager.service";
 import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
+import { DBIdentity } from "src/identifiers/entities/identity.entity";
+import { DBArtistIdentity } from "src/artist-manager/entity/artist-identity.entity";
 
 @Injectable()
 export class AlbumsService {
@@ -70,6 +72,19 @@ export class AlbumsService {
 		// Build newEntries in-memory first; artist links can be set immediately
 		let allIdentities = await this.albumManagerService.findIdentities(album);
 		const newEntries: DBAlbumIdentity[] = [];
+
+		// PRE-SPLIT: evaluate before re-identification so cross-partition rows
+		// are still present and don't cause primary-key conflicts during the update.
+		let preSplitCount = 0;
+		const hasMergedOrigins = allIdentities.some(
+			(i) => i.originalAlbumUuid !== null && i.originalAlbumUuid !== album.uuid,
+		);
+		if (hasMergedOrigins) {
+			preSplitCount = await this.evaluateAlbumSplit(album, allIdentities);
+			if (preSplitCount > 0) {
+				allIdentities = await this.albumManagerService.findIdentities(album);
+			}
+		}
 
 		for (const { identifier, plugin } of identifiers) {
 			const informationHelper =
@@ -155,7 +170,11 @@ export class AlbumsService {
 
 		if (!newEntries.length) {
 			await this.albumManagerService.setRunId(album, runId, "identity");
-			return { identities: [], mergedAlbums: [album.uuid], splitCount: 0 };
+			return {
+				identities: [],
+				mergedAlbums: [album.uuid],
+				splitCount: preSplitCount,
+			};
 		}
 
 		// Find merge candidates
@@ -221,6 +240,7 @@ export class AlbumsService {
 							...data,
 							albumUuid: masterAlbum.uuid,
 							ordinal,
+							originalAlbumUuid: data.originalAlbumUuid ?? data.albumUuid,
 						}),
 					);
 				};
@@ -313,14 +333,14 @@ export class AlbumsService {
 		const currentIds = await this.identitiesRepository.findBy({
 			albumUuid: txResult.survivingAlbum.uuid,
 		});
-		const splitCount = await this.evaluateAlbumSplit(
+		const postSplitCount = await this.evaluateAlbumSplit(
 			txResult.survivingAlbum,
 			currentIds,
 		);
 		return {
 			mergedAlbums: txResult.mergedAlbums,
 			identities: txResult.identities,
-			splitCount,
+			splitCount: preSplitCount + postSplitCount,
 		};
 	}
 
@@ -459,23 +479,72 @@ export class AlbumsService {
 				const idsToMove = allIds.filter((i) =>
 					groupOriginalUuids.includes(i.originalAlbumUuid ?? album.uuid),
 				);
-				const splitPluginKeys = new Set(
-					idsToMove.map((i) => `${i.pluginId}:${i.identifierId}`),
+				const splitIdentityTriples = new Set(
+					idsToMove.map((i) => `${i.pluginId}:${i.identifierId}:${i.identity}`),
 				);
 
 				const allTrackLinks = await albumTracksRepo.findBy({
 					albumUuid: album.uuid,
 				});
-				const linksToMove = allTrackLinks.filter((l) =>
-					splitPluginKeys.has(`${l.pluginId}:${l.identifierId}`),
-				);
+
+				const trackUuids = [...new Set(allTrackLinks.map((l) => l.trackUuid))];
+				const trackIdentities = trackUuids.length
+					? await tm
+							.getRepository(DBIdentity)
+							.findBy({ trackUuid: In(trackUuids) })
+					: [];
+				const trackTripleMap = new Map<string, Set<string>>();
+				for (const ti of trackIdentities) {
+					const triples = trackTripleMap.get(ti.trackUuid) ?? new Set<string>();
+					trackTripleMap.set(ti.trackUuid, triples);
+					triples.add(`${ti.pluginId}:${ti.identifierId}:${ti.identity}`);
+				}
+
+				const linksToMove = allTrackLinks.filter((l) => {
+					const triples = trackTripleMap.get(l.trackUuid);
+					if (!triples) {
+						return false;
+					}
+					const prefix = `${l.pluginId}:${l.identifierId}:`;
+					for (const triple of triples) {
+						if (triple.startsWith(prefix) && splitIdentityTriples.has(triple)) {
+							return true;
+						}
+					}
+					return false;
+				});
 
 				const allArtistLinks = await albumArtistsRepo.findBy({
 					albumUuid: album.uuid,
 				});
-				const artistLinksToMove = allArtistLinks.filter((l) =>
-					splitPluginKeys.has(`${l.pluginId}:${l.identifierId}`),
-				);
+				const artistUuids = [
+					...new Set(allArtistLinks.map((l) => l.artistUuid)),
+				];
+				const artistIdentities = artistUuids.length
+					? await tm
+							.getRepository(DBArtistIdentity)
+							.findBy({ artistUuid: In(artistUuids) })
+					: [];
+				const artistTripleMap = new Map<string, Set<string>>();
+				for (const ai of artistIdentities) {
+					const triples =
+						artistTripleMap.get(ai.artistUuid) ?? new Set<string>();
+					artistTripleMap.set(ai.artistUuid, triples);
+					triples.add(`${ai.pluginId}:${ai.identifierId}:${ai.identity}`);
+				}
+				const artistLinksToMove = allArtistLinks.filter((l) => {
+					const triples = artistTripleMap.get(l.artistUuid);
+					if (!triples) {
+						return false;
+					}
+					const prefix = `${l.pluginId}:${l.identifierId}:`;
+					for (const triple of triples) {
+						if (triple.startsWith(prefix) && splitIdentityTriples.has(triple)) {
+							return true;
+						}
+					}
+					return false;
+				});
 
 				const newAlbum = albumsRepo.create({
 					title: "Unknown Album",
@@ -493,7 +562,11 @@ export class AlbumsService {
 						})),
 					);
 					await idRepo.insert(
-						idsToMove.map((i) => ({ ...i, albumUuid: savedAlbum.uuid })),
+						idsToMove.map((i) => ({
+							...i,
+							albumUuid: savedAlbum.uuid,
+							originalAlbumUuid: savedAlbum.uuid,
+						})),
 					);
 				}
 

@@ -8,6 +8,7 @@
 /audio-cache
 /.widevine
 /.secrets
+/docs
 
 # Logs
 logs

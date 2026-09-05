@@ -31,6 +31,7 @@ import { DBArtist } from "./entity/artist.entity";
 import { DBTrackArtist } from "./entity/track-artist.entity";
 import { DBArtistMerge } from "./entity/artist-merge.entity";
 import { DBAlbumArtist } from "src/albums/entity/album-artist.entity";
+import { DBIdentity } from "src/identifiers/entities/identity.entity";
 
 @Injectable()
 export class ArtistManagerService {
@@ -398,6 +399,20 @@ export class ArtistManagerService {
 			return { identities: [], mergedArtists: [artist.uuid], splitCount: 0 };
 		}
 
+		// PRE-SPLIT: evaluate before re-identification so cross-partition rows
+		// are still present and don't cause primary-key conflicts during the update.
+		let preSplitCount = 0;
+		const hasMergedOrigins = allIdentities.some(
+			(i) =>
+				i.originalArtistUuid !== null && i.originalArtistUuid !== artist.uuid,
+		);
+		if (hasMergedOrigins) {
+			preSplitCount = await this.evaluateSplit(artist, allIdentities);
+			if (preSplitCount > 0) {
+				allIdentities = await this.findIdentities(artist);
+			}
+		}
+
 		// 1. RUN IDENTIFIERS (Standard logic)
 		for (const { identifier, plugin } of this.orderedIdentifiers) {
 			const helper = await this.getInformationHelper(artist, (id, pluginId) =>
@@ -451,7 +466,11 @@ export class ArtistManagerService {
 				{ uuid: artist.uuid },
 				{ lastIdentificationRunId: runId },
 			);
-			return { identities: [], mergedArtists: [artist.uuid], splitCount: 0 };
+			return {
+				identities: [],
+				mergedArtists: [artist.uuid],
+				splitCount: preSplitCount,
+			};
 		}
 
 		// 2. FIND MERGE CANDIDATES
@@ -518,6 +537,7 @@ export class ArtistManagerService {
 							...data,
 							artistUuid: masterArtist.uuid,
 							ordinal,
+							originalArtistUuid: data.originalArtistUuid ?? data.artistUuid,
 						}),
 					);
 				};
@@ -639,14 +659,14 @@ export class ArtistManagerService {
 		const currentIds = await this.identitiesRepository.findBy({
 			artistUuid: txResult.survivingArtist.uuid,
 		});
-		const splitCount = await this.evaluateSplit(
+		const postSplitCount = await this.evaluateSplit(
 			txResult.survivingArtist,
 			currentIds,
 		);
 		return {
 			mergedArtists: txResult.mergedArtists,
 			identities: txResult.identities,
-			splitCount,
+			splitCount: preSplitCount + postSplitCount,
 		};
 	}
 
@@ -785,16 +805,40 @@ export class ArtistManagerService {
 					groupOriginalUuids.includes(i.originalArtistUuid ?? artist.uuid),
 				);
 
-				const splitPluginKeys = new Set(
-					idsToMove.map((i) => `${i.pluginId}:${i.identifierId}`),
+				const splitIdentityTriples = new Set(
+					idsToMove.map((i) => `${i.pluginId}:${i.identifierId}:${i.identity}`),
 				);
 
 				const allTrackLinks = await trackArtistsRepo.findBy({
 					artistUuid: artist.uuid,
 				});
-				const linksToMove = allTrackLinks.filter((l) =>
-					splitPluginKeys.has(`${l.pluginId}:${l.identifierId}`),
-				);
+
+				const trackUuids = [...new Set(allTrackLinks.map((l) => l.trackUuid))];
+				const trackIdentities = trackUuids.length
+					? await tm
+							.getRepository(DBIdentity)
+							.findBy({ trackUuid: In(trackUuids) })
+					: [];
+				const trackTripleMap = new Map<string, Set<string>>();
+				for (const ti of trackIdentities) {
+					const triples = trackTripleMap.get(ti.trackUuid) ?? new Set<string>();
+					trackTripleMap.set(ti.trackUuid, triples);
+					triples.add(`${ti.pluginId}:${ti.identifierId}:${ti.identity}`);
+				}
+
+				const linksToMove = allTrackLinks.filter((l) => {
+					const triples = trackTripleMap.get(l.trackUuid);
+					if (!triples) {
+						return false;
+					}
+					const prefix = `${l.pluginId}:${l.identifierId}:`;
+					for (const triple of triples) {
+						if (triple.startsWith(prefix) && splitIdentityTriples.has(triple)) {
+							return true;
+						}
+					}
+					return false;
+				});
 
 				const newArtist = artistsRepo.create({
 					lastIdentificationRunId: null,
@@ -812,7 +856,11 @@ export class ArtistManagerService {
 						})),
 					);
 					await idRepo.insert(
-						idsToMove.map((i) => ({ ...i, artistUuid: savedArtist.uuid })),
+						idsToMove.map((i) => ({
+							...i,
+							artistUuid: savedArtist.uuid,
+							originalArtistUuid: savedArtist.uuid,
+						})),
 					);
 				}
 
