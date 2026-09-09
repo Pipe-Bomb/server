@@ -56,27 +56,34 @@ export class ExternalUrlsService {
 
 		const sources = this.allFlat();
 		for (const { source, plugin } of sources) {
-			const sourceUrls = urlGetter(source);
-			if (sourceUrls?.length) {
-				for (const url of sourceUrls) {
-					const icon = this.iconsService.getIcon(
-						plugin.package.name,
-						url.iconId,
-					);
-					if (icon) {
-						urls.push({
-							url: url.url,
-							name: url.name,
-							iconUrl: new RelativeUrl(
-								`/icons/${plugin.package.name}/${icon.id}`,
-							),
-						});
-					} else {
-						this.logger.warn(
-							`Ignoring External Url from Plugin "${plugin.package.name}" that attempted to use nonexistent Icon "${url.iconId}"`,
+			try {
+				const sourceUrls = urlGetter(source);
+				if (sourceUrls?.length) {
+					for (const url of sourceUrls) {
+						const icon = this.iconsService.getIcon(
+							plugin.package.name,
+							url.iconId,
 						);
+						if (icon) {
+							urls.push({
+								url: url.url,
+								name: url.name,
+								iconUrl: new RelativeUrl(
+									`/icons/${plugin.package.name}/${icon.id}`,
+								),
+							});
+						} else {
+							this.logger.warn(
+								`Ignoring External Url from Plugin "${plugin.package.name}" that attempted to use nonexistent Icon "${url.iconId}"`,
+							);
+						}
 					}
 				}
+			} catch (e) {
+				this.logger.error(
+					`Failed to get External Url from Plugin "${plugin.package.name}":`,
+					e,
+				);
 			}
 		}
 
