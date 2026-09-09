@@ -3,6 +3,7 @@ import { SavedPlaylist, SavedPlaylistMember } from "./database";
 
 export interface PlaylistClient {
 	getUserPlaylistUuids(uuid: string): Promise<string[]>;
+	getMemberPlaylistUuids(userUuid: string): Promise<string[]>;
 
 	getPlaylist(
 		uuid: string,
