@@ -7,10 +7,16 @@ import { AlbumManagerModule } from "src/album-manager/album-manager.module";
 import { DBArtistIdentity } from "./entity/artist-identity.entity";
 import { DBArtist } from "./entity/artist.entity";
 import { DBTrackArtist } from "./entity/track-artist.entity";
+import { DBArtistMerge } from "./entity/artist-merge.entity";
 
 @Module({
 	imports: [
-		TypeOrmModule.forFeature([DBArtist, DBArtistIdentity, DBTrackArtist]),
+		TypeOrmModule.forFeature([
+			DBArtist,
+			DBArtistIdentity,
+			DBTrackArtist,
+			DBArtistMerge,
+		]),
 		ExternalUrlsModule,
 		TrackManagerModule,
 		AlbumManagerModule,

@@ -277,6 +277,7 @@ export class AlbumManagerService {
 				identity,
 				albumUuid: saved.uuid,
 				ordinal: 0,
+				originalAlbumUuid: saved.uuid,
 			});
 
 			return saved.uuid;

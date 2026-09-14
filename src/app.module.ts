@@ -40,6 +40,7 @@ import { PrivilegeGuard } from "./privileges/privilege.guard";
 import { SystemConfigModule } from "./system-config/system-config.module";
 import { SetupModule } from "./setup/setup.module";
 import { MarketplacesModule } from "./marketplace/marketplaces.module";
+import { PlaybackHistoryModule } from "./playback-history/playback-history.module";
 
 @Module({
 	imports: [
@@ -82,6 +83,7 @@ import { MarketplacesModule } from "./marketplace/marketplaces.module";
 		SystemConfigModule,
 		SetupModule,
 		MarketplacesModule,
+		PlaybackHistoryModule,
 	],
 	controllers: [AppController],
 	providers: [

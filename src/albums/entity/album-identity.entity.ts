@@ -43,6 +43,9 @@ export class DBAlbumIdentity {
 	@Index()
 	identity: string;
 
+	@Column({ type: "uuid", nullable: true })
+	originalAlbumUuid: string | null;
+
 	toResponse(): IdentityResponse {
 		return {
 			pluginId: this.pluginId,

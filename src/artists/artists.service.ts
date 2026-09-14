@@ -64,7 +64,7 @@ export class ArtistsService {
 			return criteria;
 		};
 
-		const count = await this.artistManagerService.count(getCriteria());
+		let count = await this.artistManagerService.count(getCriteria());
 		if (!count) {
 			return;
 		}
@@ -84,7 +84,7 @@ export class ArtistsService {
 				}
 
 				try {
-					const { mergedArtists, identities } =
+					const { mergedArtists, identities, splitCount } =
 						await this.artistManagerService.identifyArtist(artist, runId);
 					this.logger.debug(
 						`Identified ${identities.length} identities to Artist #${completed + 1}`,
@@ -92,6 +92,12 @@ export class ArtistsService {
 
 					pool = pool.filter((artist) => !mergedArtists.includes(artist.uuid));
 					completed += mergedArtists.length;
+
+					if (splitCount > 0) {
+						count += splitCount;
+						allChunksLoaded = false;
+						setImmediate(increasePool);
+					}
 				} catch (e) {
 					this.logger.debug(
 						`Failed to identify to Artist #${completed + 1}:`,
@@ -128,6 +134,7 @@ export class ArtistsService {
 								handle();
 							}
 						} else {
+							isFinding = false;
 							allChunksLoaded = true;
 							if (!activeThreads) {
 								resolve();
