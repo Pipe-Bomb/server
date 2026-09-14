@@ -31,6 +31,7 @@ import { DBArtist } from "./entity/artist.entity";
 import { DBTrackArtist } from "./entity/track-artist.entity";
 import { DBArtistMerge } from "./entity/artist-merge.entity";
 import { DBAlbumArtist } from "src/albums/entity/album-artist.entity";
+import { DBAlbumIdentity } from "src/albums/entity/album-identity.entity";
 import { DBIdentity } from "src/identifiers/entities/identity.entity";
 
 @Injectable()
@@ -436,6 +437,13 @@ export class ArtistManagerService {
 				continue;
 			}
 
+			const previousEntries = allIdentities.filter(
+				(i) =>
+					i.identifierId === identifier.id &&
+					i.pluginId === plugin.package.name &&
+					i.target === ArtistIdentityTarget.ARTIST,
+			);
+
 			allIdentities = allIdentities.filter(
 				(i) =>
 					i.identifierId != identifier.id ||
@@ -452,12 +460,21 @@ export class ArtistManagerService {
 						identity,
 						target: ArtistIdentityTarget.ARTIST,
 						ordinal,
-						originalArtistUuid: artist.uuid,
+						originalArtistUuid:
+							previousEntries.find((p) => p.identity === identity)
+								?.originalArtistUuid ?? artist.uuid,
 					});
 
 					allIdentities.push(newIdentity);
 					newEntries.push(newIdentity);
 				}
+			} else {
+				await this.identitiesRepository.delete({
+					artistUuid: artist.uuid,
+					identifierId: identifier.id,
+					pluginId: plugin.package.name,
+					target: ArtistIdentityTarget.ARTIST,
+				});
 			}
 		}
 
@@ -507,7 +524,14 @@ export class ArtistManagerService {
 			const attrRepo = tm.getRepository(DBArtistAttribute);
 
 			if (existingArtists.length > 1) {
-				existingArtists.sort((a, b) => a.dateAdded - b.dateAdded);
+				const artistDateMs = (artist: DBArtist): number => {
+					const v = artist.dateAdded as unknown;
+					if (typeof v === "string") {
+						return new Date((v as string).replace(" ", "T")).getTime();
+					}
+					return artist.dateAdded;
+				};
+				existingArtists.sort((a, b) => artistDateMs(a) - artistDateMs(b));
 				const masterArtist = existingArtists[0];
 				const allArtistIds = existingArtists.map((a) => a.uuid);
 				const removedArtistIds = allArtistIds.slice(1);
@@ -520,15 +544,17 @@ export class ArtistManagerService {
 				const idOrdinalMap: Record<string, number> = {};
 
 				const addIdentity = (data: Partial<DBArtistIdentity>) => {
-					const valKey = `${data.pluginId}:${data.identifierId}:${data.identity}`;
+					const valKey = `${data.pluginId}:${data.identifierId}:${data.target}:${data.identity}`;
 					if (
 						masterIdentities.some(
-							(i) => `${i.pluginId}:${i.identifierId}:${i.identity}` === valKey,
+							(i) =>
+								`${i.pluginId}:${i.identifierId}:${i.target}:${i.identity}` ===
+								valKey,
 						)
 					)
 						return;
 
-					const ordKey = `${data.pluginId}:${data.identifierId}`;
+					const ordKey = `${data.pluginId}:${data.identifierId}:${data.target}`;
 					const ordinal = idOrdinalMap[ordKey] || 0;
 					idOrdinalMap[ordKey] = ordinal + 1;
 
@@ -614,6 +640,27 @@ export class ArtistManagerService {
 				await trackArtistsRepo.delete({ artistUuid: In(allArtistIds) });
 				await trackArtistsRepo.insert(Object.values(uniqueLinks));
 
+				// --- C2. MERGE ALBUM LINKS ---
+				const albumArtistsRepo = tm.getRepository(DBAlbumArtist);
+				const allAlbumLinks = await albumArtistsRepo.findBy({
+					artistUuid: In(allArtistIds),
+				});
+				const uniqueAlbumLinks: Record<string, DBAlbumArtist> = {};
+
+				for (const link of allAlbumLinks) {
+					const compositeKey = `${link.albumUuid}:${link.pluginId}:${link.identifierId}`;
+
+					if (!uniqueAlbumLinks[compositeKey]) {
+						uniqueAlbumLinks[compositeKey] = albumArtistsRepo.create({
+							...link,
+							artistUuid: masterArtist.uuid,
+						});
+					}
+				}
+
+				await albumArtistsRepo.delete({ artistUuid: In(allArtistIds) });
+				await albumArtistsRepo.insert(Object.values(uniqueAlbumLinks));
+
 				// --- D. CLEANUP ---
 				await artistsRepo.delete({ uuid: In(removedArtistIds) });
 				await artistsRepo.update(masterArtist.uuid, {
@@ -645,6 +692,7 @@ export class ArtistManagerService {
 						artistUuid: artist.uuid,
 						pluginId: e.pluginId,
 						identifierId: e.identifierId,
+						target: e.target,
 					})),
 				);
 				await idRepo.insert(newEntries);
@@ -842,6 +890,8 @@ export class ArtistManagerService {
 
 				const newArtist = artistsRepo.create({
 					lastIdentificationRunId: null,
+					uuid: groupOriginalUuids[0],
+					dateAdded: Date.now(),
 				});
 				const savedArtist = await artistsRepo.save(newArtist);
 
@@ -859,7 +909,6 @@ export class ArtistManagerService {
 						idsToMove.map((i) => ({
 							...i,
 							artistUuid: savedArtist.uuid,
-							originalArtistUuid: savedArtist.uuid,
 						})),
 					);
 				}
@@ -876,6 +925,52 @@ export class ArtistManagerService {
 					);
 					await trackArtistsRepo.insert(
 						linksToMove.map((l) => ({
+							...l,
+							artistUuid: savedArtist.uuid,
+						})),
+					);
+				}
+
+				const allAlbumLinks = await tm
+					.getRepository(DBAlbumArtist)
+					.findBy({ artistUuid: artist.uuid });
+				const albumUuids = [...new Set(allAlbumLinks.map((l) => l.albumUuid))];
+				const albumIdentities = albumUuids.length
+					? await tm
+							.getRepository(DBAlbumIdentity)
+							.findBy({ albumUuid: In(albumUuids) })
+					: [];
+				const albumTripleMap = new Map<string, Set<string>>();
+				for (const ai of albumIdentities) {
+					const triples = albumTripleMap.get(ai.albumUuid) ?? new Set<string>();
+					albumTripleMap.set(ai.albumUuid, triples);
+					triples.add(`${ai.pluginId}:${ai.identifierId}:${ai.identity}`);
+				}
+				const albumLinksToMove = allAlbumLinks.filter((l) => {
+					const triples = albumTripleMap.get(l.albumUuid);
+					if (!triples) {
+						return false;
+					}
+					const prefix = `${l.pluginId}:${l.identifierId}:`;
+					for (const triple of triples) {
+						if (triple.startsWith(prefix) && splitIdentityTriples.has(triple)) {
+							return true;
+						}
+					}
+					return false;
+				});
+				if (albumLinksToMove.length) {
+					await tm.getRepository(DBAlbumArtist).delete(
+						albumLinksToMove.map((l) => ({
+							albumUuid: l.albumUuid,
+							artistUuid: artist.uuid,
+							pluginId: l.pluginId,
+							identifierId: l.identifierId,
+							ordinal: l.ordinal,
+						})),
+					);
+					await tm.getRepository(DBAlbumArtist).insert(
+						albumLinksToMove.map((l) => ({
 							...l,
 							artistUuid: savedArtist.uuid,
 						})),

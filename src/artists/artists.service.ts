@@ -134,6 +134,7 @@ export class ArtistsService {
 								handle();
 							}
 						} else {
+							isFinding = false;
 							allChunksLoaded = true;
 							if (!activeThreads) {
 								resolve();
