@@ -17,7 +17,6 @@ import {
 } from "fs/promises";
 import Mime from "mime";
 import { finished } from "stream/promises";
-import { TasksService } from "src/tasks/tasks.service";
 import { LoadedLibraryHandler } from "src/libraries/interface/loaded-library.interface";
 import { StreamingCoreService } from "src/streaming-core/streaming-core.service";
 import { StreamStreamInstance } from "src/streaming-core/stream-instance/stream.stream-instance";
@@ -104,9 +103,11 @@ export class AudioCacheService {
 		return handler.getAudioProducer(trackId, type);
 	}
 
-	private async createSidecar(audioPath: string) {
-		const jsonPath = `${audioPath}.json`;
+	private async writeSidecar(audioPath: string, content: CacheSidecar) {
+		await writeFile(`${audioPath}.json`, JSON.stringify(content));
+	}
 
+	private async createSidecar(audioPath: string) {
 		const stats = await stat(audioPath);
 
 		const ffprobeData = await new Promise<FFmpeg.FfprobeData>(
@@ -157,7 +158,7 @@ export class AudioCacheService {
 			mimeType,
 		};
 
-		await writeFile(jsonPath, JSON.stringify(content));
+		await this.writeSidecar(audioPath, content);
 	}
 
 	async cacheTrack(library: LoadedLibraryHandler, track: DBTrack) {
@@ -226,7 +227,10 @@ export class AudioCacheService {
 						throw e;
 					}
 				}
-				await this.createSidecar(filePath);
+				await this.writeSidecar(filePath, {
+					size: stats.size,
+					mimeType: metadata.mimeType,
+				});
 
 				return true;
 			}
@@ -234,35 +238,44 @@ export class AudioCacheService {
 			if (instance instanceof HLSStreamInstance) {
 				const playlistUrl = `http://127.0.0.1:3000/streaming/${instance.id}/hls/playlist.m3u8`;
 
-				// todo: evaluate use of 320k mp3
-				const tempFile = path.join(tempDir, `temp.mp3`);
+				const playlist = await instance.getProducer().getPlaylist();
+
+				const hlsFormat: {
+					extension: string;
+					mimeType: string;
+					outputFormat: string;
+				} = (() => {
+					switch (playlist.containerType) {
+						case "aac":
+							return {
+								extension: "aac",
+								mimeType: "audio/aac",
+								outputFormat: "adts",
+							};
+						case "fmp4":
+							return {
+								extension: "m4a",
+								mimeType: "audio/mp4",
+								outputFormat: "mp4",
+							};
+						case "ts":
+							return {
+								extension: "m4a",
+								mimeType: "audio/mp4",
+								outputFormat: "mp4",
+							};
+					}
+				})();
+
+				const tempFile = path.join(tempDir, `temp.${hlsFormat.extension}`);
 				await new Promise<void>((resolve, reject) => {
-					console.log("Starting FFmpeg...");
 					FFmpeg(playlistUrl)
-						// .inputOptions([
-						// 	// "-reconnect 1",
-						// 	// "-reconnect_at_eof 1",
-						// 	// "-reconnect_streamed 1",
-						// 	// "-reconnect_delay_max 5",
-						// ])
-						.inputOptions([
-							"-probesize 10M", // Analyze up to 10MB to find a valid stream
-							"-analyzeduration 10M", // Analyze for 10 seconds of data
-						])
+						.inputOptions(["-probesize 10M", "-analyzeduration 10M"])
 						.noVideo()
-						.audioCodec("libmp3lame")
-						.audioBitrate("320k")
-						.on("error", (e) => {
-							console.error(e);
-							reject(e);
-						})
-						.on("end", () => {
-							console.log("FFmpeg finished");
-							resolve();
-						})
-						// .on("stderr", (stderrLine) => {
-						// 	console.log("FFmpeg Output: " + stderrLine);
-						// })
+						.audioCodec("copy")
+						.outputFormat(hlsFormat.outputFormat)
+						.on("error", (e) => reject(e))
+						.on("end", () => resolve())
 						.save(tempFile);
 				});
 				await mkdir(fileDir, {
@@ -278,6 +291,11 @@ export class AudioCacheService {
 						throw e;
 					}
 				}
+				const stats = await stat(filePath);
+				await this.writeSidecar(filePath, {
+					size: stats.size,
+					mimeType: hlsFormat.mimeType,
+				});
 				return true;
 			}
 		} catch (e) {
