@@ -4,20 +4,23 @@ import { AlbumsController } from "./albums.controller";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { DBAlbum } from "./entity/album.entity";
 import { DBAlbumIdentity } from "./entity/album-identity.entity";
+import { DBAlbumMerge } from "./entity/album-merge.entity";
 import { TasksModule } from "src/tasks/tasks.module";
 import { AlbumManagerModule } from "src/album-manager/album-manager.module";
 import { ArtistManagerModule } from "src/artist-manager/artist-manager.module";
 import { EphemeralModule } from "src/ephemeral/ephemeral.module";
 import { SearchModule } from "src/search/search.module";
+import { IdentifiersModule } from "src/identifiers/identifiers.module";
 
 @Module({
 	imports: [
-		TypeOrmModule.forFeature([DBAlbum, DBAlbumIdentity]),
+		TypeOrmModule.forFeature([DBAlbum, DBAlbumIdentity, DBAlbumMerge]),
 		ArtistManagerModule,
 		TasksModule,
 		AlbumManagerModule,
 		EphemeralModule,
 		SearchModule,
+		IdentifiersModule,
 	],
 	controllers: [AlbumsController],
 	providers: [AlbumsService],

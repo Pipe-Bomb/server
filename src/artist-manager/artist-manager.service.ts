@@ -6,6 +6,7 @@ import {
 	Identity,
 	TrackIdentifier,
 } from "@sdk";
+import { DeregistrationBlockedError } from "src/util/deregistration-blocked.error";
 import { AlbumManagerService } from "src/album-manager/album-manager.service";
 import { ArtistIdentityTarget } from "src/artist-manager/enum/artist-identity-target.enum";
 import { ArtistIdentificationResult } from "src/artist-manager/interface/artist-identification-result.interface";
@@ -29,7 +30,10 @@ import {
 import { DBArtistIdentity } from "./entity/artist-identity.entity";
 import { DBArtist } from "./entity/artist.entity";
 import { DBTrackArtist } from "./entity/track-artist.entity";
+import { DBArtistMerge } from "./entity/artist-merge.entity";
 import { DBAlbumArtist } from "src/albums/entity/album-artist.entity";
+import { DBAlbumIdentity } from "src/albums/entity/album-identity.entity";
+import { DBIdentity } from "src/identifiers/entities/identity.entity";
 
 @Injectable()
 export class ArtistManagerService {
@@ -116,6 +120,7 @@ export class ArtistManagerService {
 				identity: identityValue,
 				target,
 				ordinal: 0,
+				originalArtistUuid: savedArtist.uuid,
 			});
 			await manager.save(newIdentity);
 
@@ -301,6 +306,72 @@ export class ArtistManagerService {
 		return this.artistsRepository.countBy(where);
 	}
 
+	public unregisterIdentifier(
+		identifier: ArtistIdentifier,
+		plugin: LoadedPlugin,
+	) {
+		const pluginIdentifiers = this.identifiers.get(plugin.package.name);
+		if (!pluginIdentifiers?.has(identifier.id)) {
+			return;
+		}
+
+		const targetKey = `${plugin.package.name}:${identifier.id}`;
+		const allLoaded = Array.from(this.identifiers.values()).flatMap((m) =>
+			Array.from(m.values()),
+		);
+
+		const blockedBy = allLoaded
+			.filter(
+				(loaded) =>
+					!(
+						loaded.plugin.package.name === plugin.package.name &&
+						loaded.identifier.id === identifier.id
+					),
+			)
+			.filter((loaded) =>
+				loaded.identifier.getDependencies().some((dep) => {
+					if (dep.pluginId !== null) {
+						return `${dep.pluginId}:${dep.sourceId}` === targetKey;
+					}
+					return dep.sourceId === identifier.id;
+				}),
+			)
+			.map(
+				(loaded) =>
+					`ArtistIdentifier:${loaded.plugin.package.name}:${loaded.identifier.id}`,
+			);
+
+		if (blockedBy.length) {
+			throw new DeregistrationBlockedError(
+				`ArtistIdentifier:${targetKey}`,
+				blockedBy,
+			);
+		}
+
+		pluginIdentifiers.delete(identifier.id);
+		if (pluginIdentifiers.size === 0) {
+			this.identifiers.delete(plugin.package.name);
+		}
+		this.orderIdentifiers();
+		this.logger.log(
+			`Plugin "${plugin.package.name}" unregistered Identifier "${identifier.id}"`,
+		);
+	}
+
+	public unregisterTrackIdentifier(
+		identifier: TrackIdentifier,
+		plugin: LoadedPlugin,
+	) {
+		const idx = this.trackIdentifiers.findIndex(
+			(dep) =>
+				dep.pluginId === plugin.package.name && dep.sourceId === identifier.id,
+		);
+		if (idx !== -1) {
+			this.trackIdentifiers.splice(idx, 1);
+			this.orderIdentifiers();
+		}
+	}
+
 	public registerIdentifier(
 		identifier: ArtistIdentifier,
 		plugin: LoadedPlugin,
@@ -324,6 +395,10 @@ export class ArtistManagerService {
 		this.logger.log(
 			`Plugin "${plugin.package.name}" registered Identifier "${identifier.id}"`,
 		);
+	}
+
+	public getIdentifiers() {
+		return [...this.orderedIdentifiers];
 	}
 
 	private orderIdentifiers() {
@@ -384,6 +459,7 @@ export class ArtistManagerService {
 	public async identifyArtist(
 		artist: DBArtist,
 		runId: string,
+		disabledSet: Set<string> = new Set(),
 	): Promise<ArtistIdentificationResult> {
 		let allIdentities = await this.findIdentities(artist);
 
@@ -393,11 +469,54 @@ export class ArtistManagerService {
 			this.logger.warn(
 				`Cannot identify Artist "${artist.uuid}" because no identifiers are registered`,
 			);
-			return { identities: [], mergedArtists: [artist.uuid] };
+			return { identities: [], mergedArtists: [artist.uuid], splitCount: 0 };
+		}
+
+		// PRE-SPLIT: evaluate before re-identification so cross-partition rows
+		// are still present and don't cause primary-key conflicts during the update.
+		let preSplitCount = 0;
+		const hasMergedOrigins = allIdentities.some(
+			(i) =>
+				i.originalArtistUuid !== null && i.originalArtistUuid !== artist.uuid,
+		);
+		if (hasMergedOrigins) {
+			preSplitCount = await this.evaluateSplit(artist, allIdentities);
+			if (preSplitCount > 0) {
+				allIdentities = await this.findIdentities(artist);
+			}
 		}
 
 		// 1. RUN IDENTIFIERS (Standard logic)
+		const effectivelyDisabled = new Set<string>();
+
 		for (const { identifier, plugin } of this.orderedIdentifiers) {
+			const key = `${plugin.package.name}:${identifier.id}:artist`;
+			const key2 = `${plugin.package.name}:${identifier.id}`;
+
+			const disabled =
+				disabledSet.has(key) ||
+				identifier.getDependencies().some((dep) => {
+					const resolvedPluginId = dep.pluginId ?? plugin.package.name;
+					return effectivelyDisabled.has(`${resolvedPluginId}:${dep.sourceId}`);
+				});
+
+			if (disabled) {
+				effectivelyDisabled.add(key2);
+				allIdentities = allIdentities.filter(
+					(i) =>
+						i.identifierId !== identifier.id ||
+						i.pluginId !== plugin.package.name ||
+						i.target !== ArtistIdentityTarget.ARTIST,
+				);
+				await this.identitiesRepository.delete({
+					artistUuid: artist.uuid,
+					identifierId: identifier.id,
+					pluginId: plugin.package.name,
+					target: ArtistIdentityTarget.ARTIST,
+				});
+				continue;
+			}
+
 			const helper = await this.getInformationHelper(artist, (id, pluginId) =>
 				allIdentities
 					.map((i) => i.toIdentity())
@@ -419,6 +538,13 @@ export class ArtistManagerService {
 				continue;
 			}
 
+			const previousEntries = allIdentities.filter(
+				(i) =>
+					i.identifierId === identifier.id &&
+					i.pluginId === plugin.package.name &&
+					i.target === ArtistIdentityTarget.ARTIST,
+			);
+
 			allIdentities = allIdentities.filter(
 				(i) =>
 					i.identifierId != identifier.id ||
@@ -435,11 +561,21 @@ export class ArtistManagerService {
 						identity,
 						target: ArtistIdentityTarget.ARTIST,
 						ordinal,
+						originalArtistUuid:
+							previousEntries.find((p) => p.identity === identity)
+								?.originalArtistUuid ?? artist.uuid,
 					});
 
 					allIdentities.push(newIdentity);
 					newEntries.push(newIdentity);
 				}
+			} else {
+				await this.identitiesRepository.delete({
+					artistUuid: artist.uuid,
+					identifierId: identifier.id,
+					pluginId: plugin.package.name,
+					target: ArtistIdentityTarget.ARTIST,
+				});
 			}
 		}
 
@@ -448,7 +584,11 @@ export class ArtistManagerService {
 				{ uuid: artist.uuid },
 				{ lastIdentificationRunId: runId },
 			);
-			return { identities: [], mergedArtists: [artist.uuid] };
+			return {
+				identities: [],
+				mergedArtists: [artist.uuid],
+				splitCount: preSplitCount,
+			};
 		}
 
 		// 2. FIND MERGE CANDIDATES
@@ -474,145 +614,480 @@ export class ArtistManagerService {
 		const existingArtists = Array.from(existingArtistMap.values());
 
 		// 3. TRANSACTIONAL MERGE
-		return this.dataSource.transaction<ArtistIdentificationResult>(
-			async (tm) => {
+		const txResult = await this.dataSource.transaction<{
+			mergedArtists: string[];
+			identities: DBArtistIdentity[];
+			survivingArtist: DBArtist;
+		}>(async (tm) => {
+			const artistsRepo = tm.getRepository(DBArtist);
+			const idRepo = tm.getRepository(DBArtistIdentity);
+			const trackArtistsRepo = tm.getRepository(DBTrackArtist);
+			const attrRepo = tm.getRepository(DBArtistAttribute);
+
+			if (existingArtists.length > 1) {
+				const artistDateMs = (artist: DBArtist): number => {
+					const v = artist.dateAdded as unknown;
+					if (typeof v === "string") {
+						return new Date((v as string).replace(" ", "T")).getTime();
+					}
+					return artist.dateAdded;
+				};
+				existingArtists.sort((a, b) => artistDateMs(a) - artistDateMs(b));
+				const masterArtist = existingArtists[0];
+				const allArtistIds = existingArtists.map((a) => a.uuid);
+				const removedArtistIds = allArtistIds.slice(1);
+
+				// --- A. MERGE IDENTITIES ---
+				const currentIds = await idRepo.findBy({
+					artistUuid: In(allArtistIds),
+				});
+				const masterIdentities: DBArtistIdentity[] = [];
+				const idOrdinalMap: Record<string, number> = {};
+
+				const addIdentity = (data: Partial<DBArtistIdentity>) => {
+					const valKey = `${data.pluginId}:${data.identifierId}:${data.target}:${data.identity}`;
+					if (
+						masterIdentities.some(
+							(i) =>
+								`${i.pluginId}:${i.identifierId}:${i.target}:${i.identity}` ===
+								valKey,
+						)
+					)
+						return;
+
+					const ordKey = `${data.pluginId}:${data.identifierId}:${data.target}`;
+					const ordinal = idOrdinalMap[ordKey] || 0;
+					idOrdinalMap[ordKey] = ordinal + 1;
+
+					masterIdentities.push(
+						idRepo.create({
+							...data,
+							artistUuid: masterArtist.uuid,
+							ordinal,
+							originalArtistUuid: data.originalArtistUuid ?? data.artistUuid,
+						}),
+					);
+				};
+
+				newEntries.forEach(addIdentity);
+				currentIds.forEach(addIdentity);
+
+				await idRepo.delete({ artistUuid: In(allArtistIds) });
+				await idRepo.insert(masterIdentities);
+
+				// --- B. MERGE ATTRIBUTES (Prevent Identical-Value Duplicates) ---
+				const allAttrs = await attrRepo.find({
+					where: { entityId: In(allArtistIds) },
+				});
+				const masterAttributes: DBArtistAttribute[] = [];
+				const attrOrdinalMap: Record<string, number> = {};
+
+				for (const attr of allAttrs) {
+					// Check if an attribute with the same plugin, source, key, and VALUE already exists
+					const isDuplicateValue = masterAttributes.some(
+						(ma) =>
+							ma.pluginId === attr.pluginId &&
+							ma.sourceId === attr.sourceId &&
+							ma.key === attr.key &&
+							((ma.value_boolean !== null &&
+								ma.value_boolean === attr.value_boolean) ||
+								(ma.value_decimal !== null &&
+									ma.value_decimal === attr.value_decimal) ||
+								(ma.value_int !== null && ma.value_int === attr.value_int) ||
+								(ma.value_string !== null &&
+									ma.value_string === attr.value_string) ||
+								(ma.value_buffer !== null &&
+									ma.value_buffer.uuid === attr.value_buffer?.uuid)),
+					);
+
+					if (isDuplicateValue) continue;
+
+					// Re-calculate ordinal to avoid SQLITE_CONSTRAINT
+					const ordKey = `${attr.pluginId}:${attr.sourceId}:${attr.key}`;
+					const ordinal = attrOrdinalMap[ordKey] || 0;
+					attrOrdinalMap[ordKey] = ordinal + 1;
+
+					masterAttributes.push(
+						attrRepo.create({
+							...attr,
+							entityId: masterArtist.uuid,
+							entityRelationId: masterArtist.uuid,
+							ordinal,
+						}),
+					);
+				}
+
+				await attrRepo.delete({ entityId: In(allArtistIds) });
+				if (masterAttributes.length) await attrRepo.insert(masterAttributes);
+
+				// --- C. MERGE TRACK LINKS (Preserve Cross-Plugin Links) ---
+				const allLinks = await trackArtistsRepo.findBy({
+					artistUuid: In(allArtistIds),
+				});
+				const uniqueLinks: Record<string, DBTrackArtist> = {};
+
+				for (const link of allLinks) {
+					// Key by track + plugin + identifier to allow multiple plugins per track
+					const compositeKey = `${link.trackUuid}:${link.pluginId}:${link.identifierId}`;
+
+					if (!uniqueLinks[compositeKey]) {
+						uniqueLinks[compositeKey] = trackArtistsRepo.create({
+							...link,
+							artistUuid: masterArtist.uuid,
+						});
+					}
+				}
+
+				await trackArtistsRepo.delete({ artistUuid: In(allArtistIds) });
+				await trackArtistsRepo.insert(Object.values(uniqueLinks));
+
+				// --- C2. MERGE ALBUM LINKS ---
+				const albumArtistsRepo = tm.getRepository(DBAlbumArtist);
+				const allAlbumLinks = await albumArtistsRepo.findBy({
+					artistUuid: In(allArtistIds),
+				});
+				const uniqueAlbumLinks: Record<string, DBAlbumArtist> = {};
+
+				for (const link of allAlbumLinks) {
+					const compositeKey = `${link.albumUuid}:${link.pluginId}:${link.identifierId}`;
+
+					if (!uniqueAlbumLinks[compositeKey]) {
+						uniqueAlbumLinks[compositeKey] = albumArtistsRepo.create({
+							...link,
+							artistUuid: masterArtist.uuid,
+						});
+					}
+				}
+
+				await albumArtistsRepo.delete({ artistUuid: In(allArtistIds) });
+				await albumArtistsRepo.insert(Object.values(uniqueAlbumLinks));
+
+				// --- D. CLEANUP ---
+				await artistsRepo.delete({ uuid: In(removedArtistIds) });
+				await artistsRepo.update(masterArtist.uuid, {
+					lastIdentificationRunId: runId,
+				});
+
+				// --- E. MERGE TOMBSTONES ---
+				const mergeRepo = tm.getRepository(DBArtistMerge);
+				await mergeRepo.insert(
+					removedArtistIds.map((mergedUuid) => ({
+						mergedUuid,
+						masterUuid: masterArtist.uuid,
+						mergedAt: Date.now(),
+					})),
+				);
+
+				return {
+					mergedArtists: allArtistIds,
+					identities: masterIdentities,
+					survivingArtist: masterArtist,
+				};
+			} else {
+				// Standard single-artist update
+				await artistsRepo.update(artist.uuid, {
+					lastIdentificationRunId: runId,
+				});
+				await idRepo.delete(
+					newEntries.map((e) => ({
+						artistUuid: artist.uuid,
+						pluginId: e.pluginId,
+						identifierId: e.identifierId,
+						target: e.target,
+					})),
+				);
+				await idRepo.insert(newEntries);
+				return {
+					mergedArtists: [artist.uuid],
+					identities: newEntries,
+					survivingArtist: artist,
+				};
+			}
+		});
+
+		const currentIds = await this.identitiesRepository.findBy({
+			artistUuid: txResult.survivingArtist.uuid,
+		});
+		const postSplitCount = await this.evaluateSplit(
+			txResult.survivingArtist,
+			currentIds,
+		);
+		return {
+			mergedArtists: txResult.mergedArtists,
+			identities: txResult.identities,
+			splitCount: preSplitCount + postSplitCount,
+		};
+	}
+
+	private async evaluateSplit(
+		artist: DBArtist,
+		allIds: DBArtistIdentity[],
+	): Promise<number> {
+		const hasMergedOrigins = allIds.some(
+			(i) =>
+				i.originalArtistUuid !== null && i.originalArtistUuid !== artist.uuid,
+		);
+		if (!hasMergedOrigins) {
+			return 0;
+		}
+
+		const partitions = new Map<string, DBArtistIdentity[]>();
+		for (const id of allIds) {
+			const key = id.originalArtistUuid ?? artist.uuid;
+			if (!partitions.has(key)) {
+				partitions.set(key, []);
+			}
+			partitions.get(key)!.push(id);
+		}
+
+		if (partitions.size <= 1) {
+			return 0;
+		}
+
+		const partitionOutputs = new Map<string, Set<string>>();
+
+		for (const [originalUuid, partitionIds] of partitions) {
+			const outputSet = new Set<string>();
+			let runningIds = [...partitionIds];
+
+			const helper = await this.getInformationHelper(artist, (id, pluginId) =>
+				runningIds
+					.map((i) => i.toIdentity())
+					.filter(
+						(i) =>
+							i.identityId === id && (!pluginId || i.pluginId === pluginId),
+					),
+			);
+
+			for (const { identifier, plugin } of this.orderedIdentifiers) {
+				runningIds = runningIds.filter(
+					(i) =>
+						i.identifierId !== identifier.id ||
+						i.pluginId !== plugin.package.name ||
+						i.target !== ArtistIdentityTarget.ARTIST,
+				);
+
+				let newIdentities: string[] | null | undefined;
+				try {
+					newIdentities = await identifier.identify(
+						helper,
+						new Logger(`SPLIT-EVAL ${plugin.package.name}`),
+					);
+				} catch {
+					continue;
+				}
+
+				if (newIdentities?.length) {
+					for (const [ordinal, identity] of newIdentities.entries()) {
+						outputSet.add(
+							`${plugin.package.name}:${identifier.id}:${identity}`,
+						);
+						runningIds.push(
+							this.identitiesRepository.create({
+								artistUuid: artist.uuid,
+								pluginId: plugin.package.name,
+								identifierId: identifier.id,
+								identity,
+								target: ArtistIdentityTarget.ARTIST,
+								ordinal,
+								originalArtistUuid: originalUuid,
+							}),
+						);
+					}
+				}
+			}
+
+			partitionOutputs.set(originalUuid, outputSet);
+		}
+
+		const partitionKeys = Array.from(partitions.keys());
+		const parent = new Map<string, string>(partitionKeys.map((k) => [k, k]));
+
+		const find = (x: string): string => {
+			if (parent.get(x) !== x) {
+				parent.set(x, find(parent.get(x)!));
+			}
+			return parent.get(x)!;
+		};
+		const union = (a: string, b: string) => {
+			parent.set(find(a), find(b));
+		};
+
+		for (let i = 0; i < partitionKeys.length; i++) {
+			for (let j = i + 1; j < partitionKeys.length; j++) {
+				const aSet = partitionOutputs.get(partitionKeys[i])!;
+				const bSet = partitionOutputs.get(partitionKeys[j])!;
+				if ([...aSet].some((v) => bSet.has(v))) {
+					union(partitionKeys[i], partitionKeys[j]);
+				}
+			}
+		}
+
+		const groups = new Map<string, string[]>();
+		for (const key of partitionKeys) {
+			const root = find(key);
+			if (!groups.has(root)) {
+				groups.set(root, []);
+			}
+			groups.get(root)!.push(key);
+		}
+
+		const masterRoot = find(artist.uuid);
+		const splitGroups = Array.from(groups.entries()).filter(
+			([root]) => root !== masterRoot,
+		);
+
+		if (!splitGroups.length) {
+			return 0;
+		}
+
+		let splitCount = 0;
+
+		for (const [, groupOriginalUuids] of splitGroups) {
+			await this.dataSource.transaction(async (tm) => {
 				const artistsRepo = tm.getRepository(DBArtist);
 				const idRepo = tm.getRepository(DBArtistIdentity);
 				const trackArtistsRepo = tm.getRepository(DBTrackArtist);
-				const attrRepo = tm.getRepository(DBArtistAttribute);
+				const mergeRepo = tm.getRepository(DBArtistMerge);
 
-				if (existingArtists.length > 1) {
-					existingArtists.sort((a, b) => a.dateAdded - b.dateAdded);
-					const masterArtist = existingArtists[0];
-					const allArtistIds = existingArtists.map((a) => a.uuid);
-					const removedArtistIds = allArtistIds.slice(1);
+				const idsToMove = allIds.filter((i) =>
+					groupOriginalUuids.includes(i.originalArtistUuid ?? artist.uuid),
+				);
 
-					// --- A. MERGE IDENTITIES ---
-					const currentIds = await idRepo.findBy({
-						artistUuid: In(allArtistIds),
-					});
-					const masterIdentities: DBArtistIdentity[] = [];
-					const idOrdinalMap: Record<string, number> = {};
+				const splitIdentityTriples = new Set(
+					idsToMove.map((i) => `${i.pluginId}:${i.identifierId}:${i.identity}`),
+				);
 
-					const addIdentity = (data: Partial<DBArtistIdentity>) => {
-						const valKey = `${data.pluginId}:${data.identifierId}:${data.identity}`;
-						if (
-							masterIdentities.some(
-								(i) =>
-									`${i.pluginId}:${i.identifierId}:${i.identity}` === valKey,
-							)
-						)
-							return;
+				const allTrackLinks = await trackArtistsRepo.findBy({
+					artistUuid: artist.uuid,
+				});
 
-						const ordKey = `${data.pluginId}:${data.identifierId}`;
-						const ordinal = idOrdinalMap[ordKey] || 0;
-						idOrdinalMap[ordKey] = ordinal + 1;
+				const trackUuids = [...new Set(allTrackLinks.map((l) => l.trackUuid))];
+				const trackIdentities = trackUuids.length
+					? await tm
+							.getRepository(DBIdentity)
+							.findBy({ trackUuid: In(trackUuids) })
+					: [];
+				const trackTripleMap = new Map<string, Set<string>>();
+				for (const ti of trackIdentities) {
+					const triples = trackTripleMap.get(ti.trackUuid) ?? new Set<string>();
+					trackTripleMap.set(ti.trackUuid, triples);
+					triples.add(`${ti.pluginId}:${ti.identifierId}:${ti.identity}`);
+				}
 
-						masterIdentities.push(
-							idRepo.create({
-								...data,
-								artistUuid: masterArtist.uuid,
-								ordinal,
-							}),
-						);
-					};
-
-					newEntries.forEach(addIdentity);
-					currentIds.forEach(addIdentity);
-
-					await idRepo.delete({ artistUuid: In(allArtistIds) });
-					await idRepo.insert(masterIdentities);
-
-					// --- B. MERGE ATTRIBUTES (Prevent Identical-Value Duplicates) ---
-					const allAttrs = await attrRepo.find({
-						where: { entityId: In(allArtistIds) },
-					});
-					const masterAttributes: DBArtistAttribute[] = [];
-					const attrOrdinalMap: Record<string, number> = {};
-
-					for (const attr of allAttrs) {
-						// Check if an attribute with the same plugin, source, key, and VALUE already exists
-						const isDuplicateValue = masterAttributes.some(
-							(ma) =>
-								ma.pluginId === attr.pluginId &&
-								ma.sourceId === attr.sourceId &&
-								ma.key === attr.key &&
-								((ma.value_boolean !== null &&
-									ma.value_boolean === attr.value_boolean) ||
-									(ma.value_decimal !== null &&
-										ma.value_decimal === attr.value_decimal) ||
-									(ma.value_int !== null && ma.value_int === attr.value_int) ||
-									(ma.value_string !== null &&
-										ma.value_string === attr.value_string) ||
-									(ma.value_buffer !== null &&
-										ma.value_buffer.uuid === attr.value_buffer?.uuid)),
-						);
-
-						if (isDuplicateValue) continue;
-
-						// Re-calculate ordinal to avoid SQLITE_CONSTRAINT
-						const ordKey = `${attr.pluginId}:${attr.sourceId}:${attr.key}`;
-						const ordinal = attrOrdinalMap[ordKey] || 0;
-						attrOrdinalMap[ordKey] = ordinal + 1;
-
-						masterAttributes.push(
-							attrRepo.create({
-								...attr,
-								entityId: masterArtist.uuid,
-								entityRelationId: masterArtist.uuid,
-								ordinal,
-							}),
-						);
+				const linksToMove = allTrackLinks.filter((l) => {
+					const triples = trackTripleMap.get(l.trackUuid);
+					if (!triples) {
+						return false;
 					}
-
-					await attrRepo.delete({ entityId: In(allArtistIds) });
-					if (masterAttributes.length) await attrRepo.insert(masterAttributes);
-
-					// --- C. MERGE TRACK LINKS (Preserve Cross-Plugin Links) ---
-					const allLinks = await trackArtistsRepo.findBy({
-						artistUuid: In(allArtistIds),
-					});
-					const uniqueLinks: Record<string, DBTrackArtist> = {};
-
-					for (const link of allLinks) {
-						// Key by track + plugin + identifier to allow multiple plugins per track
-						const compositeKey = `${link.trackUuid}:${link.pluginId}:${link.identifierId}`;
-
-						if (!uniqueLinks[compositeKey]) {
-							uniqueLinks[compositeKey] = trackArtistsRepo.create({
-								...link,
-								artistUuid: masterArtist.uuid,
-							});
+					const prefix = `${l.pluginId}:${l.identifierId}:`;
+					for (const triple of triples) {
+						if (triple.startsWith(prefix) && splitIdentityTriples.has(triple)) {
+							return true;
 						}
 					}
+					return false;
+				});
 
-					await trackArtistsRepo.delete({ artistUuid: In(allArtistIds) });
-					await trackArtistsRepo.insert(Object.values(uniqueLinks));
+				const newArtist = artistsRepo.create({
+					lastIdentificationRunId: null,
+					uuid: groupOriginalUuids[0],
+					dateAdded: Date.now(),
+				});
+				const savedArtist = await artistsRepo.save(newArtist);
 
-					// --- D. CLEANUP ---
-					await artistsRepo.delete({ uuid: In(removedArtistIds) });
-					await artistsRepo.update(masterArtist.uuid, {
-						lastIdentificationRunId: runId,
-					});
-
-					return { mergedArtists: allArtistIds, identities: masterIdentities };
-				} else {
-					// Standard single-artist update
-					await artistsRepo.update(artist.uuid, {
-						lastIdentificationRunId: runId,
-					});
+				if (idsToMove.length) {
 					await idRepo.delete(
-						newEntries.map((e) => ({
+						idsToMove.map((i) => ({
+							pluginId: i.pluginId,
+							identifierId: i.identifierId,
 							artistUuid: artist.uuid,
-							pluginId: e.pluginId,
-							identifierId: e.identifierId,
+							target: i.target,
+							ordinal: i.ordinal,
 						})),
 					);
-					await idRepo.insert(newEntries);
-					return { mergedArtists: [artist.uuid], identities: newEntries };
+					await idRepo.insert(
+						idsToMove.map((i) => ({
+							...i,
+							artistUuid: savedArtist.uuid,
+						})),
+					);
 				}
-			},
-		);
+
+				if (linksToMove.length) {
+					await trackArtistsRepo.delete(
+						linksToMove.map((l) => ({
+							trackUuid: l.trackUuid,
+							artistUuid: artist.uuid,
+							ordinal: l.ordinal,
+							pluginId: l.pluginId,
+							identifierId: l.identifierId,
+						})),
+					);
+					await trackArtistsRepo.insert(
+						linksToMove.map((l) => ({
+							...l,
+							artistUuid: savedArtist.uuid,
+						})),
+					);
+				}
+
+				const allAlbumLinks = await tm
+					.getRepository(DBAlbumArtist)
+					.findBy({ artistUuid: artist.uuid });
+				const albumUuids = [...new Set(allAlbumLinks.map((l) => l.albumUuid))];
+				const albumIdentities = albumUuids.length
+					? await tm
+							.getRepository(DBAlbumIdentity)
+							.findBy({ albumUuid: In(albumUuids) })
+					: [];
+				const albumTripleMap = new Map<string, Set<string>>();
+				for (const ai of albumIdentities) {
+					const triples = albumTripleMap.get(ai.albumUuid) ?? new Set<string>();
+					albumTripleMap.set(ai.albumUuid, triples);
+					triples.add(`${ai.pluginId}:${ai.identifierId}:${ai.identity}`);
+				}
+				const albumLinksToMove = allAlbumLinks.filter((l) => {
+					const triples = albumTripleMap.get(l.albumUuid);
+					if (!triples) {
+						return false;
+					}
+					const prefix = `${l.pluginId}:${l.identifierId}:`;
+					for (const triple of triples) {
+						if (triple.startsWith(prefix) && splitIdentityTriples.has(triple)) {
+							return true;
+						}
+					}
+					return false;
+				});
+				if (albumLinksToMove.length) {
+					await tm.getRepository(DBAlbumArtist).delete(
+						albumLinksToMove.map((l) => ({
+							albumUuid: l.albumUuid,
+							artistUuid: artist.uuid,
+							pluginId: l.pluginId,
+							identifierId: l.identifierId,
+							ordinal: l.ordinal,
+						})),
+					);
+					await tm.getRepository(DBAlbumArtist).insert(
+						albumLinksToMove.map((l) => ({
+							...l,
+							artistUuid: savedArtist.uuid,
+						})),
+					);
+				}
+
+				await mergeRepo.delete({
+					mergedUuid: In(groupOriginalUuids),
+					masterUuid: artist.uuid,
+				});
+			});
+
+			splitCount++;
+		}
+
+		return splitCount;
 	}
 
 	public async getExternalUrls(artist: DBArtist) {

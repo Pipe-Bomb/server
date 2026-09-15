@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import {
+	AttributeSource,
 	AttributeValue,
 	BufferAttributeValue,
 	EphemeralSource,
@@ -7,6 +8,7 @@ import {
 	EphemeralTrack,
 	IdentifiableAlbumMetadata,
 	IdentifiableArtistMetadata,
+	LibraryHandler,
 } from "@sdk";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { LoadedEphemeralSource } from "./interface/loaded-ephemeral-source.interface";
@@ -160,6 +162,66 @@ export class EphemeralService {
 		this.logger.log(
 			`Plugin "${plugin.package.name}" registered Ephemeral Source "${source.id}"`,
 		);
+	}
+
+	unregisterEphemeralSource(source: EphemeralSource, plugin: LoadedPlugin) {
+		const pluginSources = this.sources.get(plugin.package.name);
+		if (!pluginSources?.has(source.id)) {
+			return;
+		}
+		pluginSources.delete(source.id);
+		if (pluginSources.size === 0) {
+			this.sources.delete(plugin.package.name);
+		}
+		for (const [key, loaded] of this.artistIdentifiers) {
+			if (loaded.source === source) {
+				this.artistIdentifiers.delete(key);
+			}
+		}
+		for (const [key, loaded] of this.albumIdentifiers) {
+			if (loaded.source === source) {
+				this.albumIdentifiers.delete(key);
+			}
+		}
+		for (const [key, loaded] of this.trackIdentifiers) {
+			if (loaded.source === source) {
+				this.trackIdentifiers.delete(key);
+			}
+		}
+		this.attributeSources.delete(source);
+		this.logger.log(
+			`Plugin "${plugin.package.name}" unregistered Ephemeral Source "${source.id}"`,
+		);
+	}
+
+	removeAttributeSource(attributeSource: AttributeSource) {
+		for (const [key, loaded] of this.attributeSources) {
+			if (loaded.source === attributeSource) {
+				this.attributeSources.delete(key);
+				return;
+			}
+		}
+	}
+
+	removeIdentifierClaims(pluginId: string, identifierId: string) {
+		const key = `${pluginId}:${identifierId}`;
+		this.artistIdentifiers.delete(key);
+		this.albumIdentifiers.delete(key);
+		this.trackIdentifiers.delete(key);
+	}
+
+	getSourcesUsingHandler(handler: LibraryHandler): string[] {
+		const results: string[] = [];
+		for (const [, pluginSources] of this.sources) {
+			for (const [, loaded] of pluginSources) {
+				if (loaded.source.getLibraryHandler() === handler) {
+					results.push(
+						`EphemeralSource:${loaded.plugin.package.name}:${loaded.source.id}`,
+					);
+				}
+			}
+		}
+		return results;
 	}
 
 	allFlat() {

@@ -482,6 +482,13 @@ export class PlaylistsService {
 				});
 				return playlists.map(({ uuid }) => uuid);
 			},
+			getMemberPlaylistUuids: async (userUuid) => {
+				const memberships = await this.membersRepository.find({
+					where: { userUuid },
+					select: ["playlistUuid"],
+				});
+				return memberships.map(({ playlistUuid }) => playlistUuid);
+			},
 			getPlaylist: async (uuid, { relations } = {}) => {
 				const playlist = await this.playlistsRepository.findOne({
 					where: {

@@ -42,6 +42,13 @@ export interface PluginApiContext {
 	): void;
 	registerEphemeralSource(ephemeralSource: EphemeralSource): void;
 	registerSearchSource(searchSource: SearchSource): void;
+	unregisterLibraryHandler(libraryHandler: LibraryHandler): void;
+	unregisterTrackIdentifier(identifier: TrackIdentifier): void;
+	unregisterArtistIdentifier(identifier: ArtistIdentifier): void;
+	unregisterAlbumIdentifier(identifier: AlbumIdentifier): void;
+	unregisterAttributeSource(attributeSource: AttributeSource): void;
+	unregisterEphemeralSource(ephemeralSource: EphemeralSource): void;
+	unregisterExternalUrlSource(externalUrlSource: ExternalUrlSource): void;
 	getSearchSources(): SearchSourceInfo[];
 	getSearchSource(pluginId: string, sourceId: string): SearchSource | null;
 	getActiveSearchSource(): SearchSource | null;

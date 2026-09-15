@@ -32,6 +32,10 @@ export class TracksService {
 				}
 				return matches[0] as any;
 			},
+			getPluginId: () => track.pluginId,
+			getLibraryId: () => track.libraryId,
+			getTrackId: () => track.trackId,
+			getTrackUuid: () => track.uuid,
 		});
 	}
 }

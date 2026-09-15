@@ -4,6 +4,7 @@ import { FindOptionsWhere, In, IsNull, Not, Repository } from "typeorm";
 import { TasksService } from "src/tasks/tasks.service";
 import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
 import { DBArtist } from "src/artist-manager/entity/artist.entity";
+import { DisabledIdentifiersService } from "src/identifiers/disabled-identifiers.service";
 
 @Injectable()
 export class ArtistsService {
@@ -11,6 +12,7 @@ export class ArtistsService {
 
 	constructor(
 		private readonly artistManagerService: ArtistManagerService,
+		private readonly disabledIdentifiersService: DisabledIdentifiersService,
 		private readonly tasksService: TasksService,
 		@InjectRepository(DBArtist)
 		private readonly artistsRepository: Repository<DBArtist>,
@@ -64,10 +66,12 @@ export class ArtistsService {
 			return criteria;
 		};
 
-		const count = await this.artistManagerService.count(getCriteria());
+		let count = await this.artistManagerService.count(getCriteria());
 		if (!count) {
 			return;
 		}
+
+		const disabledSet = await this.disabledIdentifiersService.getDisabledSet();
 
 		return new Promise<void>((resolve, reject) => {
 			const handle = async () => {
@@ -84,14 +88,24 @@ export class ArtistsService {
 				}
 
 				try {
-					const { mergedArtists, identities } =
-						await this.artistManagerService.identifyArtist(artist, runId);
+					const { mergedArtists, identities, splitCount } =
+						await this.artistManagerService.identifyArtist(
+							artist,
+							runId,
+							disabledSet,
+						);
 					this.logger.debug(
 						`Identified ${identities.length} identities to Artist #${completed + 1}`,
 					);
 
 					pool = pool.filter((artist) => !mergedArtists.includes(artist.uuid));
 					completed += mergedArtists.length;
+
+					if (splitCount > 0) {
+						count += splitCount;
+						allChunksLoaded = false;
+						setImmediate(increasePool);
+					}
 				} catch (e) {
 					this.logger.debug(
 						`Failed to identify to Artist #${completed + 1}:`,
@@ -128,6 +142,7 @@ export class ArtistsService {
 								handle();
 							}
 						} else {
+							isFinding = false;
 							allChunksLoaded = true;
 							if (!activeThreads) {
 								resolve();

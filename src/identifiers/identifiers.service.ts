@@ -1,7 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { TrackIdentifier } from "sdk/identifier";
+import { Identifier, TrackIdentifier } from "sdk/identifier";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
+import { DeregistrationBlockedError } from "src/util/deregistration-blocked.error";
 import { DBIdentity } from "./entities/identity.entity";
 import { Repository } from "typeorm";
 import { DBTrack } from "src/tracks/entities/track.entity";
@@ -13,6 +14,9 @@ import { ArtistIdentityTarget } from "src/artist-manager/enum/artist-identity-ta
 import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
 import { AlbumManagerService } from "src/album-manager/album-manager.service";
 import { Identity } from "@sdk";
+import { IdentifierTarget } from "./enum/identifier-target.enum";
+import { IdentifierType } from "./enum/identifier-type.enum";
+import { DisabledIdentifiersService } from "./disabled-identifiers.service";
 
 @Injectable()
 export class IdentifiersService {
@@ -26,9 +30,71 @@ export class IdentifiersService {
 	constructor(
 		@InjectRepository(DBIdentity)
 		private readonly identitiesRepository: Repository<DBIdentity>,
+		private readonly disabledIdentifiersService: DisabledIdentifiersService,
 		private readonly artistManagerService: ArtistManagerService,
 		private readonly albumManagerService: AlbumManagerService,
 	) {}
+
+	public unregister(identifier: TrackIdentifier, plugin: LoadedPlugin) {
+		const pluginIdentifiers = this.identifiers.get(plugin.package.name);
+		if (!pluginIdentifiers?.has(identifier.id)) {
+			return;
+		}
+
+		const targetKey = `${plugin.package.name}:${identifier.id}`;
+		const allLoaded = Array.from(this.identifiers.values()).flatMap((m) =>
+			Array.from(m.values()),
+		);
+
+		const blockedBy = allLoaded
+			.filter(
+				(loaded) =>
+					!(
+						loaded.plugin.package.name === plugin.package.name &&
+						loaded.identifier.id === identifier.id
+					),
+			)
+			.filter((loaded) =>
+				loaded.identifier.getDependencies().some((dep) => {
+					if (dep.pluginId !== null) {
+						return `${dep.pluginId}:${dep.sourceId}` === targetKey;
+					}
+					return dep.sourceId === identifier.id;
+				}),
+			)
+			.map(
+				(loaded) =>
+					`TrackIdentifier:${loaded.plugin.package.name}:${loaded.identifier.id}`,
+			);
+
+		if (blockedBy.length) {
+			throw new DeregistrationBlockedError(
+				`TrackIdentifier:${targetKey}`,
+				blockedBy,
+			);
+		}
+
+		pluginIdentifiers.delete(identifier.id);
+		if (pluginIdentifiers.size === 0) {
+			this.identifiers.delete(plugin.package.name);
+		}
+		this.orderedIdentifiers = orderIdentifiers(
+			Array.from(this.identifiers.values()).flatMap((m) =>
+				Array.from(m.values()),
+			),
+		);
+
+		if (identifier.target === "artist") {
+			this.artistManagerService.unregisterTrackIdentifier(identifier, plugin);
+		}
+		if (identifier.target === "album") {
+			this.albumManagerService.unregisterTrackIdentifier(identifier, plugin);
+		}
+
+		this.logger.log(
+			`Plugin "${plugin.package.name}" unregistered Identifier "${identifier.id}"`,
+		);
+	}
 
 	public register(identifier: TrackIdentifier, plugin: LoadedPlugin) {
 		const pluginIdentifiers = this.identifiers.get(plugin.package.name);
@@ -85,19 +151,48 @@ export class IdentifiersService {
 		);
 	}
 
-	public async identifyTrack(track: DBTrack, library: LoadedLibraryHandler) {
+	public getDisabledSet(): Promise<Set<string>> {
+		return this.disabledIdentifiersService.getDisabledSet();
+	}
+
+	public async identifyTrack(
+		track: DBTrack,
+		library: LoadedLibraryHandler,
+		disabledSet: Set<string> = new Set(),
+	) {
 		const identifiers = this.all();
 
 		this.logger.debug(
 			`Identifying Track "${track.trackId}" using ${identifiers.length} Identifiers...`,
 		);
 
+		const effectivelyDisabled = new Set<string>();
+
 		for (const { identifier, plugin } of identifiers) {
 			try {
-				const identities = await identifier.identify(
-					await library.informationHelper(track),
-					new Logger(`PLUGIN ${plugin.package.name}`),
-				);
+				const key3 = `${plugin.package.name}:${identifier.id}:track`;
+				const key2 = `${plugin.package.name}:${identifier.id}`;
+
+				const disabled =
+					disabledSet.has(key3) ||
+					identifier.getDependencies().some((dep) => {
+						const resolvedPluginId = dep.pluginId ?? plugin.package.name;
+						return effectivelyDisabled.has(
+							`${resolvedPluginId}:${dep.sourceId}`,
+						);
+					});
+
+				if (disabled) {
+					effectivelyDisabled.add(key2);
+				}
+
+				const identities = disabled
+					? null
+					: await identifier.identify(
+							await library.informationHelper(track),
+							new Logger(`PLUGIN ${plugin.package.name}`),
+						);
+
 				if (identities?.length) {
 					// todo: i probably only need to upsert identities with "track" target
 					await this.identitiesRepository.upsert(
@@ -240,14 +335,28 @@ export class IdentifiersService {
 			.execute();
 	}
 
+	allArtist() {
+		return this.artistManagerService.getIdentifiers();
+	}
+
+	allAlbum() {
+		return this.albumManagerService.getIdentifiers();
+	}
+
 	toResponse(
-		identifier: LoadedIdentifier<TrackIdentifier>,
+		identifier: LoadedIdentifier<Identifier>,
+		type: IdentifierType,
+		disabled: boolean,
 	): IdentifierResponse {
+		const target = (identifier.identifier as { target?: string }).target;
 		return {
 			pluginId: identifier.plugin.package.name,
 			identifierId: identifier.identifier.id,
+			type,
+			target: (target as IdentifierTarget) ?? null,
 			dependencies: identifier.identifier.getDependencies(),
 			softDependencies: identifier.identifier.getSoftDependencies(),
+			disabled,
 		};
 	}
 }

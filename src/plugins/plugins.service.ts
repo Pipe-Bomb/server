@@ -31,6 +31,7 @@ import { WorkflowsService } from "src/workflows/workflows.service";
 import { PORT } from "src/config/constants";
 import { In } from "typeorm";
 import { SearchSourcesService } from "src/search/search-sources.service";
+import { DeregistrationBlockedError } from "src/util/deregistration-blocked.error";
 
 @Injectable()
 export class PluginsService {
@@ -411,6 +412,35 @@ export class PluginsService {
 			getPlaylistClient: () =>
 				this.playlistsService.createPlaylistClient(plugin),
 			getWorkflowClient: () => this.workflowsService.createClient(plugin),
+			unregisterLibraryHandler: (handler) => {
+				const blockedBy = this.ephemeralService.getSourcesUsingHandler(handler);
+				if (blockedBy.length) {
+					throw new DeregistrationBlockedError(
+						`LibraryHandler:${handler.id}`,
+						blockedBy,
+					);
+				}
+				this.librariesService.unregister(handler, plugin);
+			},
+			unregisterTrackIdentifier: (identifier) => {
+				this.identifiersService.unregister(identifier, plugin);
+				this.ephemeralService.removeIdentifierClaims(
+					plugin.package.name,
+					identifier.id,
+				);
+			},
+			unregisterArtistIdentifier: (identifier) =>
+				this.artistManagerService.unregisterIdentifier(identifier, plugin),
+			unregisterAlbumIdentifier: (identifier) =>
+				this.albumManagerService.unregisterIdentifier(identifier, plugin),
+			unregisterAttributeSource: (source) => {
+				this.attributeSourcesService.unregisterAttributeSource(plugin, source);
+				this.ephemeralService.removeAttributeSource(source);
+			},
+			unregisterEphemeralSource: (source) =>
+				this.ephemeralService.unregisterEphemeralSource(source, plugin),
+			unregisterExternalUrlSource: (source) =>
+				this.externalUrlsService.unregisterSource(source, plugin),
 		};
 	}
 

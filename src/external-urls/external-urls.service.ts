@@ -20,6 +20,25 @@ export class ExternalUrlsService {
 
 	constructor(private readonly iconsService: IconsService) {}
 
+	public unregisterSource(source: ExternalUrlSource, plugin: LoadedPlugin) {
+		const set = this.sources.get(plugin.package.name);
+		if (!set) {
+			return;
+		}
+		for (const entry of set) {
+			if (entry.source === source) {
+				set.delete(entry);
+				if (set.size === 0) {
+					this.sources.delete(plugin.package.name);
+				}
+				this.logger.log(
+					`Plugin "${plugin.package.name}" unregistered an External Url Source`,
+				);
+				return;
+			}
+		}
+	}
+
 	public registerSource(source: ExternalUrlSource, plugin: LoadedPlugin) {
 		const set = this.sources.get(plugin.package.name);
 		if (set) {
@@ -56,27 +75,34 @@ export class ExternalUrlsService {
 
 		const sources = this.allFlat();
 		for (const { source, plugin } of sources) {
-			const sourceUrls = urlGetter(source);
-			if (sourceUrls?.length) {
-				for (const url of sourceUrls) {
-					const icon = this.iconsService.getIcon(
-						plugin.package.name,
-						url.iconId,
-					);
-					if (icon) {
-						urls.push({
-							url: url.url,
-							name: url.name,
-							iconUrl: new RelativeUrl(
-								`/icons/${plugin.package.name}/${icon.id}`,
-							),
-						});
-					} else {
-						this.logger.warn(
-							`Ignoring External Url from Plugin "${plugin.package.name}" that attempted to use nonexistent Icon "${url.iconId}"`,
+			try {
+				const sourceUrls = urlGetter(source);
+				if (sourceUrls?.length) {
+					for (const url of sourceUrls) {
+						const icon = this.iconsService.getIcon(
+							plugin.package.name,
+							url.iconId,
 						);
+						if (icon) {
+							urls.push({
+								url: url.url,
+								name: url.name,
+								iconUrl: new RelativeUrl(
+									`/icons/${plugin.package.name}/${icon.id}`,
+								),
+							});
+						} else {
+							this.logger.warn(
+								`Ignoring External Url from Plugin "${plugin.package.name}" that attempted to use nonexistent Icon "${url.iconId}"`,
+							);
+						}
 					}
 				}
+			} catch (e) {
+				this.logger.error(
+					`Failed to get External Url from Plugin "${plugin.package.name}":`,
+					e,
+				);
 			}
 		}
 
