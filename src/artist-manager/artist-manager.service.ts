@@ -435,6 +435,18 @@ export class ArtistManagerService {
 
 			if (disabled) {
 				effectivelyDisabled.add(key2);
+				allIdentities = allIdentities.filter(
+					(i) =>
+						i.identifierId !== identifier.id ||
+						i.pluginId !== plugin.package.name ||
+						i.target !== ArtistIdentityTarget.ARTIST,
+				);
+				await this.identitiesRepository.delete({
+					artistUuid: artist.uuid,
+					identifierId: identifier.id,
+					pluginId: plugin.package.name,
+					target: ArtistIdentityTarget.ARTIST,
+				});
 				continue;
 			}
 

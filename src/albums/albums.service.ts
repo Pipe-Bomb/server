@@ -18,6 +18,7 @@ import { TasksService } from "src/tasks/tasks.service";
 import { ArtistIdentityTarget } from "src/artist-manager/enum/artist-identity-target.enum";
 import { AlbumManagerService } from "src/album-manager/album-manager.service";
 import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
+import { DisabledIdentifiersService } from "src/identifiers/disabled-identifiers.service";
 import { DBIdentity } from "src/identifiers/entities/identity.entity";
 import { DBArtistIdentity } from "src/artist-manager/entity/artist-identity.entity";
 
@@ -32,6 +33,7 @@ export class AlbumsService {
 		private readonly identitiesRepository: Repository<DBAlbumIdentity>,
 		private readonly albumManagerService: AlbumManagerService,
 		private readonly artistManagerService: ArtistManagerService,
+		private readonly disabledIdentifiersService: DisabledIdentifiersService,
 		private readonly tasksService: TasksService,
 		private readonly dataSource: DataSource,
 	) {
@@ -54,6 +56,7 @@ export class AlbumsService {
 	public async identifyAlbum(
 		album: DBAlbum,
 		runId: string,
+		disabledSet: Set<string> = new Set(),
 	): Promise<AlbumIdentificationResult> {
 		const identifiers = this.albumManagerService.getIdentifiers();
 
@@ -87,7 +90,39 @@ export class AlbumsService {
 			}
 		}
 
+		const effectivelyDisabled = new Set<string>();
+
 		for (const { identifier, plugin } of identifiers) {
+			const key = `${plugin.package.name}:${identifier.id}:album`;
+			const key2 = `${plugin.package.name}:${identifier.id}`;
+
+			const disabled =
+				disabledSet.has(key) ||
+				identifier.getDependencies().some((dep) => {
+					const resolvedPluginId = dep.pluginId ?? plugin.package.name;
+					return effectivelyDisabled.has(`${resolvedPluginId}:${dep.sourceId}`);
+				});
+
+			if (disabled) {
+				effectivelyDisabled.add(key2);
+				allIdentities = allIdentities.filter(
+					(i) =>
+						i.identifierId !== identifier.id ||
+						i.pluginId !== plugin.package.name,
+				);
+				await this.albumManagerService.clearArtistLinks(
+					album,
+					plugin.package.name,
+					identifier.id,
+				);
+				await this.identitiesRepository.delete({
+					identifierId: identifier.id,
+					pluginId: plugin.package.name,
+					albumUuid: album.uuid,
+				});
+				continue;
+			}
+
 			const informationHelper =
 				await this.albumManagerService.getInformationHelper(
 					album,
@@ -691,6 +726,8 @@ export class AlbumsService {
 			return;
 		}
 
+		const disabledSet = await this.disabledIdentifiersService.getDisabledSet();
+
 		return new Promise<void>((resolve, reject) => {
 			const handle = async () => {
 				activeThreads++;
@@ -707,7 +744,7 @@ export class AlbumsService {
 
 				try {
 					const { identities, mergedAlbums, splitCount } =
-						await this.identifyAlbum(album, runId);
+						await this.identifyAlbum(album, runId, disabledSet);
 					this.logger.debug(
 						`Identified ${identities.length} identities to Album #${completed + 1}`,
 					);
