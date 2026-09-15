@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Identifier, TrackIdentifier } from "sdk/identifier";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
+import { DeregistrationBlockedError } from "src/util/deregistration-blocked.error";
 import { DBIdentity } from "./entities/identity.entity";
 import { Repository } from "typeorm";
 import { DBTrack } from "src/tracks/entities/track.entity";
@@ -33,6 +34,67 @@ export class IdentifiersService {
 		private readonly artistManagerService: ArtistManagerService,
 		private readonly albumManagerService: AlbumManagerService,
 	) {}
+
+	public unregister(identifier: TrackIdentifier, plugin: LoadedPlugin) {
+		const pluginIdentifiers = this.identifiers.get(plugin.package.name);
+		if (!pluginIdentifiers?.has(identifier.id)) {
+			return;
+		}
+
+		const targetKey = `${plugin.package.name}:${identifier.id}`;
+		const allLoaded = Array.from(this.identifiers.values()).flatMap((m) =>
+			Array.from(m.values()),
+		);
+
+		const blockedBy = allLoaded
+			.filter(
+				(loaded) =>
+					!(
+						loaded.plugin.package.name === plugin.package.name &&
+						loaded.identifier.id === identifier.id
+					),
+			)
+			.filter((loaded) =>
+				loaded.identifier.getDependencies().some((dep) => {
+					if (dep.pluginId !== null) {
+						return `${dep.pluginId}:${dep.sourceId}` === targetKey;
+					}
+					return dep.sourceId === identifier.id;
+				}),
+			)
+			.map(
+				(loaded) =>
+					`TrackIdentifier:${loaded.plugin.package.name}:${loaded.identifier.id}`,
+			);
+
+		if (blockedBy.length) {
+			throw new DeregistrationBlockedError(
+				`TrackIdentifier:${targetKey}`,
+				blockedBy,
+			);
+		}
+
+		pluginIdentifiers.delete(identifier.id);
+		if (pluginIdentifiers.size === 0) {
+			this.identifiers.delete(plugin.package.name);
+		}
+		this.orderedIdentifiers = orderIdentifiers(
+			Array.from(this.identifiers.values()).flatMap((m) =>
+				Array.from(m.values()),
+			),
+		);
+
+		if (identifier.target === "artist") {
+			this.artistManagerService.unregisterTrackIdentifier(identifier, plugin);
+		}
+		if (identifier.target === "album") {
+			this.albumManagerService.unregisterTrackIdentifier(identifier, plugin);
+		}
+
+		this.logger.log(
+			`Plugin "${plugin.package.name}" unregistered Identifier "${identifier.id}"`,
+		);
+	}
 
 	public register(identifier: TrackIdentifier, plugin: LoadedPlugin) {
 		const pluginIdentifiers = this.identifiers.get(plugin.package.name);

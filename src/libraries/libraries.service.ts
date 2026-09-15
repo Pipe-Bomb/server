@@ -334,6 +334,20 @@ export class LibrariesService {
 		}
 	}
 
+	public unregister(handler: LibraryHandler, plugin: LoadedPlugin) {
+		const pluginLibs = this.libraries.get(plugin.package.name);
+		if (!pluginLibs?.libraries.has(handler.id)) {
+			return;
+		}
+		pluginLibs.libraries.delete(handler.id);
+		if (pluginLibs.libraries.size === 0) {
+			this.libraries.delete(plugin.package.name);
+		}
+		this.logger.log(
+			`Plugin "${plugin.package.name}" unregistered Library "${handler.id}"`,
+		);
+	}
+
 	public register(handler: LibraryHandler, plugin: LoadedPlugin) {
 		const pluginLibs = this.libraries.get(plugin.package.name);
 

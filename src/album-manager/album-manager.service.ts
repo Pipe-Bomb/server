@@ -6,6 +6,7 @@ import {
 	Identity,
 	TrackIdentifier,
 } from "@sdk";
+import { DeregistrationBlockedError } from "src/util/deregistration-blocked.error";
 import { DBAlbumArtist } from "src/albums/entity/album-artist.entity";
 import { DBAlbumIdentity } from "src/albums/entity/album-identity.entity";
 import { DBAlbumTrack } from "src/albums/entity/album-track.entity";
@@ -375,6 +376,72 @@ export class AlbumManagerService {
 				joinPhrase,
 			},
 		);
+	}
+
+	public unregisterIdentifier(
+		identifier: AlbumIdentifier,
+		plugin: LoadedPlugin,
+	) {
+		const pluginIdentifiers = this.identifiers.get(plugin.package.name);
+		if (!pluginIdentifiers?.has(identifier.id)) {
+			return;
+		}
+
+		const targetKey = `${plugin.package.name}:${identifier.id}`;
+		const allLoaded = Array.from(this.identifiers.values()).flatMap((m) =>
+			Array.from(m.values()),
+		);
+
+		const blockedBy = allLoaded
+			.filter(
+				(loaded) =>
+					!(
+						loaded.plugin.package.name === plugin.package.name &&
+						loaded.identifier.id === identifier.id
+					),
+			)
+			.filter((loaded) =>
+				loaded.identifier.getDependencies().some((dep) => {
+					if (dep.pluginId !== null) {
+						return `${dep.pluginId}:${dep.sourceId}` === targetKey;
+					}
+					return dep.sourceId === identifier.id;
+				}),
+			)
+			.map(
+				(loaded) =>
+					`AlbumIdentifier:${loaded.plugin.package.name}:${loaded.identifier.id}`,
+			);
+
+		if (blockedBy.length) {
+			throw new DeregistrationBlockedError(
+				`AlbumIdentifier:${targetKey}`,
+				blockedBy,
+			);
+		}
+
+		pluginIdentifiers.delete(identifier.id);
+		if (pluginIdentifiers.size === 0) {
+			this.identifiers.delete(plugin.package.name);
+		}
+		this.orderIdentifiers();
+		this.logger.log(
+			`Plugin "${plugin.package.name}" unregistered Identifier "${identifier.id}"`,
+		);
+	}
+
+	public unregisterTrackIdentifier(
+		identifier: TrackIdentifier,
+		plugin: LoadedPlugin,
+	) {
+		const idx = this.trackIdentifiers.findIndex(
+			(dep) =>
+				dep.pluginId === plugin.package.name && dep.sourceId === identifier.id,
+		);
+		if (idx !== -1) {
+			this.trackIdentifiers.splice(idx, 1);
+			this.orderIdentifiers();
+		}
 	}
 
 	public registerIdentifier(identifier: AlbumIdentifier, plugin: LoadedPlugin) {

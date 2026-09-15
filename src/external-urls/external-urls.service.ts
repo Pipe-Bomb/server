@@ -20,6 +20,25 @@ export class ExternalUrlsService {
 
 	constructor(private readonly iconsService: IconsService) {}
 
+	public unregisterSource(source: ExternalUrlSource, plugin: LoadedPlugin) {
+		const set = this.sources.get(plugin.package.name);
+		if (!set) {
+			return;
+		}
+		for (const entry of set) {
+			if (entry.source === source) {
+				set.delete(entry);
+				if (set.size === 0) {
+					this.sources.delete(plugin.package.name);
+				}
+				this.logger.log(
+					`Plugin "${plugin.package.name}" unregistered an External Url Source`,
+				);
+				return;
+			}
+		}
+	}
+
 	public registerSource(source: ExternalUrlSource, plugin: LoadedPlugin) {
 		const set = this.sources.get(plugin.package.name);
 		if (set) {
