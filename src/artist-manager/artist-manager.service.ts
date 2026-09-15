@@ -6,6 +6,7 @@ import {
 	Identity,
 	TrackIdentifier,
 } from "@sdk";
+import { DeregistrationBlockedError } from "src/util/deregistration-blocked.error";
 import { AlbumManagerService } from "src/album-manager/album-manager.service";
 import { ArtistIdentityTarget } from "src/artist-manager/enum/artist-identity-target.enum";
 import { ArtistIdentificationResult } from "src/artist-manager/interface/artist-identification-result.interface";
@@ -303,6 +304,72 @@ export class ArtistManagerService {
 
 	count(where: FindOptionsWhere<DBArtist> | FindOptionsWhere<DBArtist>[]) {
 		return this.artistsRepository.countBy(where);
+	}
+
+	public unregisterIdentifier(
+		identifier: ArtistIdentifier,
+		plugin: LoadedPlugin,
+	) {
+		const pluginIdentifiers = this.identifiers.get(plugin.package.name);
+		if (!pluginIdentifiers?.has(identifier.id)) {
+			return;
+		}
+
+		const targetKey = `${plugin.package.name}:${identifier.id}`;
+		const allLoaded = Array.from(this.identifiers.values()).flatMap((m) =>
+			Array.from(m.values()),
+		);
+
+		const blockedBy = allLoaded
+			.filter(
+				(loaded) =>
+					!(
+						loaded.plugin.package.name === plugin.package.name &&
+						loaded.identifier.id === identifier.id
+					),
+			)
+			.filter((loaded) =>
+				loaded.identifier.getDependencies().some((dep) => {
+					if (dep.pluginId !== null) {
+						return `${dep.pluginId}:${dep.sourceId}` === targetKey;
+					}
+					return dep.sourceId === identifier.id;
+				}),
+			)
+			.map(
+				(loaded) =>
+					`ArtistIdentifier:${loaded.plugin.package.name}:${loaded.identifier.id}`,
+			);
+
+		if (blockedBy.length) {
+			throw new DeregistrationBlockedError(
+				`ArtistIdentifier:${targetKey}`,
+				blockedBy,
+			);
+		}
+
+		pluginIdentifiers.delete(identifier.id);
+		if (pluginIdentifiers.size === 0) {
+			this.identifiers.delete(plugin.package.name);
+		}
+		this.orderIdentifiers();
+		this.logger.log(
+			`Plugin "${plugin.package.name}" unregistered Identifier "${identifier.id}"`,
+		);
+	}
+
+	public unregisterTrackIdentifier(
+		identifier: TrackIdentifier,
+		plugin: LoadedPlugin,
+	) {
+		const idx = this.trackIdentifiers.findIndex(
+			(dep) =>
+				dep.pluginId === plugin.package.name && dep.sourceId === identifier.id,
+		);
+		if (idx !== -1) {
+			this.trackIdentifiers.splice(idx, 1);
+			this.orderIdentifiers();
+		}
 	}
 
 	public registerIdentifier(

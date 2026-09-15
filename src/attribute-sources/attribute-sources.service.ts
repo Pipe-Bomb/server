@@ -47,6 +47,40 @@ export class AttributeSourcesService {
 		private readonly resourcesService: ResourcesService,
 	) {}
 
+	unregisterAttributeSource(plugin: LoadedPlugin, source: AttributeSource) {
+		const index = this.sources.findIndex(
+			(s) =>
+				s.plugin.package.name === plugin.package.name && s.source === source,
+		);
+		if (index === -1) {
+			return;
+		}
+		const [loaded] = this.sources.splice(index, 1);
+		for (const attr of [...this.trackAttributes]) {
+			if (attr.source === loaded) {
+				this.trackAttributes.delete(attr);
+			}
+		}
+		for (const attr of [...this.artistAttributes]) {
+			if (attr.source === loaded) {
+				this.artistAttributes.delete(attr);
+			}
+		}
+		for (const attr of [...this.albumAttributes]) {
+			if (attr.source === loaded) {
+				this.albumAttributes.delete(attr);
+			}
+		}
+		for (const attr of [...this.playlistAttributes]) {
+			if (attr.source === loaded) {
+				this.playlistAttributes.delete(attr);
+			}
+		}
+		this.logger.log(
+			`Plugin "${plugin.package.name}" unregistered Attribute Source "${source.id}"`,
+		);
+	}
+
 	registerAttributeSource(plugin: LoadedPlugin, source: AttributeSource) {
 		for (const existingSource of this.sources) {
 			if (
