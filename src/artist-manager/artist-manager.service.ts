@@ -330,6 +330,10 @@ export class ArtistManagerService {
 		);
 	}
 
+	public getIdentifiers() {
+		return [...this.orderedIdentifiers];
+	}
+
 	private orderIdentifiers() {
 		this.orderedIdentifiers = orderIdentifiers(
 			Array.from(this.identifiers.values()).flatMap((map) =>
@@ -388,6 +392,7 @@ export class ArtistManagerService {
 	public async identifyArtist(
 		artist: DBArtist,
 		runId: string,
+		disabledSet: Set<string> = new Set(),
 	): Promise<ArtistIdentificationResult> {
 		let allIdentities = await this.findIdentities(artist);
 
@@ -415,7 +420,36 @@ export class ArtistManagerService {
 		}
 
 		// 1. RUN IDENTIFIERS (Standard logic)
+		const effectivelyDisabled = new Set<string>();
+
 		for (const { identifier, plugin } of this.orderedIdentifiers) {
+			const key = `${plugin.package.name}:${identifier.id}:artist`;
+			const key2 = `${plugin.package.name}:${identifier.id}`;
+
+			const disabled =
+				disabledSet.has(key) ||
+				identifier.getDependencies().some((dep) => {
+					const resolvedPluginId = dep.pluginId ?? plugin.package.name;
+					return effectivelyDisabled.has(`${resolvedPluginId}:${dep.sourceId}`);
+				});
+
+			if (disabled) {
+				effectivelyDisabled.add(key2);
+				allIdentities = allIdentities.filter(
+					(i) =>
+						i.identifierId !== identifier.id ||
+						i.pluginId !== plugin.package.name ||
+						i.target !== ArtistIdentityTarget.ARTIST,
+				);
+				await this.identitiesRepository.delete({
+					artistUuid: artist.uuid,
+					identifierId: identifier.id,
+					pluginId: plugin.package.name,
+					target: ArtistIdentityTarget.ARTIST,
+				});
+				continue;
+			}
+
 			const helper = await this.getInformationHelper(artist, (id, pluginId) =>
 				allIdentities
 					.map((i) => i.toIdentity())

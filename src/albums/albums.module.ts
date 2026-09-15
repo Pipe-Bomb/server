@@ -10,6 +10,7 @@ import { AlbumManagerModule } from "src/album-manager/album-manager.module";
 import { ArtistManagerModule } from "src/artist-manager/artist-manager.module";
 import { EphemeralModule } from "src/ephemeral/ephemeral.module";
 import { SearchModule } from "src/search/search.module";
+import { IdentifiersModule } from "src/identifiers/identifiers.module";
 
 @Module({
 	imports: [
@@ -19,6 +20,7 @@ import { SearchModule } from "src/search/search.module";
 		AlbumManagerModule,
 		EphemeralModule,
 		SearchModule,
+		IdentifiersModule,
 	],
 	controllers: [AlbumsController],
 	providers: [AlbumsService],
