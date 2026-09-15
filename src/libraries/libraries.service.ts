@@ -612,6 +612,7 @@ export class LibrariesService {
 		}
 
 		const count = await this.trackManagerService.count(criteria);
+		const disabledSet = await this.identifiersService.getDisabledSet();
 
 		for (let i = 0; i * 30 < count; i++) {
 			const tracks = await this.trackManagerService.find({
@@ -624,7 +625,11 @@ export class LibrariesService {
 			}
 
 			for (const [index, track] of tracks.entries()) {
-				await this.identifiersService.identifyTrack(track, library);
+				await this.identifiersService.identifyTrack(
+					track,
+					library,
+					disabledSet,
+				);
 				onProgress?.(index + i * CHUNK_SIZE, count);
 			}
 			await this.trackManagerService.setRunId(tracks, runId, "identity");

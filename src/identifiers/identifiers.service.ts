@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { TrackIdentifier } from "sdk/identifier";
+import { Identifier, TrackIdentifier } from "sdk/identifier";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { DBIdentity } from "./entities/identity.entity";
 import { Repository } from "typeorm";
@@ -13,6 +13,9 @@ import { ArtistIdentityTarget } from "src/artist-manager/enum/artist-identity-ta
 import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
 import { AlbumManagerService } from "src/album-manager/album-manager.service";
 import { Identity } from "@sdk";
+import { IdentifierTarget } from "./enum/identifier-target.enum";
+import { IdentifierType } from "./enum/identifier-type.enum";
+import { DisabledIdentifiersService } from "./disabled-identifiers.service";
 
 @Injectable()
 export class IdentifiersService {
@@ -26,6 +29,7 @@ export class IdentifiersService {
 	constructor(
 		@InjectRepository(DBIdentity)
 		private readonly identitiesRepository: Repository<DBIdentity>,
+		private readonly disabledIdentifiersService: DisabledIdentifiersService,
 		private readonly artistManagerService: ArtistManagerService,
 		private readonly albumManagerService: AlbumManagerService,
 	) {}
@@ -85,19 +89,48 @@ export class IdentifiersService {
 		);
 	}
 
-	public async identifyTrack(track: DBTrack, library: LoadedLibraryHandler) {
+	public getDisabledSet(): Promise<Set<string>> {
+		return this.disabledIdentifiersService.getDisabledSet();
+	}
+
+	public async identifyTrack(
+		track: DBTrack,
+		library: LoadedLibraryHandler,
+		disabledSet: Set<string> = new Set(),
+	) {
 		const identifiers = this.all();
 
 		this.logger.debug(
 			`Identifying Track "${track.trackId}" using ${identifiers.length} Identifiers...`,
 		);
 
+		const effectivelyDisabled = new Set<string>();
+
 		for (const { identifier, plugin } of identifiers) {
 			try {
-				const identities = await identifier.identify(
-					await library.informationHelper(track),
-					new Logger(`PLUGIN ${plugin.package.name}`),
-				);
+				const key3 = `${plugin.package.name}:${identifier.id}:track`;
+				const key2 = `${plugin.package.name}:${identifier.id}`;
+
+				const disabled =
+					disabledSet.has(key3) ||
+					identifier.getDependencies().some((dep) => {
+						const resolvedPluginId = dep.pluginId ?? plugin.package.name;
+						return effectivelyDisabled.has(
+							`${resolvedPluginId}:${dep.sourceId}`,
+						);
+					});
+
+				if (disabled) {
+					effectivelyDisabled.add(key2);
+				}
+
+				const identities = disabled
+					? null
+					: await identifier.identify(
+							await library.informationHelper(track),
+							new Logger(`PLUGIN ${plugin.package.name}`),
+						);
+
 				if (identities?.length) {
 					// todo: i probably only need to upsert identities with "track" target
 					await this.identitiesRepository.upsert(
@@ -240,14 +273,28 @@ export class IdentifiersService {
 			.execute();
 	}
 
+	allArtist() {
+		return this.artistManagerService.getIdentifiers();
+	}
+
+	allAlbum() {
+		return this.albumManagerService.getIdentifiers();
+	}
+
 	toResponse(
-		identifier: LoadedIdentifier<TrackIdentifier>,
+		identifier: LoadedIdentifier<Identifier>,
+		type: IdentifierType,
+		disabled: boolean,
 	): IdentifierResponse {
+		const target = (identifier.identifier as { target?: string }).target;
 		return {
 			pluginId: identifier.plugin.package.name,
 			identifierId: identifier.identifier.id,
+			type,
+			target: (target as IdentifierTarget) ?? null,
 			dependencies: identifier.identifier.getDependencies(),
 			softDependencies: identifier.identifier.getSoftDependencies(),
+			disabled,
 		};
 	}
 }

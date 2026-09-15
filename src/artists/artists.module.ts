@@ -9,6 +9,7 @@ import { EphemeralService } from "src/ephemeral/ephemeral.service";
 import { EphemeralModule } from "src/ephemeral/ephemeral.module";
 import { AttributesModule } from "src/attributes/attributes.module";
 import { SearchModule } from "src/search/search.module";
+import { IdentifiersModule } from "src/identifiers/identifiers.module";
 
 @Module({
 	imports: [
@@ -18,6 +19,7 @@ import { SearchModule } from "src/search/search.module";
 		EphemeralModule,
 		AttributesModule,
 		SearchModule,
+		IdentifiersModule,
 	],
 	controllers: [ArtistsController],
 	providers: [ArtistsService],

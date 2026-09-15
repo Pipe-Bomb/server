@@ -32,6 +32,7 @@ import { randomUUID } from "crypto";
 import { AttributesService } from "src/attributes/attributes.service";
 import { SearchSourcesService } from "src/search/search-sources.service";
 import { In } from "typeorm";
+import { DisabledIdentifiersService } from "src/identifiers/disabled-identifiers.service";
 
 @Controller("artists")
 export class ArtistsController {
@@ -43,6 +44,7 @@ export class ArtistsController {
 		private readonly ephemeralService: EphemeralService,
 		private readonly attributesService: AttributesService,
 		private readonly SearchSourcesService: SearchSourcesService,
+		private readonly disabledIdentifiersService: DisabledIdentifiersService,
 	) {}
 
 	@Get(":artistUuid")
@@ -85,9 +87,11 @@ export class ArtistsController {
 
 		const start = Date.now();
 		this.logger.log(`Updating metadata for ${artist.uuid}`);
+		const disabledSet = await this.disabledIdentifiersService.getDisabledSet();
 		const identificationResult = await this.artistManagerService.identifyArtist(
 			artist,
 			randomUUID(),
+			disabledSet,
 		);
 		this.logger.log(`Found ${identificationResult.identities} identities`);
 		await this.attributesService.attributeArtist(artist);

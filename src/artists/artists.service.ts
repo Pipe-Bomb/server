@@ -4,6 +4,7 @@ import { FindOptionsWhere, In, IsNull, Not, Repository } from "typeorm";
 import { TasksService } from "src/tasks/tasks.service";
 import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
 import { DBArtist } from "src/artist-manager/entity/artist.entity";
+import { DisabledIdentifiersService } from "src/identifiers/disabled-identifiers.service";
 
 @Injectable()
 export class ArtistsService {
@@ -11,6 +12,7 @@ export class ArtistsService {
 
 	constructor(
 		private readonly artistManagerService: ArtistManagerService,
+		private readonly disabledIdentifiersService: DisabledIdentifiersService,
 		private readonly tasksService: TasksService,
 		@InjectRepository(DBArtist)
 		private readonly artistsRepository: Repository<DBArtist>,
@@ -69,6 +71,8 @@ export class ArtistsService {
 			return;
 		}
 
+		const disabledSet = await this.disabledIdentifiersService.getDisabledSet();
+
 		return new Promise<void>((resolve, reject) => {
 			const handle = async () => {
 				activeThreads++;
@@ -85,7 +89,11 @@ export class ArtistsService {
 
 				try {
 					const { mergedArtists, identities, splitCount } =
-						await this.artistManagerService.identifyArtist(artist, runId);
+						await this.artistManagerService.identifyArtist(
+							artist,
+							runId,
+							disabledSet,
+						);
 					this.logger.debug(
 						`Identified ${identities.length} identities to Artist #${completed + 1}`,
 					);
