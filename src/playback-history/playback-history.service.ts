@@ -28,7 +28,7 @@ export class PlaybackHistoryService {
 				userUuid,
 				pluginId,
 				clientName,
-				datePlayed: Math.floor(datePlayed.getTime() / 1000),
+				datePlayed: datePlayed.getTime(),
 			})
 			.orIgnore()
 			.execute();
