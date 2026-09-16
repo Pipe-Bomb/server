@@ -86,7 +86,7 @@ export class PlaybackHistoryController {
 				trackUuid: entry.trackUuid,
 				pluginId: entry.pluginId,
 				clientName: entry.clientName,
-				datePlayed: new Date(entry.datePlayed * 1000),
+				datePlayed: new Date(entry.datePlayed),
 				dateRecorded: new Date(entry.dateRecorded),
 				track: null,
 			}),
