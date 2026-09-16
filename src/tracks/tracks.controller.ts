@@ -9,7 +9,6 @@ import {
 	NotFoundException,
 	Param,
 	Post,
-	UseGuards,
 } from "@nestjs/common";
 import { TracksService } from "./tracks.service";
 import {
@@ -30,7 +29,6 @@ import { ExternalUrlResponse } from "src/external-urls/response/external-url.res
 import { TrackIdsDto } from "./dto/track-ids.dto";
 import { EphemeralService } from "src/ephemeral/ephemeral.service";
 import { EphemeralTrackResponse } from "src/ephemeral/response/ephemeral-track.response";
-import { AuthGuard } from "src/user-manager/auth.guard";
 
 @Controller("tracks")
 export class TracksController {

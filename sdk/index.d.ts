@@ -19,3 +19,4 @@ export * from "./auth-client";
 export * from "./playlist-client";
 export * from "./workflow-client";
 export * from "./search-source";
+export * from "./playback-history";

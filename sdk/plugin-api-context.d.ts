@@ -16,6 +16,7 @@ import { PlaylistClient } from "./playlist-client";
 import { Plugin, PluginPackage } from "./plugin";
 import { SimpleTask, SubTask } from "./task";
 import { WorkflowClient } from "./workflow-client";
+import { PlaybackHistoryClient } from "./playback-history";
 
 export interface PluginApiContext {
 	getServerVersion(): string;
@@ -53,6 +54,7 @@ export interface PluginApiContext {
 	getSearchSource(pluginId: string, sourceId: string): SearchSource | null;
 	getActiveSearchSource(): SearchSource | null;
 	getDataClient(): DataClient;
+	getPlaybackHistoryClient(): PlaybackHistoryClient;
 	requestAuthClient(): AuthClient | null;
 	getPlaylistClient(): PlaylistClient;
 	getWorkflowClient(): WorkflowClient;

@@ -19,6 +19,7 @@ import { PlaylistsModule } from "src/playlists/playlists.module";
 import { WorkflowsModule } from "src/workflows/workflows.module";
 import { PrivilegesModule } from "src/privileges/privileges.module";
 import { SearchModule } from "src/search/search.module";
+import { PlaybackHistoryModule } from "src/playback-history/playback-history.module";
 
 @Module({
 	imports: [
@@ -40,6 +41,7 @@ import { SearchModule } from "src/search/search.module";
 		WorkflowsModule,
 		PrivilegesModule,
 		SearchModule,
+		PlaybackHistoryModule,
 	],
 	controllers: [PluginsController],
 	providers: [PluginsService],

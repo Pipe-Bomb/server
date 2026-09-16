@@ -32,6 +32,7 @@ import { PORT } from "src/config/constants";
 import { In } from "typeorm";
 import { SearchSourcesService } from "src/search/search-sources.service";
 import { DeregistrationBlockedError } from "src/util/deregistration-blocked.error";
+import { PlaybackHistoryService } from "src/playback-history/playback-history.service";
 
 @Injectable()
 export class PluginsService {
@@ -61,6 +62,7 @@ export class PluginsService {
 		private readonly playlistsService: PlaylistsService,
 		private readonly workflowsService: WorkflowsService,
 		private readonly SearchSourcesService: SearchSourcesService,
+		private readonly playbackHistoryService: PlaybackHistoryService,
 	) {
 		this.logger.debug(`Plugin directory is "${this.pluginsDirectory}"`);
 
@@ -412,6 +414,8 @@ export class PluginsService {
 			getPlaylistClient: () =>
 				this.playlistsService.createPlaylistClient(plugin),
 			getWorkflowClient: () => this.workflowsService.createClient(plugin),
+			getPlaybackHistoryClient: () =>
+				this.playbackHistoryService.createClient(plugin),
 			unregisterLibraryHandler: (handler) => {
 				const blockedBy = this.ephemeralService.getSourcesUsingHandler(handler);
 				if (blockedBy.length) {
