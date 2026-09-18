@@ -1,4 +1,5 @@
 import { ApiProperty, ApiSchema } from "@nestjs/swagger";
+import { PluginUpdateStatus } from "../enum/plugin-update-status.enum";
 
 @ApiSchema({ name: "LoadedPlugin" })
 export class LoadedPluginResponse {
@@ -13,4 +14,7 @@ export class LoadedPluginResponse {
 		nullable: true,
 	})
 	description: string | null;
+
+	@ApiProperty({ enum: PluginUpdateStatus })
+	updateStatus: PluginUpdateStatus;
 }
