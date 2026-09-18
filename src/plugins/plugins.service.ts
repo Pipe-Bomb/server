@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import {
+	BadRequestException,
+	Injectable,
+	Logger,
+	NotFoundException,
+} from "@nestjs/common";
 import { plainToInstance } from "class-transformer";
 import { isUUID, validate } from "class-validator";
 import { execFile } from "child_process";
@@ -10,6 +15,7 @@ import { PluginPackageDto } from "./dto/plugin-package.dto";
 import type Sdk from "@sdk";
 import Package from "../../package.json";
 import { LoadedPlugin } from "./interface/loaded-plugin.interface";
+import { PluginUpdateStatus } from "./enum/plugin-update-status.enum";
 import { LibrariesService } from "src/libraries/libraries.service";
 import { IdentifiersService } from "src/identifiers/identifiers.service";
 import { randomUUID } from "crypto";
@@ -67,6 +73,34 @@ export class PluginsService {
 		this.logger.debug(`Plugin directory is "${this.pluginsDirectory}"`);
 
 		this.scan();
+
+		this.tasksService.registerSystemTask({
+			id: "check-plugin-updates",
+			resumable: false,
+			run: async (ctx) => {
+				const updatable = [...this.plugins.values()].filter(
+					(p) => p.updateStatus !== PluginUpdateStatus.UNSUPPORTED,
+				);
+				for (const [index, plugin] of updatable.entries()) {
+					const name = plugin.package.name;
+					try {
+						const result = await this.checkPluginForUpdates(name);
+						if (result.updatesAvailable) {
+							this.logger.log(
+								`Plugin "${name}" has ${result.commitsBehind} update(s) available`,
+							);
+						} else {
+							this.logger.log(`Plugin "${name}" is up to date`);
+						}
+					} catch (e) {
+						this.logger.warn(
+							`Failed to check updates for "${name}": ${(e as Error).message}`,
+						);
+					}
+					ctx.update((index + 1) / updatable.length);
+				}
+			},
+		});
 	}
 
 	private async scan() {
@@ -201,9 +235,14 @@ export class PluginsService {
 		const plugin = new pluginConstructor();
 		this.logger.debug(`Successfully instantiated "${pluginPackage.name}"`);
 
+		const isGitRepo = existsSync(path.join(pluginDirPath, ".git"));
 		const loadedPlugin: LoadedPlugin = {
 			plugin,
 			package: pluginPackage,
+			directoryPath: pluginDirPath,
+			updateStatus: isGitRepo
+				? PluginUpdateStatus.NOT_CHECKED
+				: PluginUpdateStatus.UNSUPPORTED,
 		};
 		const pluginApiContext = this.createPluginApiContext(
 			loadedPlugin,
@@ -218,18 +257,51 @@ export class PluginsService {
 		);
 	}
 
-	public async installPlugin(gitUrl: string, ref?: string): Promise<string> {
-		this.logger.debug(`Requested to install plugin "${gitUrl}"`);
-
+	private async buildPlugin(tempDir: string): Promise<any> {
 		const exec = promisify(execFile);
-		const tempDir = await this.requestTempDirectory();
 		const npmEnv = {
 			...process.env,
 			npm_config_cache: path.join(tempDir, ".npm-cache"),
 			NODE_ENV: "development",
 		};
 
-		this.logger.debug(`Installing plugin into "${tempDir}"`);
+		this.logger.debug("Installing plugin dependencies");
+		await exec("npm", ["ci", "--include=dev"], { cwd: tempDir, env: npmEnv });
+
+		let packageJson: any;
+		try {
+			this.logger.debug("Reading plugin package.json");
+			const packageContents = await readFile(
+				path.join(tempDir, "package.json"),
+				"utf-8",
+			);
+			packageJson = JSON.parse(packageContents);
+		} catch (e) {
+			throw new Error(`Failed to read "package.json"`);
+		}
+
+		if (packageJson?.scripts?.build) {
+			this.logger.debug("Executing plugin build script");
+			await exec("npm", ["run", "build"], { cwd: tempDir, env: npmEnv });
+			await exec("npm", ["prune", "--omit=dev"], { cwd: tempDir, env: npmEnv });
+		}
+
+		const entryRelative =
+			packageJson?.pipebombEntry || packageJson?.main || "index.js";
+		if (!existsSync(path.join(tempDir, entryRelative))) {
+			throw new Error(
+				`Entrypoint "${entryRelative}" does not exist after build`,
+			);
+		}
+
+		return packageJson;
+	}
+
+	public async installPlugin(gitUrl: string, ref?: string): Promise<string> {
+		this.logger.debug(`Requested to install plugin "${gitUrl}"`);
+
+		const exec = promisify(execFile);
+		const tempDir = await this.requestTempDirectory();
 
 		try {
 			this.logger.debug("Cloning plugin repository");
@@ -238,40 +310,7 @@ export class PluginsService {
 				: ["clone", "--depth", "1", gitUrl, tempDir];
 			await exec("git", cloneArgs);
 
-			this.logger.debug("Installing plugin dependencies");
-
-			await exec("npm", ["ci", "--include=dev"], { cwd: tempDir, env: npmEnv });
-
-			let packageJson: any;
-			try {
-				this.logger.debug("Reading plugin package.json");
-				const packageContents = await readFile(
-					path.join(tempDir, "package.json"),
-					"utf-8",
-				);
-				packageJson = JSON.parse(packageContents);
-			} catch (e) {
-				throw new BadRequestException(
-					`Failed to read "package.json" from cloned repository`,
-				);
-			}
-
-			if (packageJson?.scripts?.build) {
-				this.logger.debug("Executing plugin build script");
-				await exec("npm", ["run", "build"], { cwd: tempDir, env: npmEnv });
-				await exec("npm", ["prune", "--omit=dev"], {
-					cwd: tempDir,
-					env: npmEnv,
-				});
-			}
-
-			const entryRelative =
-				packageJson?.pipebombEntry || packageJson?.main || "index.js";
-			if (!existsSync(path.join(tempDir, entryRelative))) {
-				throw new BadRequestException(
-					`Entrypoint "${entryRelative}" does not exist after build`,
-				);
-			}
+			const packageJson = await this.buildPlugin(tempDir);
 
 			const pluginName: string = packageJson?.name;
 			if (!pluginName) {
@@ -813,6 +852,81 @@ export class PluginsService {
 		const destDir = path.join(this.pluginsDirectory, name);
 		await rm(destDir, { recursive: true, force: true });
 		return true;
+	}
+
+	public async updatePlugin(name: string): Promise<void> {
+		const plugin = this.plugins.get(name);
+		if (!plugin) {
+			throw new NotFoundException(`Plugin "${name}" is not installed`);
+		}
+		if (plugin.updateStatus === PluginUpdateStatus.UNSUPPORTED) {
+			throw new BadRequestException(
+				`Plugin "${name}" does not support updates`,
+			);
+		}
+		if (plugin.updateStatus === PluginUpdateStatus.UPDATING) {
+			throw new BadRequestException(`Plugin "${name}" is already updating`);
+		}
+
+		const exec = promisify(execFile);
+		const previousStatus = plugin.updateStatus;
+		plugin.updateStatus = PluginUpdateStatus.UPDATING;
+
+		const tempDir = await this.requestTempDirectory();
+
+		try {
+			const destDir = path.join(this.pluginsDirectory, name);
+
+			this.logger.debug(`Copying "${name}" to temp directory for update`);
+			await cp(destDir, tempDir, { recursive: true });
+
+			this.logger.debug(`Pulling latest changes for "${name}"`);
+			await exec("git", ["pull"], { cwd: tempDir });
+
+			await this.buildPlugin(tempDir);
+
+			this.logger.debug(`Replacing plugin directory for "${name}"`);
+			await rm(destDir, { recursive: true, force: true });
+			await cp(tempDir, destDir, { recursive: true });
+			await rm(tempDir, { recursive: true, force: true });
+
+			plugin.updateStatus = PluginUpdateStatus.UP_TO_DATE;
+			this.logger.log(`Plugin "${name}" updated successfully`);
+		} catch (e) {
+			if (existsSync(tempDir)) {
+				await rm(tempDir, { recursive: true, force: true });
+			}
+			plugin.updateStatus = previousStatus;
+			throw e;
+		}
+	}
+
+	public async checkPluginForUpdates(
+		name: string,
+	): Promise<{ updatesAvailable: boolean; commitsBehind: number }> {
+		const plugin = this.plugins.get(name);
+		if (!plugin) {
+			throw new NotFoundException(`Plugin "${name}" is not installed`);
+		}
+		if (plugin.updateStatus === PluginUpdateStatus.UNSUPPORTED) {
+			throw new BadRequestException(
+				`Plugin "${name}" does not support update checks`,
+			);
+		}
+
+		const exec = promisify(execFile);
+		await exec("git", ["fetch", "origin"], { cwd: plugin.directoryPath });
+		const { stdout } = await exec(
+			"git",
+			["rev-list", "HEAD..origin/HEAD", "--count"],
+			{ cwd: plugin.directoryPath },
+		);
+		const commitsBehind = parseInt(stdout.trim(), 10);
+		plugin.updateStatus =
+			commitsBehind > 0
+				? PluginUpdateStatus.HAS_UPDATE
+				: PluginUpdateStatus.UP_TO_DATE;
+		return { updatesAvailable: commitsBehind > 0, commitsBehind };
 	}
 
 	public getPlugin(id: string) {

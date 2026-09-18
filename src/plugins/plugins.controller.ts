@@ -23,6 +23,7 @@ import { InstallPluginDto } from "./dto/install-plugin.dto";
 import { PluginsService } from "./plugins.service";
 import { LoadedPlugin } from "./interface/loaded-plugin.interface";
 import { LoadedPluginResponse } from "./response/loaded-plugin.response";
+import { PluginUpdateResponse } from "./response/plugin-update.response";
 
 @Controller("plugins")
 export class PluginsController {
@@ -44,6 +45,7 @@ export class PluginsController {
 			name: plugin.package.name,
 			version: plugin.package.version,
 			description: plugin.package.description || null,
+			updateStatus: plugin.updateStatus,
 		};
 	}
 
@@ -81,6 +83,37 @@ export class PluginsController {
 				`Installation failed: ${(e as Error).message}`,
 			);
 		}
+	}
+
+	@Get(":name/check-updates")
+	@ApiOperation({ operationId: "checkPluginUpdates" })
+	@ApiOkResponse({ type: PluginUpdateResponse })
+	@ApiUnauthorizedResponse()
+	@ApiForbiddenResponse()
+	@Privileges("view-plugins")
+	async checkUpdates(
+		@Param("name") name: string,
+	): Promise<PluginUpdateResponse> {
+		return this.pluginsService.checkPluginForUpdates(name);
+	}
+
+	@Post(":name/update")
+	@ApiOperation({ operationId: "updatePlugin" })
+	@ApiOkResponse({ type: [LoadedPluginResponse] })
+	@ApiUnauthorizedResponse()
+	@ApiForbiddenResponse()
+	@HttpCode(HttpStatus.OK)
+	@Privileges("modify-plugin-installations")
+	async update(@Param("name") name: string): Promise<LoadedPluginResponse[]> {
+		try {
+			await this.pluginsService.updatePlugin(name);
+		} catch (e) {
+			if (e instanceof BadRequestException || e instanceof NotFoundException) {
+				throw e;
+			}
+			throw new BadRequestException(`Update failed: ${(e as Error).message}`);
+		}
+		return this.getInstalledPlugins();
 	}
 
 	@Delete(":name")

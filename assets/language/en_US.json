@@ -30,6 +30,7 @@
 
 	"task.system.cache-all-libraries.name": "Cache All Libraries",
 	"task.system.clean-database.name": "Clean Database",
+	"task.system.check-plugin-updates.name": "Check for Plugin Updates",
 
 	"contextmenu.track.view-info": "Track Info",
 	"contextmenu.track.play-next": "Play Next",
