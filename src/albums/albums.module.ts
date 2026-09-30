@@ -5,6 +5,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { DBAlbum } from "./entity/album.entity";
 import { DBAlbumIdentity } from "./entity/album-identity.entity";
 import { DBAlbumMerge } from "./entity/album-merge.entity";
+import { DBSavedAlbum } from "./entity/saved-album.entity";
 import { TasksModule } from "src/tasks/tasks.module";
 import { AlbumManagerModule } from "src/album-manager/album-manager.module";
 import { ArtistManagerModule } from "src/artist-manager/artist-manager.module";
@@ -16,7 +17,12 @@ import { LibrariesModule } from "src/libraries/libraries.module";
 
 @Module({
 	imports: [
-		TypeOrmModule.forFeature([DBAlbum, DBAlbumIdentity, DBAlbumMerge]),
+		TypeOrmModule.forFeature([
+			DBAlbum,
+			DBAlbumIdentity,
+			DBAlbumMerge,
+			DBSavedAlbum,
+		]),
 		ArtistManagerModule,
 		TasksModule,
 		AlbumManagerModule,

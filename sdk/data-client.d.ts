@@ -240,4 +240,22 @@ export interface DataClient {
 			};
 		},
 	): Promise<SavedArtist[]>;
+
+	getSavedAlbumUuids(
+		userUuid: string,
+		amount: number,
+		offset?: number,
+	): Promise<string[]>;
+
+	getSavedArtistUuids(
+		userUuid: string,
+		amount: number,
+		offset?: number,
+	): Promise<string[]>;
+
+	getSavedTrackUuids(
+		userUuid: string,
+		amount: number,
+		offset?: number,
+	): Promise<string[]>;
 }

@@ -13,6 +13,8 @@ import { EphemeralService } from "src/ephemeral/ephemeral.service";
 import { LibrariesService } from "src/libraries/libraries.service";
 import { AlbumManagerService } from "src/album-manager/album-manager.service";
 import { AlbumsService } from "./albums.service";
+import { TrackId } from "src/tracks/interface/track-id.interface";
+import { DBTrack } from "src/tracks/entities/track.entity";
 
 @Injectable()
 export class SavedAlbumsService {
@@ -96,7 +98,8 @@ export class SavedAlbumsService {
 		pluginId: string,
 		identifierId: string,
 		identity: string,
-	) {
+		user: DBUser,
+	): Promise<string> {
 		const source = this.ephemeralService.getEphemeralSourceByAlbumIdentity(
 			pluginId,
 			identifierId,
@@ -122,32 +125,99 @@ export class SavedAlbumsService {
 			identity,
 		);
 
-		if (!content?.tracks) {
+		if (!content?.tracks?.length) {
 			throw new BadRequestException("Album is not handled by Source");
 		}
 
-		if (content.tracks) {
-			// const resolved = await this.librariesService.resolveTracks(
-			// 	content.tracks,
-			// );
-			// const missingIndexes = content.tracks
-			// 	.map((track, index) => ({ track, index }))
-			// 	.filter(({ index }) => !resolved[index]);
-			// this.ephemeralService.createTracks(track);
-			// const session = await this.ephemeralService.createTracks(
-			// 	missingIndexes.map((index) => index.track),
-			// );
-			// for (const track of content.tracks) {
-			// }
-		}
-
-		const albumId = await this.albumManagerService.resolveAlbum(
+		const albumUuid = await this.albumManagerService.resolveAlbum(
 			pluginId,
 			identifierId,
 			identity,
 			true,
 		);
 
-		const album = await this.albumManagerService.findOne(albumId);
+		const trackIds: TrackId[] = content.tracks.map((track) => ({
+			pluginId: track.pluginId,
+			libraryId: track.libraryId,
+			trackId: track.trackId,
+		}));
+
+		const resolved = await this.librariesService.resolveTracks(trackIds);
+		const missingIndexes = trackIds
+			.map((track, index) => ({ track, index }))
+			.filter(({ index }) => !resolved[index]);
+		const missingTracks = missingIndexes.map(({ track }) => track);
+
+		const albumArtistEntries = (ephemeralAlbum.artists ?? []).filter(
+			(artist) => artist.artistUuid != null,
+		);
+		const albumArtistUuids = albumArtistEntries.map(
+			(artist) => artist.artistUuid!,
+		);
+		const albumArtistJoinPhrases = new Map(
+			albumArtistEntries.map((artist) => [
+				artist.artistUuid!,
+				artist.joinPhrase,
+			]),
+		);
+
+		const session = await this.ephemeralService.createTracks(missingTracks, {
+			userUuid: user.uuid,
+		});
+
+		session.promise
+			.then(async (createdTracks: (DBTrack | null)[]) => {
+				const allTracks: (DBTrack | null)[] =
+					Array(trackIds.length).fill(null);
+
+				for (let i = 0; i < resolved.length; i++) {
+					if (resolved[i]) allTracks[i] = resolved[i];
+				}
+				for (let i = 0; i < missingIndexes.length; i++) {
+					if (createdTracks[i]) {
+						allTracks[missingIndexes[i].index] = createdTracks[i];
+					}
+				}
+
+				for (const track of allTracks) {
+					if (track) {
+						await this.albumManagerService.setTrackLinks(
+							track,
+							[albumUuid],
+							pluginId,
+							identifierId,
+						);
+					}
+				}
+
+				if (albumArtistUuids.length) {
+					const album = await this.albumManagerService.findOne(albumUuid);
+					if (album) {
+						await this.albumManagerService.setArtistLinks(
+							album,
+							albumArtistUuids,
+							pluginId,
+							identifierId,
+						);
+						for (const [artistUuid, joinPhrase] of albumArtistJoinPhrases) {
+							await this.albumManagerService.setJoinPhrase(
+								albumUuid,
+								artistUuid,
+								joinPhrase,
+							);
+						}
+					}
+				}
+
+				await this.savedAlbumsRepository.upsert(
+					{ albumUuid, userUuid: user.uuid },
+					["albumUuid", "userUuid"],
+				);
+			})
+			.catch((e: unknown) => {
+				this.logger.error("Failed to save ephemeral album", e);
+			});
+
+		return session.uuid;
 	}
 }

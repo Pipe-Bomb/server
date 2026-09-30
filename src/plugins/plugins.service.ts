@@ -35,7 +35,10 @@ import { UserManagerService } from "src/user-manager/user-manager.service";
 import { PlaylistsService } from "src/playlists/playlists.service";
 import { WorkflowsService } from "src/workflows/workflows.service";
 import { PORT } from "src/config/constants";
-import { In } from "typeorm";
+import { DataSource, In } from "typeorm";
+import { DBSavedAlbum } from "src/albums/entity/saved-album.entity";
+import { DBSavedArtist } from "src/artists/entity/saved-artist.entity";
+import { DBSavedTrack } from "src/tracks/entities/saved-track.entity";
 import { SearchSourcesService } from "src/search/search-sources.service";
 import { DeregistrationBlockedError } from "src/util/deregistration-blocked.error";
 import { PlaybackHistoryService } from "src/playback-history/playback-history.service";
@@ -69,6 +72,7 @@ export class PluginsService {
 		private readonly workflowsService: WorkflowsService,
 		private readonly SearchSourcesService: SearchSourcesService,
 		private readonly playbackHistoryService: PlaybackHistoryService,
+		private readonly dataSource: DataSource,
 	) {
 		this.logger.debug(`Plugin directory is "${this.pluginsDirectory}"`);
 
@@ -831,6 +835,42 @@ export class PluginsService {
 					},
 				});
 				return artists.map((artist) => artist.toSavedResponse());
+			},
+			getSavedAlbumUuids: async (userUuid, amount, offset = 0) => {
+				const albums = await this.dataSource
+					.getRepository(DBSavedAlbum)
+					.find({
+						where: { userUuid },
+						take: amount,
+						skip: offset,
+						select: ["albumUuid"],
+						order: { dateAdded: "DESC" },
+					});
+				return albums.map(({ albumUuid }) => albumUuid);
+			},
+			getSavedArtistUuids: async (userUuid, amount, offset = 0) => {
+				const artists = await this.dataSource
+					.getRepository(DBSavedArtist)
+					.find({
+						where: { userUuid },
+						take: amount,
+						skip: offset,
+						select: ["artistUuid"],
+						order: { dateAdded: "DESC" },
+					});
+				return artists.map(({ artistUuid }) => artistUuid);
+			},
+			getSavedTrackUuids: async (userUuid, amount, offset = 0) => {
+				const tracks = await this.dataSource
+					.getRepository(DBSavedTrack)
+					.find({
+						where: { userUuid },
+						take: amount,
+						skip: offset,
+						select: ["trackUuid"],
+						order: { dateAdded: "DESC" },
+					});
+				return tracks.map(({ trackUuid }) => trackUuid);
 			},
 		};
 	}

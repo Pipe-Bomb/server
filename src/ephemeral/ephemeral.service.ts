@@ -961,6 +961,7 @@ export class EphemeralService {
 		tracks: TrackId[],
 		options: {
 			playlistUuids?: string[];
+			userUuid?: string;
 		} = {},
 	) {
 		let sessionId: string;
@@ -973,6 +974,7 @@ export class EphemeralService {
 			started: Date.now(),
 			percent: null,
 			playlistUuids: options.playlistUuids ?? [],
+			userUuid: options.userUuid ?? null,
 			promise: new Promise<(DBTrack | null)[]>(async (resolve, reject) => {
 				try {
 					const output: (DBTrack | null)[] = [];
@@ -1169,6 +1171,17 @@ export class EphemeralService {
 
 		for (const session of this.creationSessions.values()) {
 			if (session.playlistUuids.includes(playlistUuid)) {
+				sessions.push(session);
+			}
+		}
+		return sessions;
+	}
+
+	getCreationSessionsByUserUuid(userUuid: string) {
+		const sessions: TrackCreationSession[] = [];
+
+		for (const session of this.creationSessions.values()) {
+			if (session.userUuid === userUuid) {
 				sessions.push(session);
 			}
 		}

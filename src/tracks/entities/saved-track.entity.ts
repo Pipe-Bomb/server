@@ -5,20 +5,20 @@ import {
 	ManyToOne,
 	PrimaryColumn,
 } from "typeorm";
-import { DBAlbum } from "./album.entity";
+import { DBTrack } from "./track.entity";
 import { DBUser } from "src/users/entity/user.entity";
 
-@Entity("saved_albums")
-export class DBSavedAlbum {
+@Entity("saved_tracks")
+export class DBSavedTrack {
 	@PrimaryColumn({ type: "uuid" })
-	albumUuid: string;
+	trackUuid: string;
 
 	@PrimaryColumn({ type: "uuid" })
 	userUuid: string;
 
-	@ManyToOne(() => DBAlbum, { onDelete: "CASCADE" })
-	@JoinColumn({ name: "albumUuid" })
-	album?: DBAlbum;
+	@ManyToOne(() => DBTrack, { onDelete: "CASCADE" })
+	@JoinColumn({ name: "trackUuid" })
+	track?: DBTrack;
 
 	@ManyToOne(() => DBUser, { onDelete: "CASCADE" })
 	@JoinColumn({ name: "userUuid" })

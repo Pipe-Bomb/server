@@ -10,6 +10,7 @@ import {
 	Param,
 	Post,
 	Put,
+	Query,
 } from "@nestjs/common";
 import { AlbumsService } from "./albums.service";
 import { AlbumsSearchDto } from "./dto/albums-search.dto";
@@ -35,6 +36,7 @@ import { SavedAlbumsService } from "./saved-albums.service";
 import { ReqUser } from "src/users/user.decorator";
 import { FetchUserPipe } from "src/users/user.pipe";
 import { DBUser } from "src/users/entity/user.entity";
+import { TrackCreationSessionResponse } from "src/ephemeral/response/track-creation-session.response";
 
 @Controller("albums")
 export class AlbumsController {
@@ -45,6 +47,57 @@ export class AlbumsController {
 		private readonly SearchSourcesService: SearchSourcesService,
 		private readonly savedAlbumsService: SavedAlbumsService,
 	) {}
+
+	@Get("saved")
+	@ApiOperation({ operationId: "getSavedAlbums" })
+	@ApiOkResponse()
+	@ApiUnauthorizedResponse()
+	async getSavedAlbums(
+		@Query("pageSize") pageSize?: string,
+		@Query("page") page?: string,
+		@ReqUser(FetchUserPipe) user?: DBUser,
+	) {
+		const size = Math.min(Math.max(parseInt(pageSize ?? "20", 10) || 20, 1), 30);
+		const pageNum = Math.max(parseInt(page ?? "1", 10) || 1, 1);
+		const { albums, count } = await this.savedAlbumsService.getSavedAlbums(
+			user ?? null,
+			{
+				amount: size,
+				offset: (pageNum - 1) * size,
+				withAlbums: true,
+				withAttributes: true,
+				withIdentities: true,
+				withArtists: true,
+			},
+		);
+
+		return {
+			albums: albums
+				.filter((entry) => entry.album)
+				.map((entry) => entry.album!.toResponse()),
+			count,
+		};
+	}
+
+	@Get("saved/pending")
+	@ApiOperation({ operationId: "getSavedAlbumsPending" })
+	@ApiOkResponse({
+		type: TrackCreationSessionResponse,
+		isArray: true,
+	})
+	@ApiUnauthorizedResponse()
+	async getSavedAlbumsPending(@ReqUser(FetchUserPipe) user?: DBUser) {
+		if (!user) {
+			return [];
+		}
+
+		const sessions = this.ephemeralService.getCreationSessionsByUserUuid(
+			user.uuid,
+		);
+		return sessions.map((session) =>
+			this.ephemeralService.toCreationSessionResponse(session),
+		);
+	}
 
 	@Get(":albumUuid")
 	@ApiOperation({ operationId: "getAlbum" })
@@ -327,6 +380,7 @@ export class AlbumsController {
 
 	@Put(":pluginId/:identifierId/:identity/save")
 	@ApiOperation({ operationId: "saveEphemeralAlbum" })
+	@ApiOkResponse()
 	@ApiNoContentResponse()
 	@ApiUnauthorizedResponse()
 	@ApiNotFoundResponse()
@@ -342,13 +396,17 @@ export class AlbumsController {
 			identity,
 		);
 		if (albumUuid) {
-			return this.saveAlbum(albumUuid, user);
+			await this.saveAlbum(albumUuid, user);
+			return;
 		}
 
-		await this.savedAlbumsService.saveEphemeralAlbum(
+		const sessionUuid = await this.savedAlbumsService.saveEphemeralAlbum(
 			pluginId,
 			identifierId,
 			identity,
+			user,
 		);
+
+		return { sessionUuid };
 	}
 }
