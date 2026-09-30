@@ -11,6 +11,8 @@ import { ArtistManagerModule } from "src/artist-manager/artist-manager.module";
 import { EphemeralModule } from "src/ephemeral/ephemeral.module";
 import { SearchModule } from "src/search/search.module";
 import { IdentifiersModule } from "src/identifiers/identifiers.module";
+import { SavedAlbumsService } from "./saved-albums.service";
+import { LibrariesModule } from "src/libraries/libraries.module";
 
 @Module({
 	imports: [
@@ -21,9 +23,10 @@ import { IdentifiersModule } from "src/identifiers/identifiers.module";
 		EphemeralModule,
 		SearchModule,
 		IdentifiersModule,
+		LibrariesModule,
 	],
 	controllers: [AlbumsController],
-	providers: [AlbumsService],
+	providers: [AlbumsService, SavedAlbumsService],
 	exports: [AlbumsService],
 })
 export class AlbumsModule {}

@@ -31,7 +31,7 @@ export class PlaylistResponse {
 	@ApiProperty()
 	uuid: string;
 
-	@ApiProperty({ nullable: true })
+	@ApiProperty({ nullable: true, type: String })
 	ownerUuid: string | null;
 
 	@ApiProperty({

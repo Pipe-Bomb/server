@@ -2,12 +2,14 @@ import {
 	BadRequestException,
 	Body,
 	Controller,
+	Delete,
 	Get,
 	HttpCode,
 	HttpStatus,
 	NotFoundException,
 	Param,
 	Post,
+	Put,
 } from "@nestjs/common";
 import { AlbumsService } from "./albums.service";
 import { AlbumsSearchDto } from "./dto/albums-search.dto";
@@ -16,6 +18,8 @@ import {
 	ApiOkResponse,
 	ApiNotFoundResponse,
 	ApiBadRequestResponse,
+	ApiNoContentResponse,
+	ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
 import { AlbumsSearchResponse } from "./response/albums-search.response";
 import { AlbumResponse } from "./response/album.response";
@@ -27,6 +31,10 @@ import { AlbumEphemeralContentResponse } from "./response/album-ephemeral-conten
 import { EphemeralSourceDto } from "src/ephemeral/dto/ephemeral-source.dto";
 import { SearchSourcesService } from "src/search/search-sources.service";
 import { In } from "typeorm";
+import { SavedAlbumsService } from "./saved-albums.service";
+import { ReqUser } from "src/users/user.decorator";
+import { FetchUserPipe } from "src/users/user.pipe";
+import { DBUser } from "src/users/entity/user.entity";
 
 @Controller("albums")
 export class AlbumsController {
@@ -35,6 +43,7 @@ export class AlbumsController {
 		private readonly albumManagerService: AlbumManagerService,
 		private readonly ephemeralService: EphemeralService,
 		private readonly SearchSourcesService: SearchSourcesService,
+		private readonly savedAlbumsService: SavedAlbumsService,
 	) {}
 
 	@Get(":albumUuid")
@@ -193,7 +202,7 @@ export class AlbumsController {
 		);
 
 		if (!source) {
-			throw new NotFoundException("Souce does not exist");
+			throw new NotFoundException("Source does not exist");
 		}
 
 		const content = await this.ephemeralService.getEphemeralAlbumContent(
@@ -280,5 +289,66 @@ export class AlbumsController {
 			throw new NotFoundException("Album not found");
 		}
 		return this.albumManagerService.getExternalUrls(album);
+	}
+
+	@Put(":albumUuid/save")
+	@ApiOperation({ operationId: "saveAlbum" })
+	@ApiNoContentResponse()
+	@ApiUnauthorizedResponse()
+	@ApiNotFoundResponse()
+	async saveAlbum(
+		@Param("albumUuid") albumUuid: string,
+		@ReqUser(FetchUserPipe) user: DBUser,
+	) {
+		const album = await this.albumManagerService.findOne(albumUuid);
+		if (!album) {
+			throw new NotFoundException("Album not found");
+		}
+
+		await this.savedAlbumsService.saveAlbum(album, user);
+	}
+
+	@Delete(":albumUuid/save")
+	@ApiOperation({ operationId: "unsaveAlbum" })
+	@ApiNoContentResponse()
+	@ApiUnauthorizedResponse()
+	@ApiNotFoundResponse()
+	async unsaveAlbum(
+		@Param("albumUuid") albumUuid: string,
+		@ReqUser(FetchUserPipe) user: DBUser,
+	) {
+		const album = await this.albumManagerService.findOne(albumUuid);
+		if (!album) {
+			throw new NotFoundException("Album not found");
+		}
+
+		await this.savedAlbumsService.unsaveAlbum(album, user);
+	}
+
+	@Put(":pluginId/:identifierId/:identity/save")
+	@ApiOperation({ operationId: "saveEphemeralAlbum" })
+	@ApiNoContentResponse()
+	@ApiUnauthorizedResponse()
+	@ApiNotFoundResponse()
+	async saveEphemeralAlbum(
+		@Param("pluginId") pluginId: string,
+		@Param("identifierId") identifierId: string,
+		@Param("identity") identity: string,
+		@ReqUser(FetchUserPipe) user: DBUser,
+	) {
+		const albumUuid = await this.albumManagerService.resolveAlbum(
+			pluginId,
+			identifierId,
+			identity,
+		);
+		if (albumUuid) {
+			return this.saveAlbum(albumUuid, user);
+		}
+
+		await this.savedAlbumsService.saveEphemeralAlbum(
+			pluginId,
+			identifierId,
+			identity,
+		);
 	}
 }
