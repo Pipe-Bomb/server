@@ -44,7 +44,7 @@ export class ArtistsService {
 		let pool: DBArtist[] = [];
 		let activeThreads = 0;
 		let isFinding = false;
-		let chunksLoaded = 0;
+		const chunksLoaded = 0;
 		let allChunksLoaded = false;
 		let completed = 0;
 		const failedUuids: string[] = [];

@@ -16,9 +16,9 @@
 		"start:prod": "node dist/src/main",
 		"generate:openapi": "cross-env UPDATE_OPENAPI=1 npm run start",
 		"lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-		"test": "jest",
-		"test:watch": "jest --watch",
-		"test:cov": "jest --coverage",
+		"test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+		"test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+		"test:cov": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
 		"test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
 		"test:e2e": "jest --config ./test/jest-e2e.json",
 		"migration:generate": "typeorm-ts-node-commonjs migration:generate src/migrations/Migration -d src/data-source.ts",
@@ -91,6 +91,10 @@
 		],
 		"rootDir": "src",
 		"testRegex": ".*\\.spec\\.ts$",
+		"moduleNameMapper": {
+			"^src/(.*)$": "<rootDir>/$1",
+			"^@sdk/(.*)$": "<rootDir>/../sdk/$1"
+		},
 		"transform": {
 			"^.+\\.(t|j)s$": "ts-jest"
 		},

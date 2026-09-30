@@ -483,7 +483,7 @@ export class LibrariesService {
 		const trackPool: DBTrack[] = [];
 		let activeThreads = 0;
 		let isFindingTracks = false;
-		let chunksLoaded = 0;
+		const chunksLoaded = 0;
 		let allChunksLoaded = false;
 		let completedTracks = 0;
 		const toSetRunId: DBTrack[] = [];
