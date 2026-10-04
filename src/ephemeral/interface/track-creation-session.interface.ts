@@ -6,4 +6,5 @@ export interface TrackCreationSession {
 	started: number;
 	percent: number | null;
 	playlistUuids: string[];
+	userUuid: string | null;
 }

@@ -26,6 +26,12 @@ import { TrackArtistResponse } from "src/tracks/response/track-artist.response";
 export class EphemeralTrackResponse {
 	@ApiProperty({
 		type: String,
+		nullable: true,
+	})
+	uuid: string | null;
+
+	@ApiProperty({
+		type: String,
 	})
 	trackId: string;
 
@@ -55,4 +61,10 @@ export class EphemeralTrackResponse {
 		nullable: true,
 	})
 	artists: TrackArtistResponse[] | null;
+
+	@ApiProperty({
+		type: Boolean,
+		nullable: true,
+	})
+	bookmarked: boolean | null;
 }

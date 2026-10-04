@@ -23,6 +23,11 @@ export type SavedAttribute<T extends AttributeType = AttributeType> = {
 	};
 }[T];
 
+export interface SavedBookmark {
+	userUuid: string;
+	dateAdded: Date;
+}
+
 export interface SavedTrack {
 	uuid: string;
 	pluginId: string;
@@ -34,6 +39,7 @@ export interface SavedTrack {
 	identities: Identity[] | null;
 	artists: SavedArtistTrack[] | null;
 	albums: SavedAlbumTrack[] | null;
+	bookmarks: SavedBookmark[] | null;
 }
 
 export interface SavedAlbumTrack {
@@ -54,6 +60,7 @@ export interface SavedAlbum {
 	identities: Identity[] | null;
 	dateAdded: Date;
 	artists: SavedAlbumArtist[] | null;
+	bookmarks: SavedBookmark[] | null;
 }
 
 export interface SavedArtistTrack {
@@ -85,6 +92,7 @@ export interface SavedArtist {
 	attributes: SavedAttribute[] | null;
 	identities: Identity[] | null;
 	dateAdded: Date;
+	bookmarks: SavedBookmark[] | null;
 }
 
 export interface SavedUser {

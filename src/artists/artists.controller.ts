@@ -2,6 +2,7 @@ import {
 	BadRequestException,
 	Body,
 	Controller,
+	Delete,
 	Get,
 	HttpCode,
 	HttpStatus,
@@ -10,14 +11,18 @@ import {
 	NotFoundException,
 	Param,
 	Post,
+	Put,
+	Query,
 } from "@nestjs/common";
 import { ArtistsService } from "./artists.service";
 import { ArtistsSearchDto } from "./dto/artists-search.dto";
 import {
 	ApiBadRequestResponse,
 	ApiNotFoundResponse,
+	ApiNoContentResponse,
 	ApiOkResponse,
 	ApiOperation,
+	ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
 import { ArtistsSearchResponse } from "./response/artists-search.response";
 import { ArtistResponse } from "../artist-manager/response/artist.response";
@@ -33,6 +38,10 @@ import { AttributesService } from "src/attributes/attributes.service";
 import { SearchSourcesService } from "src/search/search-sources.service";
 import { In } from "typeorm";
 import { DisabledIdentifiersService } from "src/identifiers/disabled-identifiers.service";
+import { SavedArtistsService } from "./saved-artists.service";
+import { ReqUser } from "src/users/user.decorator";
+import { FetchUserPipe } from "src/users/user.pipe";
+import { DBUser } from "src/users/entity/user.entity";
 
 @Controller("artists")
 export class ArtistsController {
@@ -45,7 +54,37 @@ export class ArtistsController {
 		private readonly attributesService: AttributesService,
 		private readonly SearchSourcesService: SearchSourcesService,
 		private readonly disabledIdentifiersService: DisabledIdentifiersService,
+		private readonly savedArtistsService: SavedArtistsService,
 	) {}
+
+	@Get("saved")
+	@ApiOperation({ operationId: "getSavedArtists" })
+	@ApiOkResponse()
+	@ApiUnauthorizedResponse()
+	async getSavedArtists(
+		@Query("pageSize") pageSize?: string,
+		@Query("page") page?: string,
+		@ReqUser(FetchUserPipe) user?: DBUser,
+	) {
+		const size = Math.min(Math.max(parseInt(pageSize ?? "20", 10) || 20, 1), 30);
+		const pageNum = Math.max(parseInt(page ?? "1", 10) || 1, 1);
+		const { artists, count } = await this.savedArtistsService.getSavedArtists(
+			user ?? null,
+			{
+				amount: size,
+				offset: (pageNum - 1) * size,
+				withAttributes: true,
+				withIdentities: true,
+			},
+		);
+
+		return {
+			artists: artists
+				.filter((entry) => entry.artist)
+				.map((entry) => entry.artist!.toResponse()),
+			count,
+		};
+	}
 
 	@Get(":artistUuid")
 	@ApiOperation({ operationId: "getArtist" })
@@ -335,5 +374,68 @@ export class ArtistsController {
 			throw new NotFoundException("Artist not found");
 		}
 		return this.artistManagerService.getExternalUrls(artist);
+	}
+
+	@Put(":artistUuid/save")
+	@ApiOperation({ operationId: "saveArtist" })
+	@ApiNoContentResponse()
+	@ApiUnauthorizedResponse()
+	@ApiNotFoundResponse()
+	async saveArtist(
+		@Param("artistUuid") artistUuid: string,
+		@ReqUser(FetchUserPipe) user: DBUser,
+	) {
+		const artist = await this.artistManagerService.findOne(artistUuid);
+		if (!artist) {
+			throw new NotFoundException("Artist not found");
+		}
+
+		await this.savedArtistsService.saveArtist(artist, user);
+	}
+
+	@Delete(":artistUuid/save")
+	@ApiOperation({ operationId: "unsaveArtist" })
+	@ApiNoContentResponse()
+	@ApiUnauthorizedResponse()
+	@ApiNotFoundResponse()
+	async unsaveArtist(
+		@Param("artistUuid") artistUuid: string,
+		@ReqUser(FetchUserPipe) user: DBUser,
+	) {
+		const artist = await this.artistManagerService.findOne(artistUuid);
+		if (!artist) {
+			throw new NotFoundException("Artist not found");
+		}
+
+		await this.savedArtistsService.unsaveArtist(artist, user);
+	}
+
+	@Put(":pluginId/:identifierId/:identity/save")
+	@ApiOperation({ operationId: "saveEphemeralArtist" })
+	@ApiNoContentResponse()
+	@ApiUnauthorizedResponse()
+	@ApiNotFoundResponse()
+	async saveEphemeralArtist(
+		@Param("pluginId") pluginId: string,
+		@Param("identifierId") identifierId: string,
+		@Param("identity") identity: string,
+		@ReqUser(FetchUserPipe) user: DBUser,
+	) {
+		const artistUuid = await this.artistManagerService.resolveArtist(
+			pluginId,
+			identifierId,
+			identity,
+			ArtistIdentityTarget.ARTIST,
+		);
+		if (artistUuid) {
+			return this.saveArtist(artistUuid, user);
+		}
+
+		await this.savedArtistsService.saveEphemeralArtist(
+			pluginId,
+			identifierId,
+			identity,
+			user,
+		);
 	}
 }

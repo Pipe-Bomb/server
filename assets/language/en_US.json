@@ -41,6 +41,12 @@
 
 	"contextmenu.album.view-info": "Album Info",
 	"contextmenu.album.add-to-playlist": "Add to Playlist",
+	"contextmenu.album.save": "Save Album",
+	"contextmenu.album.unsave": "Unsave Album",
+
+	"contextmenu.artist.view-info": "Artist Info",
+	"contextmenu.artist.save": "Save Artist",
+	"contextmenu.artist.unsave": "Unsave Artist",
 
 	"contextmenu.tracklist.change-columns": "Change Columns",
 

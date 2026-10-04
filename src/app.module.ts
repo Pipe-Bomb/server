@@ -41,6 +41,7 @@ import { SystemConfigModule } from "./system-config/system-config.module";
 import { SetupModule } from "./setup/setup.module";
 import { MarketplacesModule } from "./marketplace/marketplaces.module";
 import { PlaybackHistoryModule } from "./playback-history/playback-history.module";
+import { BookmarksModule } from "./bookmarks/bookmarks.module";
 
 @Module({
 	imports: [
@@ -84,6 +85,7 @@ import { PlaybackHistoryModule } from "./playback-history/playback-history.modul
 		SetupModule,
 		MarketplacesModule,
 		PlaybackHistoryModule,
+		BookmarksModule,
 	],
 	controllers: [AppController],
 	providers: [

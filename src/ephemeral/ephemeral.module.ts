@@ -3,6 +3,7 @@ import { EphemeralService } from "./ephemeral.service";
 import { EphemeralController } from "./ephemeral.controller";
 import { AttributeSourcesModule } from "src/attribute-sources/attribute-sources.module";
 import { ArtistManagerModule } from "src/artist-manager/artist-manager.module";
+import { AlbumManagerModule } from "src/album-manager/album-manager.module";
 import { ResourcesModule } from "src/resources/resources.module";
 import { TrackManagerModule } from "src/track-manager/track-manager.module";
 import { IdentifiersModule } from "src/identifiers/identifiers.module";
@@ -11,6 +12,7 @@ import { IdentifiersModule } from "src/identifiers/identifiers.module";
 	imports: [
 		AttributeSourcesModule,
 		ArtistManagerModule,
+		AlbumManagerModule,
 		ResourcesModule,
 		TrackManagerModule,
 		IdentifiersModule,

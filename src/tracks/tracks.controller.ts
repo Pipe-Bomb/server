@@ -1,6 +1,7 @@
 import {
 	Body,
 	Controller,
+	Delete,
 	Get,
 	HttpCode,
 	HttpStatus,
@@ -9,11 +10,14 @@ import {
 	NotFoundException,
 	Param,
 	Post,
+	Put,
+	Query,
 } from "@nestjs/common";
 import { TracksService } from "./tracks.service";
 import {
 	ApiForbiddenResponse,
 	ApiNotFoundResponse,
+	ApiNoContentResponse,
 	ApiOkResponse,
 	ApiOperation,
 	ApiUnauthorizedResponse,
@@ -29,6 +33,11 @@ import { ExternalUrlResponse } from "src/external-urls/response/external-url.res
 import { TrackIdsDto } from "./dto/track-ids.dto";
 import { EphemeralService } from "src/ephemeral/ephemeral.service";
 import { EphemeralTrackResponse } from "src/ephemeral/response/ephemeral-track.response";
+import { SavedTracksService } from "./saved-tracks.service";
+import { ReqUser } from "src/users/user.decorator";
+import { FetchUserPipe } from "src/users/user.pipe";
+import { DBUser } from "src/users/entity/user.entity";
+import { TrackCreationSessionResponse } from "src/ephemeral/response/track-creation-session.response";
 
 @Controller("tracks")
 export class TracksController {
@@ -41,7 +50,59 @@ export class TracksController {
 		private readonly identifiersService: IdentifiersService,
 		private readonly audioSessionsService: AudioSessionsService,
 		private readonly ephemeralService: EphemeralService,
+		private readonly savedTracksService: SavedTracksService,
 	) {}
+
+	@Get("saved")
+	@ApiOperation({ operationId: "getSavedTracks" })
+	@ApiOkResponse()
+	@ApiUnauthorizedResponse()
+	async getSavedTracks(
+		@Query("pageSize") pageSize?: string,
+		@Query("page") page?: string,
+		@ReqUser(FetchUserPipe) user?: DBUser,
+	) {
+		const size = Math.min(Math.max(parseInt(pageSize ?? "20", 10) || 20, 1), 30);
+		const pageNum = Math.max(parseInt(page ?? "1", 10) || 1, 1);
+		const { tracks, count } = await this.savedTracksService.getSavedTracks(
+			user ?? null,
+			{
+				amount: size,
+				offset: (pageNum - 1) * size,
+				withAttributes: true,
+				withIdentities: true,
+				withArtists: true,
+				withAlbums: true,
+			},
+		);
+
+		return {
+			tracks: tracks
+				.filter((entry) => entry.track)
+				.map((entry) => entry.track!.toResponse()),
+			count,
+		};
+	}
+
+	@Get("saved/pending")
+	@ApiOperation({ operationId: "getSavedTracksPending" })
+	@ApiOkResponse({
+		type: TrackCreationSessionResponse,
+		isArray: true,
+	})
+	@ApiUnauthorizedResponse()
+	async getSavedTracksPending(@ReqUser(FetchUserPipe) user?: DBUser) {
+		if (!user) {
+			return [];
+		}
+
+		const sessions = this.ephemeralService.getCreationSessionsByUserUuid(
+			user.uuid,
+		);
+		return sessions.map((session) =>
+			this.ephemeralService.toCreationSessionResponse(session),
+		);
+	}
 
 	@Get(":pluginId/:libraryId/:trackId")
 	@ApiOperation({ operationId: "getTrack" })
@@ -222,5 +283,58 @@ export class TracksController {
 		}
 
 		return this.tracksService.getExternalUrls(track);
+	}
+
+	@Put(":pluginId/:libraryId/:trackId/save")
+	@ApiOperation({ operationId: "saveTrack" })
+	@ApiOkResponse()
+	@ApiNoContentResponse()
+	@ApiUnauthorizedResponse()
+	@ApiNotFoundResponse()
+	async saveTrack(
+		@Param("pluginId") pluginId: string,
+		@Param("libraryId") libraryId: string,
+		@Param("trackId") trackId: string,
+		@ReqUser(FetchUserPipe) user: DBUser,
+	) {
+		const track = await this.trackManagerService.findOne({
+			where: { pluginId, libraryId, trackId },
+		});
+		if (track) {
+			await this.savedTracksService.saveTrack(track, user);
+			return;
+		}
+
+		const sessionUuid = await this.savedTracksService.saveEphemeralTrack(
+			pluginId,
+			libraryId,
+			trackId,
+			user,
+		);
+
+		if (sessionUuid) {
+			return { sessionUuid };
+		}
+	}
+
+	@Delete(":pluginId/:libraryId/:trackId/save")
+	@ApiOperation({ operationId: "unsaveTrack" })
+	@ApiNoContentResponse()
+	@ApiUnauthorizedResponse()
+	@ApiNotFoundResponse()
+	async unsaveTrack(
+		@Param("pluginId") pluginId: string,
+		@Param("libraryId") libraryId: string,
+		@Param("trackId") trackId: string,
+		@ReqUser(FetchUserPipe) user: DBUser,
+	) {
+		const track = await this.trackManagerService.findOne({
+			where: { pluginId, libraryId, trackId },
+		});
+		if (!track) {
+			throw new NotFoundException("Track not found");
+		}
+
+		await this.savedTracksService.unsaveTrack(track, user);
 	}
 }

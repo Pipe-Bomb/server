@@ -16,6 +16,8 @@ import {
 import { AttributeType } from "./attributes/enum/attribute-type.enum";
 import { AttributeSourcesService } from "./attribute-sources/attribute-sources.service";
 import { AttributeInterceptor } from "./attribute-sources/attribute.interceptor";
+import { BookmarksService } from "./bookmarks/bookmarks.service";
+import { BookmarksInterceptor } from "./bookmarks/bookmarks.interceptor";
 import { mkdir, rm } from "fs/promises";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import cookieParser from "cookie-parser";
@@ -63,6 +65,9 @@ async function bootstrap() {
 
 	const attributesService = app.get(AttributeSourcesService);
 	app.useGlobalInterceptors(new AttributeInterceptor(attributesService));
+
+	const bookmarksService = app.get(BookmarksService);
+	app.useGlobalInterceptors(new BookmarksInterceptor(bookmarksService));
 
 	const swaggerConfig = new DocumentBuilder()
 		.setTitle("Pipe Bomb API")
