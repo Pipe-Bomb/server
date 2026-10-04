@@ -42,6 +42,7 @@ import { SavedArtistsService } from "./saved-artists.service";
 import { ReqUser } from "src/users/user.decorator";
 import { FetchUserPipe } from "src/users/user.pipe";
 import { DBUser } from "src/users/entity/user.entity";
+import { SavedArtistsResponse } from "./response/saved-artists.response";
 
 @Controller("artists")
 export class ArtistsController {
@@ -59,14 +60,19 @@ export class ArtistsController {
 
 	@Get("saved")
 	@ApiOperation({ operationId: "getSavedArtists" })
-	@ApiOkResponse()
+	@ApiOkResponse({
+		type: SavedArtistsResponse,
+	})
 	@ApiUnauthorizedResponse()
 	async getSavedArtists(
 		@Query("pageSize") pageSize?: string,
 		@Query("page") page?: string,
 		@ReqUser(FetchUserPipe) user?: DBUser,
-	) {
-		const size = Math.min(Math.max(parseInt(pageSize ?? "20", 10) || 20, 1), 30);
+	): Promise<SavedArtistsResponse> {
+		const size = Math.min(
+			Math.max(parseInt(pageSize ?? "20", 10) || 20, 1),
+			30,
+		);
 		const pageNum = Math.max(parseInt(page ?? "1", 10) || 1, 1);
 		const { artists, count } = await this.savedArtistsService.getSavedArtists(
 			user ?? null,
@@ -82,7 +88,7 @@ export class ArtistsController {
 			artists: artists
 				.filter((entry) => entry.artist)
 				.map((entry) => entry.artist!.toResponse()),
-			count,
+			total: count,
 		};
 	}
 

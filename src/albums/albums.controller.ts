@@ -37,6 +37,7 @@ import { ReqUser } from "src/users/user.decorator";
 import { FetchUserPipe } from "src/users/user.pipe";
 import { DBUser } from "src/users/entity/user.entity";
 import { TrackCreationSessionResponse } from "src/ephemeral/response/track-creation-session.response";
+import { SavedAlbumsResponse } from "./response/saved-albums.response";
 
 @Controller("albums")
 export class AlbumsController {
@@ -50,14 +51,19 @@ export class AlbumsController {
 
 	@Get("saved")
 	@ApiOperation({ operationId: "getSavedAlbums" })
-	@ApiOkResponse()
+	@ApiOkResponse({
+		type: SavedAlbumsResponse,
+	})
 	@ApiUnauthorizedResponse()
 	async getSavedAlbums(
 		@Query("pageSize") pageSize?: string,
 		@Query("page") page?: string,
 		@ReqUser(FetchUserPipe) user?: DBUser,
-	) {
-		const size = Math.min(Math.max(parseInt(pageSize ?? "20", 10) || 20, 1), 30);
+	): Promise<SavedAlbumsResponse> {
+		const size = Math.min(
+			Math.max(parseInt(pageSize ?? "20", 10) || 20, 1),
+			30,
+		);
 		const pageNum = Math.max(parseInt(page ?? "1", 10) || 1, 1);
 		const { albums, count } = await this.savedAlbumsService.getSavedAlbums(
 			user ?? null,
@@ -75,7 +81,7 @@ export class AlbumsController {
 			albums: albums
 				.filter((entry) => entry.album)
 				.map((entry) => entry.album!.toResponse()),
-			count,
+			total: count,
 		};
 	}
 
