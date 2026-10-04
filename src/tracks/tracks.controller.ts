@@ -38,6 +38,7 @@ import { ReqUser } from "src/users/user.decorator";
 import { FetchUserPipe } from "src/users/user.pipe";
 import { DBUser } from "src/users/entity/user.entity";
 import { TrackCreationSessionResponse } from "src/ephemeral/response/track-creation-session.response";
+import { SavedTracksResponse } from "./response/saved-tracks.response";
 
 @Controller("tracks")
 export class TracksController {
@@ -55,14 +56,19 @@ export class TracksController {
 
 	@Get("saved")
 	@ApiOperation({ operationId: "getSavedTracks" })
-	@ApiOkResponse()
+	@ApiOkResponse({
+		type: SavedTracksResponse,
+	})
 	@ApiUnauthorizedResponse()
 	async getSavedTracks(
 		@Query("pageSize") pageSize?: string,
 		@Query("page") page?: string,
 		@ReqUser(FetchUserPipe) user?: DBUser,
-	) {
-		const size = Math.min(Math.max(parseInt(pageSize ?? "20", 10) || 20, 1), 30);
+	): Promise<SavedTracksResponse> {
+		const size = Math.min(
+			Math.max(parseInt(pageSize ?? "20", 10) || 20, 1),
+			30,
+		);
 		const pageNum = Math.max(parseInt(page ?? "1", 10) || 1, 1);
 		const { tracks, count } = await this.savedTracksService.getSavedTracks(
 			user ?? null,
@@ -80,7 +86,7 @@ export class TracksController {
 			tracks: tracks
 				.filter((entry) => entry.track)
 				.map((entry) => entry.track!.toResponse()),
-			count,
+			total: count,
 		};
 	}
 
