@@ -33,6 +33,6 @@ import { LibrariesModule } from "src/libraries/libraries.module";
 	],
 	controllers: [AlbumsController],
 	providers: [AlbumsService, SavedAlbumsService],
-	exports: [AlbumsService],
+	exports: [AlbumsService, SavedAlbumsService],
 })
 export class AlbumsModule {}

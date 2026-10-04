@@ -141,6 +141,21 @@ function makeServiceMocks() {
         find: jest.fn(async () => []),
       })),
     },
+    savedAlbumsService: {
+      saveAlbum: jest.fn(async () => {}),
+      unsaveAlbum: jest.fn(async () => {}),
+      saveEphemeralAlbum: jest.fn(async () => "session-uuid"),
+    },
+    savedArtistsService: {
+      saveArtist: jest.fn(async () => {}),
+      unsaveArtist: jest.fn(async () => {}),
+      saveEphemeralArtist: jest.fn(async () => {}),
+    },
+    savedTracksService: {
+      saveTrack: jest.fn(async () => {}),
+      unsaveTrack: jest.fn(async () => {}),
+      saveEphemeralTrack: jest.fn(async () => "session-uuid"),
+    },
   };
 }
 
@@ -196,6 +211,9 @@ describe("PluginsService", () => {
       mocks.SearchSourcesService,
       mocks.playbackHistoryService,
       mocks.dataSource,
+      mocks.savedAlbumsService,
+      mocks.savedArtistsService,
+      mocks.savedTracksService,
     );
     pluginsMap = (service as any).plugins;
   });

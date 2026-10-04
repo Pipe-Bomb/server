@@ -40,4 +40,10 @@ export class ArtistResponse {
 		nullable: true,
 	})
 	albums: AlbumResponse[] | null;
+
+	@ApiProperty({
+		type: Boolean,
+		nullable: true,
+	})
+	bookmarked: boolean | null;
 }
