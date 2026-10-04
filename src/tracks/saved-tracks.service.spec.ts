@@ -94,7 +94,7 @@ describe("SavedTracksService", () => {
 				}),
 			);
 			expect(result.tracks).toHaveLength(1);
-			expect(result.count).toBe(1);
+			expect(result.total).toBe(1);
 		});
 
 		it("should return all tracks when user is null", async () => {

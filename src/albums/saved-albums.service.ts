@@ -64,7 +64,7 @@ export class SavedAlbumsService {
 			withArtists?: boolean;
 		},
 	) {
-		const [albums, count] = await this.savedAlbumsRepository.findAndCount({
+		const [albums, total] = await this.savedAlbumsRepository.findAndCount({
 			where: user
 				? {
 						userUuid: user.uuid,
@@ -90,7 +90,7 @@ export class SavedAlbumsService {
 
 		return {
 			albums,
-			count,
+			total,
 		};
 	}
 

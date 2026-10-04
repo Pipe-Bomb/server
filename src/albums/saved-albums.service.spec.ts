@@ -128,7 +128,7 @@ describe("SavedAlbumsService", () => {
 				}),
 			);
 			expect(result.albums).toHaveLength(1);
-			expect(result.count).toBe(1);
+			expect(result.total).toBe(1);
 		});
 	});
 

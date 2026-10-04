@@ -74,7 +74,7 @@ export class ArtistsController {
 			30,
 		);
 		const pageNum = Math.max(parseInt(page ?? "1", 10) || 1, 1);
-		const { artists, count } = await this.savedArtistsService.getSavedArtists(
+		const { artists, total } = await this.savedArtistsService.getSavedArtists(
 			user ?? null,
 			{
 				amount: size,
@@ -88,7 +88,7 @@ export class ArtistsController {
 			artists: artists
 				.filter((entry) => entry.artist)
 				.map((entry) => entry.artist!.toResponse()),
-			total: count,
+			total,
 		};
 	}
 

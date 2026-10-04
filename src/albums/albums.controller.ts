@@ -65,7 +65,7 @@ export class AlbumsController {
 			30,
 		);
 		const pageNum = Math.max(parseInt(page ?? "1", 10) || 1, 1);
-		const { albums, count } = await this.savedAlbumsService.getSavedAlbums(
+		const { albums, total } = await this.savedAlbumsService.getSavedAlbums(
 			user ?? null,
 			{
 				amount: size,
@@ -81,7 +81,7 @@ export class AlbumsController {
 			albums: albums
 				.filter((entry) => entry.album)
 				.map((entry) => entry.album!.toResponse()),
-			total: count,
+			total,
 		};
 	}
 

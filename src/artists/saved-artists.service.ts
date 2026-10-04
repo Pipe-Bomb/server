@@ -55,7 +55,7 @@ export class SavedArtistsService {
 			withIdentities?: boolean;
 		},
 	) {
-		const [artists, count] =
+		const [artists, total] =
 			await this.savedArtistsRepository.findAndCount({
 				where: user ? { userUuid: user.uuid } : {},
 				order: {
@@ -73,7 +73,7 @@ export class SavedArtistsService {
 
 		return {
 			artists,
-			count,
+			total,
 		};
 	}
 

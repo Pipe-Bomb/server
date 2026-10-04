@@ -58,7 +58,7 @@ export class SavedTracksService {
 			withAlbums?: boolean;
 		},
 	) {
-		const [tracks, count] =
+		const [tracks, total] =
 			await this.savedTracksRepository.findAndCount({
 				where: user ? { userUuid: user.uuid } : {},
 				order: {
@@ -86,7 +86,7 @@ export class SavedTracksService {
 
 		return {
 			tracks,
-			count,
+			total,
 		};
 	}
 

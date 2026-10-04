@@ -70,7 +70,7 @@ export class TracksController {
 			30,
 		);
 		const pageNum = Math.max(parseInt(page ?? "1", 10) || 1, 1);
-		const { tracks, count } = await this.savedTracksService.getSavedTracks(
+		const { tracks, total } = await this.savedTracksService.getSavedTracks(
 			user ?? null,
 			{
 				amount: size,
@@ -86,7 +86,7 @@ export class TracksController {
 			tracks: tracks
 				.filter((entry) => entry.track)
 				.map((entry) => entry.track!.toResponse()),
-			total: count,
+			total,
 		};
 	}
 
