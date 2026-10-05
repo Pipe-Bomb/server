@@ -58,31 +58,30 @@ export class SavedTracksService {
 			withAlbums?: boolean;
 		},
 	) {
-		const [tracks, total] =
-			await this.savedTracksRepository.findAndCount({
-				where: user ? { userUuid: user.uuid } : {},
-				order: {
-					dateAdded: "DESC",
-				},
-				take: options.amount,
-				skip: options.offset,
-				relations: {
-					track: {
-						attributes: options.withAttributes,
-						identities: options.withIdentities,
-						artists: !!options.withArtists && {
-							artist: {
-								attributes: true,
-							},
+		const [tracks, total] = await this.savedTracksRepository.findAndCount({
+			where: user ? { userUuid: user.uuid } : {},
+			order: {
+				dateAdded: "DESC",
+			},
+			take: options.amount,
+			skip: options.offset,
+			relations: {
+				track: {
+					attributes: options.withAttributes,
+					identities: options.withIdentities,
+					artists: !!options.withArtists && {
+						artist: {
+							attributes: true,
 						},
-						albums: !!options.withAlbums && {
-							album: {
-								attributes: true,
-							},
+					},
+					albums: !!options.withAlbums && {
+						album: {
+							attributes: true,
 						},
 					},
 				},
-			});
+			},
+		});
 
 		return {
 			tracks,
@@ -95,7 +94,7 @@ export class SavedTracksService {
 		libraryId: string,
 		trackId: string,
 		user: DBUser,
-	): Promise<string | null> {
+	) {
 		const existing = await this.trackManagerService.findOne({
 			where: { pluginId, libraryId, trackId },
 		});
@@ -126,6 +125,6 @@ export class SavedTracksService {
 				this.logger.error("Failed to save ephemeral track", e);
 			});
 
-		return session.uuid;
+		return session;
 	}
 }

@@ -37,6 +37,8 @@
 	"contextmenu.track.add-to-queue": "Add to Queue",
 	"contextmenu.track.add-to-playlist": "Add to Playlist",
 	"contextmenu.track.remove-from-playlist": "Remove from Playlist",
+	"contextmenu.track.save": "Save Track",
+	"contextmenu.track.unsave": "Unsave Track",
 	"contextmenu.track.go-to-page": "Go to Page",
 
 	"contextmenu.album.view-info": "Album Info",
@@ -88,6 +90,7 @@
 	"attribute.track_album.name": "Album",
 	"attribute.history_client_name.name": "Client",
 	"attribute.history_date_played.name": "Date played",
+	"attribute.track_saved.name": "Saved",
 
 	"playlist.visibility.public.name": "Public",
 	"playlist.visibility.unlisted.name": "Unlisted",

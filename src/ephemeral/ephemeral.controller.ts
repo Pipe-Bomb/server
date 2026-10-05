@@ -10,7 +10,12 @@ import {
 	StreamableFile,
 } from "@nestjs/common";
 import { EphemeralService } from "./ephemeral.service";
-import { ApiOkResponse, ApiOperation, ApiQuery } from "@nestjs/swagger";
+import {
+	ApiNotFoundResponse,
+	ApiOkResponse,
+	ApiOperation,
+	ApiQuery,
+} from "@nestjs/swagger";
 import { EphemeralSourceResponse } from "./response/ephemeral-source.response";
 import { LoadedEphemeralSource } from "./interface/loaded-ephemeral-source.interface";
 import { EphemeralSearchDto } from "./dto/ephemeral-search.dto";
@@ -19,6 +24,7 @@ import { EphemeralSearchResultsResponse } from "./response/ephemeral-search-resu
 import Mime from "mime";
 import path from "path";
 import { ResourcesService } from "src/resources/resources.service";
+import { CreationSessionResponse } from "./response/creation-session.response";
 
 @Controller("ephemeral")
 export class EphemeralController {
@@ -143,5 +149,18 @@ export class EphemeralController {
 		return new StreamableFile(buffer, {
 			type: mimeType,
 		});
+	}
+
+	@Get("creation-session/:uuid")
+	@ApiOkResponse({
+		type: CreationSessionResponse,
+	})
+	@ApiNotFoundResponse()
+	getCreationSession(@Param("uuid") uuid: string): CreationSessionResponse {
+		const session = this.ephemeralService.getCreationSession(uuid);
+		if (!session) {
+			throw new NotFoundException();
+		}
+		return this.ephemeralService.toCreationSessionResponse(session);
 	}
 }
