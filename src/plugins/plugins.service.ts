@@ -896,15 +896,13 @@ export class PluginsService {
 				return responses;
 			},
 			getSavedAlbumUuids: async (userUuid, amount, offset = 0) => {
-				const albums = await this.dataSource
-					.getRepository(DBSavedAlbum)
-					.find({
-						where: { userUuid },
-						take: amount,
-						skip: offset,
-						select: ["albumUuid"],
-						order: { dateAdded: "DESC" },
-					});
+				const albums = await this.dataSource.getRepository(DBSavedAlbum).find({
+					where: { userUuid },
+					take: amount,
+					skip: offset,
+					select: ["albumUuid"],
+					order: { dateAdded: "DESC" },
+				});
 				return albums.map(({ albumUuid }) => albumUuid);
 			},
 			getSavedArtistUuids: async (userUuid, amount, offset = 0) => {
@@ -920,15 +918,13 @@ export class PluginsService {
 				return artists.map(({ artistUuid }) => artistUuid);
 			},
 			getSavedTrackUuids: async (userUuid, amount, offset = 0) => {
-				const tracks = await this.dataSource
-					.getRepository(DBSavedTrack)
-					.find({
-						where: { userUuid },
-						take: amount,
-						skip: offset,
-						select: ["trackUuid"],
-						order: { dateAdded: "DESC" },
-					});
+				const tracks = await this.dataSource.getRepository(DBSavedTrack).find({
+					where: { userUuid },
+					take: amount,
+					skip: offset,
+					select: ["trackUuid"],
+					order: { dateAdded: "DESC" },
+				});
 				return tracks.map(({ trackUuid }) => trackUuid);
 			},
 			saveAlbum: async (album, userUuid) => {
@@ -943,7 +939,7 @@ export class PluginsService {
 						throw new Error("Album does not exist");
 					}
 					await this.savedAlbumsService.saveAlbum(found, user);
-					return { sessionUuid: null };
+					return null;
 				}
 
 				const existingUuid = await this.albumManagerService.resolveAlbum(
@@ -952,23 +948,21 @@ export class PluginsService {
 					album.identity,
 				);
 				if (existingUuid) {
-					const found =
-						await this.albumManagerService.findOne(existingUuid);
+					const found = await this.albumManagerService.findOne(existingUuid);
 					if (!found) {
 						throw new Error("Album does not exist");
 					}
 					await this.savedAlbumsService.saveAlbum(found, user);
-					return { sessionUuid: null };
+					return null;
 				}
 
-				const sessionUuid =
-					await this.savedAlbumsService.saveEphemeralAlbum(
-						album.pluginId,
-						album.identityId,
-						album.identity,
-						user,
-					);
-				return { sessionUuid };
+				const session = await this.savedAlbumsService.saveEphemeralAlbum(
+					album.pluginId,
+					album.identityId,
+					album.identity,
+					user,
+				);
+				return session.uuid;
 			},
 			unsaveAlbum: async (albumUuid, userUuid) => {
 				const user = await this.userManagerService.findOne(userUuid);
@@ -993,7 +987,7 @@ export class PluginsService {
 						throw new Error("Artist does not exist");
 					}
 					await this.savedArtistsService.saveArtist(found, user);
-					return { sessionUuid: null };
+					return;
 				}
 
 				const existingUuid = await this.artistManagerService.resolveArtist(
@@ -1003,13 +997,12 @@ export class PluginsService {
 					ArtistIdentityTarget.ARTIST,
 				);
 				if (existingUuid) {
-					const found =
-						await this.artistManagerService.findOne(existingUuid);
+					const found = await this.artistManagerService.findOne(existingUuid);
 					if (!found) {
 						throw new Error("Artist does not exist");
 					}
 					await this.savedArtistsService.saveArtist(found, user);
-					return { sessionUuid: null };
+					return;
 				}
 
 				await this.savedArtistsService.saveEphemeralArtist(
@@ -1018,7 +1011,6 @@ export class PluginsService {
 					artist.identity,
 					user,
 				);
-				return { sessionUuid: null };
 			},
 			unsaveArtist: async (artistUuid, userUuid) => {
 				const user = await this.userManagerService.findOne(userUuid);
@@ -1045,7 +1037,7 @@ export class PluginsService {
 						throw new Error("Track does not exist");
 					}
 					await this.savedTracksService.saveTrack(found, user);
-					return { sessionUuid: null };
+					return null;
 				}
 
 				const existing = await this.trackManagerService.findOne({
@@ -1057,17 +1049,16 @@ export class PluginsService {
 				});
 				if (existing) {
 					await this.savedTracksService.saveTrack(existing, user);
-					return { sessionUuid: null };
+					return null;
 				}
 
-				const sessionUuid =
-					await this.savedTracksService.saveEphemeralTrack(
-						track.pluginId,
-						track.libraryId,
-						track.trackId,
-						user,
-					);
-				return { sessionUuid };
+				const session = await this.savedTracksService.saveEphemeralTrack(
+					track.pluginId,
+					track.libraryId,
+					track.trackId,
+					user,
+				);
+				return session?.uuid ?? null;
 			},
 			unsaveTrack: async (trackUuid, userUuid) => {
 				const user = await this.userManagerService.findOne(userUuid);
@@ -1092,13 +1083,11 @@ export class PluginsService {
 		if (!albumUuids.length) {
 			return bookmarks;
 		}
-		const entries = await this.dataSource
-			.getRepository(DBSavedAlbum)
-			.find({
-				where: { albumUuid: In(albumUuids) },
-				select: ["albumUuid", "userUuid", "dateAdded"],
-				order: { dateAdded: "DESC" },
-			});
+		const entries = await this.dataSource.getRepository(DBSavedAlbum).find({
+			where: { albumUuid: In(albumUuids) },
+			select: ["albumUuid", "userUuid", "dateAdded"],
+			order: { dateAdded: "DESC" },
+		});
 		for (const entry of entries) {
 			const list = bookmarks.get(entry.albumUuid) ?? [];
 			list.push({
@@ -1117,13 +1106,11 @@ export class PluginsService {
 		if (!artistUuids.length) {
 			return bookmarks;
 		}
-		const entries = await this.dataSource
-			.getRepository(DBSavedArtist)
-			.find({
-				where: { artistUuid: In(artistUuids) },
-				select: ["artistUuid", "userUuid", "dateAdded"],
-				order: { dateAdded: "DESC" },
-			});
+		const entries = await this.dataSource.getRepository(DBSavedArtist).find({
+			where: { artistUuid: In(artistUuids) },
+			select: ["artistUuid", "userUuid", "dateAdded"],
+			order: { dateAdded: "DESC" },
+		});
 		for (const entry of entries) {
 			const list = bookmarks.get(entry.artistUuid) ?? [];
 			list.push({
@@ -1142,13 +1129,11 @@ export class PluginsService {
 		if (!trackUuids.length) {
 			return bookmarks;
 		}
-		const entries = await this.dataSource
-			.getRepository(DBSavedTrack)
-			.find({
-				where: { trackUuid: In(trackUuids) },
-				select: ["trackUuid", "userUuid", "dateAdded"],
-				order: { dateAdded: "DESC" },
-			});
+		const entries = await this.dataSource.getRepository(DBSavedTrack).find({
+			where: { trackUuid: In(trackUuids) },
+			select: ["trackUuid", "userUuid", "dateAdded"],
+			order: { dateAdded: "DESC" },
+		});
 		for (const entry of entries) {
 			const list = bookmarks.get(entry.trackUuid) ?? [];
 			list.push({

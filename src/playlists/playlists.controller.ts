@@ -46,7 +46,7 @@ import { DBTrack } from "src/tracks/entities/track.entity";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { LibrariesService } from "src/libraries/libraries.service";
 import { EphemeralService } from "src/ephemeral/ephemeral.service";
-import { TrackCreationSessionResponse } from "src/ephemeral/response/track-creation-session.response";
+import { CreationSessionResponse } from "src/ephemeral/response/creation-session.response";
 import { AlbumManagerService } from "src/album-manager/album-manager.service";
 import { PlaylistTracksQuery } from "./dto/playlist-tracks-query.dto";
 import { PlaylistTrackResponse } from "./response/playlist-track.response";
@@ -502,7 +502,7 @@ export class PlaylistsController {
 	@ApiOperation({ operationId: "getPlaylistUpdateProgress" })
 	@OptionalAuth()
 	@ApiOkResponse({
-		type: [TrackCreationSessionResponse],
+		type: [CreationSessionResponse],
 	})
 	@ApiUnauthorizedResponse()
 	@ApiForbiddenResponse()
@@ -510,7 +510,7 @@ export class PlaylistsController {
 	async getPlaylistUpdateProgress(
 		@Param("uuid") uuid: string,
 		@ReqUser(FetchUserPipe) user: DBUser,
-	): Promise<TrackCreationSessionResponse[]> {
+	): Promise<CreationSessionResponse[]> {
 		const playlistInfo = await this.playlistsService.findByUuid(uuid);
 		if (!playlistInfo) {
 			throw new NotFoundException("Playlist not found");

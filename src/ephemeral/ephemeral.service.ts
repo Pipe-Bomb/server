@@ -43,7 +43,7 @@ import { DBTrack } from "src/tracks/entities/track.entity";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { IdentifiersService } from "src/identifiers/identifiers.service";
 import { TrackCreationSession } from "./interface/track-creation-session.interface";
-import { TrackCreationSessionResponse } from "./response/track-creation-session.response";
+import { CreationSessionResponse } from "./response/creation-session.response";
 
 @Injectable()
 export class EphemeralService {
@@ -1261,9 +1261,13 @@ export class EphemeralService {
 		return sessions;
 	}
 
+	getCreationSession(sessionUuid: string) {
+		return this.creationSessions.get(sessionUuid) ?? null;
+	}
+
 	toCreationSessionResponse(
 		session: TrackCreationSession,
-	): TrackCreationSessionResponse {
+	): CreationSessionResponse {
 		return {
 			uuid: session.uuid,
 			dateStarted: new Date(session.started),

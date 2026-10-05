@@ -36,7 +36,7 @@ import { SavedAlbumsService } from "./saved-albums.service";
 import { ReqUser } from "src/users/user.decorator";
 import { FetchUserPipe } from "src/users/user.pipe";
 import { DBUser } from "src/users/entity/user.entity";
-import { TrackCreationSessionResponse } from "src/ephemeral/response/track-creation-session.response";
+import { CreationSessionResponse } from "src/ephemeral/response/creation-session.response";
 import { SavedAlbumsResponse } from "./response/saved-albums.response";
 
 @Controller("albums")
@@ -88,7 +88,7 @@ export class AlbumsController {
 	@Get("saved/pending")
 	@ApiOperation({ operationId: "getSavedAlbumsPending" })
 	@ApiOkResponse({
-		type: TrackCreationSessionResponse,
+		type: CreationSessionResponse,
 		isArray: true,
 	})
 	@ApiUnauthorizedResponse()
@@ -386,7 +386,9 @@ export class AlbumsController {
 
 	@Put(":pluginId/:identifierId/:identity/save")
 	@ApiOperation({ operationId: "saveEphemeralAlbum" })
-	@ApiOkResponse()
+	@ApiOkResponse({
+		type: CreationSessionResponse,
+	})
 	@ApiNoContentResponse()
 	@ApiUnauthorizedResponse()
 	@ApiNotFoundResponse()
@@ -395,7 +397,7 @@ export class AlbumsController {
 		@Param("identifierId") identifierId: string,
 		@Param("identity") identity: string,
 		@ReqUser(FetchUserPipe) user: DBUser,
-	) {
+	): Promise<CreationSessionResponse | void> {
 		const albumUuid = await this.albumManagerService.resolveAlbum(
 			pluginId,
 			identifierId,
@@ -406,13 +408,12 @@ export class AlbumsController {
 			return;
 		}
 
-		const sessionUuid = await this.savedAlbumsService.saveEphemeralAlbum(
+		const session = await this.savedAlbumsService.saveEphemeralAlbum(
 			pluginId,
 			identifierId,
 			identity,
 			user,
 		);
-
-		return { sessionUuid };
+		return this.ephemeralService.toCreationSessionResponse(session);
 	}
 }

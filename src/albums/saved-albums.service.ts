@@ -99,7 +99,7 @@ export class SavedAlbumsService {
 		identifierId: string,
 		identity: string,
 		user: DBUser,
-	): Promise<string> {
+	) {
 		const source = this.ephemeralService.getEphemeralSourceByAlbumIdentity(
 			pluginId,
 			identifierId,
@@ -167,8 +167,7 @@ export class SavedAlbumsService {
 
 		session.promise
 			.then(async (createdTracks: (DBTrack | null)[]) => {
-				const allTracks: (DBTrack | null)[] =
-					Array(trackIds.length).fill(null);
+				const allTracks: (DBTrack | null)[] = Array(trackIds.length).fill(null);
 
 				for (let i = 0; i < resolved.length; i++) {
 					if (resolved[i]) allTracks[i] = resolved[i];
@@ -218,6 +217,6 @@ export class SavedAlbumsService {
 				this.logger.error("Failed to save ephemeral album", e);
 			});
 
-		return session.uuid;
+		return session;
 	}
 }
