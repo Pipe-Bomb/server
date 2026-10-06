@@ -17,6 +17,7 @@ import { Identity } from "@sdk";
 import { IdentifierTarget } from "./enum/identifier-target.enum";
 import { IdentifierType } from "./enum/identifier-type.enum";
 import { DisabledIdentifiersService } from "./disabled-identifiers.service";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 
 @Injectable()
 export class IdentifiersService {
@@ -33,6 +34,7 @@ export class IdentifiersService {
 		private readonly disabledIdentifiersService: DisabledIdentifiersService,
 		private readonly artistManagerService: ArtistManagerService,
 		private readonly albumManagerService: AlbumManagerService,
+		private readonly emitter: EventEmitter2,
 	) {}
 
 	public unregister(identifier: TrackIdentifier, plugin: LoadedPlugin) {

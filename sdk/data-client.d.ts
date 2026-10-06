@@ -4,15 +4,30 @@ import { SavedAlbum, SavedArtist, SavedTrack } from "./database";
 import { Identity } from "./information-helper";
 import { AudioSession } from "./audio-session";
 import { AudioProducerType } from "./audio-producer";
+import { EventMap } from "./events";
 
 export interface SavedEntitySaveResult {
 	sessionUuid: string | null;
+}
+
+export interface ListenerHandler {
+	end: () => void;
 }
 
 export interface DataClient {
 	getPlugin(pluginId: string): Plugin | null;
 	getPluginId(plugin: Plugin): string | null;
 	getPlugins(): Record<string, Plugin>;
+
+	addListener<T extends keyof EventMap>(
+		event: T,
+		callback: (...args: EventMap[T]) => void,
+	): ListenerHandler;
+
+	removeListener<T extends keyof EventMap>(
+		event: T,
+		callback: (...args: EventMap[T]) => void,
+	): boolean;
 
 	getResource(
 		resourceUuid: string,

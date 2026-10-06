@@ -1,4 +1,4 @@
-import { AttributeType, AttributeValue } from "./attribute";
+import { AttributeType } from "./attribute";
 import { Identity } from "./information-helper";
 
 export type SavedAttributeValues = {

@@ -47,6 +47,9 @@ import { ArtistIdentityTarget } from "src/artist-manager/enum/artist-identity-ta
 import { SavedAlbumsService } from "src/albums/saved-albums.service";
 import { SavedArtistsService } from "src/artists/saved-artists.service";
 import { SavedTracksService } from "src/tracks/saved-tracks.service";
+import { Emitter } from "src/util/emitter.util";
+import { EventMap } from "sdk/events";
+import { EventClientService } from "src/event-client/event-client.service";
 
 @Injectable()
 export class PluginsService {
@@ -56,6 +59,7 @@ export class PluginsService {
 
 	private readonly plugins = new Map<string, LoadedPlugin>();
 	private readonly waitListeners = new Set<() => void>();
+	private readonly dataClientEmitter = new Emitter<EventMap>();
 	private isScanning = false;
 
 	constructor(
@@ -81,6 +85,7 @@ export class PluginsService {
 		private readonly savedAlbumsService: SavedAlbumsService,
 		private readonly savedArtistsService: SavedArtistsService,
 		private readonly savedTracksService: SavedTracksService,
+		private readonly eventClientService: EventClientService,
 	) {
 		this.logger.debug(`Plugin directory is "${this.pluginsDirectory}"`);
 
@@ -501,6 +506,10 @@ export class PluginsService {
 
 	private createDataClient(): DataClient {
 		return {
+			addListener: (event, callback) =>
+				this.eventClientService.addSdkListener(event, callback),
+			removeListener: (event, callback) =>
+				this.eventClientService.removeSdkListener(event, callback),
 			getPlugins: () => {
 				const plugins: Record<string, Plugin> = {};
 				for (const [pluginId, loadedPlugin] of this.plugins.entries()) {
