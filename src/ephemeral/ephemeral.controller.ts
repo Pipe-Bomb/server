@@ -1,5 +1,4 @@
 import {
-	BadRequestException,
 	Body,
 	Controller,
 	Get,
@@ -7,6 +6,8 @@ import {
 	Param,
 	Post,
 	Query,
+	Req,
+	Res,
 	StreamableFile,
 } from "@nestjs/common";
 import { EphemeralService } from "./ephemeral.service";
@@ -19,19 +20,17 @@ import {
 import { EphemeralSourceResponse } from "./response/ephemeral-source.response";
 import { LoadedEphemeralSource } from "./interface/loaded-ephemeral-source.interface";
 import { EphemeralSearchDto } from "./dto/ephemeral-search.dto";
-import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
 import { EphemeralSearchResultsResponse } from "./response/ephemeral-search-results.response";
-import Mime from "mime";
-import path from "path";
-import { ResourcesService } from "src/resources/resources.service";
+import type { Request, Response } from "express";
+import { Readable } from "stream";
+import { BufferAttributeStreamService } from "src/attribute-sources/buffer-attribute-stream.service";
 import { CreationSessionResponse } from "./response/creation-session.response";
 
 @Controller("ephemeral")
 export class EphemeralController {
 	constructor(
 		private readonly ephemeralService: EphemeralService,
-		private readonly attributeSourcesService: AttributeSourcesService,
-		private readonly resourcesService: ResourcesService,
+		private readonly bufferAttributeStreamService: BufferAttributeStreamService,
 	) {}
 
 	@Get()
@@ -98,22 +97,41 @@ export class EphemeralController {
 
 	@Get("attribute-buffer/:file")
 	@ApiQuery({
-		name: "width",
+		name: "plugin",
 		required: false,
-		type: "integer",
+		type: "string",
 	})
 	@ApiQuery({
-		name: "height",
+		name: "source",
 		required: false,
-		type: "integer",
+		type: "string",
+	})
+	@ApiQuery({
+		name: "entity",
+		required: false,
+		type: "string",
+	})
+	@ApiQuery({
+		name: "key",
+		required: false,
+		type: "string",
 	})
 	async getAttributeBuffer(
+		@Req() req: Request,
+		@Res({ passthrough: true }) res: Response,
 		@Param("file") file: string,
-		@Query("width") widthStr?: string,
-		@Query("height") heightStr?: string,
-	) {
-		const extension = path.extname(file);
-		const uuid = path.basename(file, extension);
+		@Query() queryParams: Record<string, string>,
+		@Query("plugin") pluginId?: string,
+		@Query("source") sourceId?: string,
+		@Query("entity") entity?: string,
+		@Query("key") key?: string,
+	): Promise<StreamableFile | void> {
+		const separatorIndex = file.indexOf(".");
+		if (separatorIndex === -1) {
+			throw new NotFoundException("Attribute not found");
+		}
+		const uuid = file.slice(0, separatorIndex);
+		const extension = file.slice(separatorIndex + 1);
 
 		const attribute = this.ephemeralService.getProxiedAttribute(uuid);
 
@@ -121,34 +139,18 @@ export class EphemeralController {
 			throw new NotFoundException("Attribute not found");
 		}
 
-		const mimeType = Mime.getType(attribute.extension);
-		let buffer: Buffer;
-		if (Buffer.isBuffer(attribute.buffer)) {
-			buffer = attribute.buffer;
-		} else {
-			buffer = await attribute.buffer();
-		}
+		const buffer = Buffer.isBuffer(attribute.buffer)
+			? attribute.buffer
+			: await attribute.buffer();
 
-		if (!mimeType) {
-			throw new BadRequestException();
-		}
-
-		const width = this.resourcesService.sanitizeDimension(widthStr);
-		const height = this.resourcesService.sanitizeDimension(heightStr);
-
-		if (width || height) {
-			const resized = await this.resourcesService.resizeImage(buffer, {
-				width,
-				height,
-			});
-			return new StreamableFile(resized, {
-				type: "image/webp",
-			});
-		}
-
-		return new StreamableFile(buffer, {
-			type: mimeType,
-		});
+		return this.bufferAttributeStreamService.serve(
+			req,
+			res,
+			{ uuid, extension, file },
+			() => Readable.from([buffer]),
+			queryParams,
+			{ pluginId, sourceId, entity, key },
+		);
 	}
 
 	@Get("creation-session/:uuid")
