@@ -13,6 +13,8 @@ export class ResourcesService {
 
 	private readonly MAX_IMAGE_DIMENSION = 4096;
 
+	private readonly resourcesDirectory = path.resolve("resources");
+
 	constructor(
 		@InjectRepository(DBResource)
 		private readonly resourcesRepository: Repository<DBResource>,
@@ -24,6 +26,51 @@ export class ResourcesService {
 			extension.length &&
 			extension.length <= 32
 		);
+	}
+
+	resolveResourcePath(dir: string, file: string): string | null {
+		if (!/^[0-9a-fA-F]{3}$/.test(dir)) {
+			return null;
+		}
+
+		if (
+			!file ||
+			file === "." ||
+			file === ".." ||
+			file.includes("/") ||
+			file.includes("\\") ||
+			file.includes("\0") ||
+			path.basename(file) !== file
+		) {
+			return null;
+		}
+
+		const separatorIndex = file.indexOf(".");
+		if (separatorIndex === -1) {
+			return null;
+		}
+
+		const uuid = file.slice(0, separatorIndex);
+		const extension = file.slice(separatorIndex + 1);
+
+		if (
+			!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+				uuid,
+			)
+		) {
+			return null;
+		}
+
+		if (!this.isValidExtension(extension)) {
+			return null;
+		}
+
+		const resolved = path.resolve(this.resourcesDirectory, dir, file);
+		if (!resolved.startsWith(this.resourcesDirectory + path.sep)) {
+			return null;
+		}
+
+		return resolved;
 	}
 
 	async create(buffer: Buffer, extension: string) {
@@ -89,7 +136,7 @@ export class ResourcesService {
 			return null;
 		}
 
-		let targetValue = Array.isArray(value) ? value[0] : value;
+		let targetValue = Array.isArray(value) ? (value as unknown[])[0] : value;
 
 		if (typeof targetValue !== "string" && typeof targetValue !== "number") {
 			return null;
