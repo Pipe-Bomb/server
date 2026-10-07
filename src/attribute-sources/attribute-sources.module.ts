@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { AttributeSourcesService } from "./attribute-sources.service";
+import { BufferAttributeStreamService } from "./buffer-attribute-stream.service";
 import { AttributeSourcesController } from "./attribute-sources.controller";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { DBArtistAttribute } from "src/attributes/entities/artist-attribute.entity";
@@ -21,7 +22,7 @@ import { DBPlaylistAttribute } from "src/attributes/entities/playlist-attribute.
 		ResourceManagerModule,
 	],
 	controllers: [AttributeSourcesController],
-	providers: [AttributeSourcesService],
-	exports: [AttributeSourcesService],
+	providers: [AttributeSourcesService, BufferAttributeStreamService],
+	exports: [AttributeSourcesService, BufferAttributeStreamService],
 })
 export class AttributeSourcesModule {}
