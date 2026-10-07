@@ -897,7 +897,21 @@ export class EphemeralService {
 				);
 			}
 
-			const format = this.attributeSourcesService.getFormatter(type);
+			const definition =
+				this.attributeSourcesService.resolveAttributeDefinition(
+					type,
+					attribute.key,
+				);
+
+			// Definitions are mandatory, and a value whose type does not match the
+			// highest priority definition for its key is dropped.
+			if (!definition || attributeTemplate.attribute.type !== definition.type) {
+				continue;
+			}
+
+			const resolved = definition;
+			const formatValue = (value: string | number | boolean) =>
+				this.attributeSourcesService.formatAttributeValue(resolved, value);
 
 			function create<T>(
 				constructor: new () => BasePersistentAttributeResponse<T>,
@@ -910,7 +924,7 @@ export class EphemeralService {
 							"Received multiple attributes of different types with the same key",
 						);
 					}
-					if (attributeTemplate!.attribute.supportsMultiple) {
+					if (!resolved.supportsMultiple) {
 						throw new Error(
 							"Received multiple values for an attribute that expects only one",
 						);
@@ -918,13 +932,7 @@ export class EphemeralService {
 					existingAttribute.values.push(value);
 					if (existingAttribute.formatted) {
 						existingAttribute.formatted.push(
-							format(
-								attributeSource.plugin.package.name,
-								attributeSource.source.id,
-								attribute.key,
-								existingAttribute.type,
-								value as string | number | boolean,
-							),
+							formatValue(value as string | number | boolean),
 						);
 					}
 				} else {
@@ -934,17 +942,11 @@ export class EphemeralService {
 						newAttribute.formatted = null;
 					} else {
 						newAttribute.formatted = [
-							format(
-								attributeSource.plugin.package.name,
-								attributeSource.source.id,
-								attribute.key,
-								newAttribute.type,
-								value as string | number | boolean,
-							),
+							formatValue(value as string | number | boolean),
 						];
 					}
-					newAttribute.pluginId = attributeSource.plugin.package.name;
-					newAttribute.sourceId = attributeSource.source.id;
+					newAttribute.pluginId = resolved.pluginId;
+					newAttribute.sourceId = resolved.sourceId;
 					attributeRecord[attribute.key] = newAttribute;
 				}
 			}
