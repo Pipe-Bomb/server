@@ -903,8 +903,6 @@ export class EphemeralService {
 					attribute.key,
 				);
 
-			// Definitions are mandatory, and a value whose type does not match the
-			// highest priority definition for its key is dropped.
 			if (!definition || attributeTemplate.attribute.type !== definition.type) {
 				continue;
 			}
@@ -913,13 +911,8 @@ export class EphemeralService {
 			const formatValue = (value: string | number | boolean) =>
 				this.attributeSourcesService.formatAttributeValue(resolved, value);
 
-			const formatEntry = (
-				entry: unknown,
-			): string | ResourceResponse | null => {
+			const formatEntry = (entry: unknown): string | ResourceResponse => {
 				if (attributeTemplate.attribute.type === "buffer") {
-					// Buffer formatters are applied on demand by the resources
-					// endpoint, so the formatted representation is a resource
-					// pointing at it with the formatter's query parameters.
 					const formatter =
 						this.attributeSourcesService.getBufferAttributeFormatter(
 							type,
@@ -929,7 +922,7 @@ export class EphemeralService {
 						);
 
 					if (!formatter) {
-						return null;
+						return entry as ResourceResponse;
 					}
 
 					return this.attributeSourcesService.buildFormattedBufferResource(
@@ -961,17 +954,11 @@ export class EphemeralService {
 						);
 					}
 					existingAttribute.values.push(value);
-					if (existingAttribute.formatted) {
-						const entry = formatEntry(value) as F | null;
-						if (entry !== null) {
-							existingAttribute.formatted.push(entry);
-						}
-					}
+					existingAttribute.formatted.push(formatEntry(value) as F);
 				} else {
 					const newAttribute = new constructor();
 					newAttribute.values = [value];
-					const entry = formatEntry(value) as F | null;
-					newAttribute.formatted = entry === null ? null : [entry];
+					newAttribute.formatted = [formatEntry(value) as F];
 					newAttribute.pluginId = attributeSource.plugin.package.name;
 					newAttribute.sourceId = attributeSource.source.id;
 					newAttribute.formatterPluginId = resolved.pluginId || null;

@@ -34,7 +34,7 @@ export class BasePersistentAttributeResponse<T, F = string> {
 
 	values: T[];
 
-	formatted: F[] | null;
+	formatted: F[];
 }
 
 @ApiSchema({ name: "StringAttribute" })
@@ -49,9 +49,8 @@ export class PersistentStringAttributeResponse extends BasePersistentAttributeRe
 
 	@ApiProperty({
 		type: [String],
-		nullable: true,
 	})
-	declare formatted: string[] | null;
+	declare formatted: string[];
 }
 
 @ApiSchema({ name: "IntegerAttribute" })
@@ -66,9 +65,8 @@ export class PersistentIntegerAttributeResponse extends BasePersistentAttributeR
 
 	@ApiProperty({
 		type: [String],
-		nullable: true,
 	})
-	declare formatted: string[] | null;
+	declare formatted: string[];
 }
 
 @ApiSchema({ name: "DecimalAttribute" })
@@ -83,9 +81,8 @@ export class PersistentDecimalAttributeResponse extends BasePersistentAttributeR
 
 	@ApiProperty({
 		type: [String],
-		nullable: true,
 	})
-	declare formatted: string[] | null;
+	declare formatted: string[];
 }
 
 @ApiSchema({ name: "BooleanAttribute" })
@@ -100,9 +97,8 @@ export class PersistentBooleanAttributeResponse extends BasePersistentAttributeR
 
 	@ApiProperty({
 		type: [String],
-		nullable: true,
 	})
-	declare formatted: string[] | null;
+	declare formatted: string[];
 }
 
 @ApiSchema({ name: "BufferAttribute" })
@@ -120,9 +116,8 @@ export class PersistentBufferAttributeResponse extends BasePersistentAttributeRe
 
 	@ApiProperty({
 		type: [ResourceResponse],
-		nullable: true,
 	})
-	declare formatted: ResourceResponse[] | null;
+	declare formatted: ResourceResponse[];
 }
 
 export type PersistentAttributeResponse =
