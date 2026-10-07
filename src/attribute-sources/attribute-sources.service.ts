@@ -770,17 +770,13 @@ export class AttributeSourcesService {
 		type: "track" | "artist" | "album" | "playlist",
 		key: string,
 	): ResolvedAttributeDefinition | null {
-		let best: LoadedAttribute | null = null;
-		let bestPriority = Number.MAX_SAFE_INTEGER;
+		const candidates: { priority: number; loaded: LoadedAttribute }[] = [];
 
 		for (const loaded of this.getAttributeSet(type)) {
 			if (loaded.attribute.key !== key) {
 				continue;
 			}
 
-			// Source-less (custom) definitions rank as a fallback, after every
-			// registered source. Definitions from sources that are no longer
-			// registered are ignored.
 			let priority: number;
 			if (loaded.source) {
 				priority = this.sources.indexOf(loaded.source);
@@ -791,26 +787,34 @@ export class AttributeSourcesService {
 				priority = this.sources.length;
 			}
 
-			if (priority < bestPriority) {
-				bestPriority = priority;
-				best = loaded;
-			}
+			candidates.push({ priority, loaded });
 		}
 
-		if (!best) {
+		if (!candidates.length) {
 			return null;
 		}
 
-		const attribute = best.attribute;
+		candidates.sort((a, b) => a.priority - b.priority);
+
+		const attribute = candidates[0].loaded.attribute;
+
+		const formatterLoaded =
+			candidates.find(
+				(candidate) =>
+					candidate.loaded.attribute.type === attribute.type &&
+					candidate.loaded.attribute.formatter,
+			)?.loaded ?? null;
+
 		return {
 			type: attribute.type,
 			supportsMultiple: attribute.supportsMultiple,
-			pluginId: best.source?.plugin.package.name ?? "",
-			sourceId: best.source?.source.id ?? "",
+			pluginId: formatterLoaded?.source?.plugin.package.name ?? "",
+			sourceId: formatterLoaded?.source?.source.id ?? "",
 			formatter:
 				attribute.type === "buffer"
 					? null
-					: ((attribute.formatter as AttributeFormatter) ?? null),
+					: ((formatterLoaded?.attribute.formatter as AttributeFormatter) ??
+						null),
 		};
 	}
 
