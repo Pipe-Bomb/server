@@ -3,6 +3,7 @@
 import { ApiProperty, ApiSchema } from "@nestjs/swagger";
 import { AttributeType } from "../enum/attribute-type.enum";
 import { ResourceResponse } from "src/resource-manager/response/resource.response";
+import { RelativeUrl } from "src/interception/relative-url";
 
 export class BasePersistentAttributeResponse<T> {
 	// @ApiProperty()
@@ -11,17 +12,35 @@ export class BasePersistentAttributeResponse<T> {
 	@ApiProperty({ enum: AttributeType })
 	type: AttributeType;
 
-	@ApiProperty()
-	pluginId: string;
+	@ApiProperty({
+		type: String,
+		nullable: true,
+	})
+	pluginId: string | null;
 
-	@ApiProperty()
-	sourceId: string;
+	@ApiProperty({
+		type: String,
+		nullable: true,
+	})
+	sourceId: string | null;
 
 	@ApiProperty({
 		type: [String],
 		nullable: true,
 	})
-	formatted: string[] | null;
+	formatted: (string | RelativeUrl)[] | null;
+
+	@ApiProperty({
+		type: String,
+		nullable: true,
+	})
+	formatterPluginId: string | null;
+
+	@ApiProperty({
+		type: String,
+		nullable: true,
+	})
+	formatterSourceId: string | null;
 
 	values: T[];
 }

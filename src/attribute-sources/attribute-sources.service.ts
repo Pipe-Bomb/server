@@ -21,6 +21,8 @@ import { PersistentAttributeResponse } from "src/attributes/response/persistent-
 import { ResolvedAttributeDefinition } from "src/attributes/interface/resolved-attribute-definition.interface";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { ResourceManagerService } from "src/resource-manager/resource-manager.service";
+import { ResourceResponse } from "src/resource-manager/response/resource.response";
+import { RelativeUrl } from "src/interception/relative-url";
 import { TasksService } from "src/tasks/tasks.service";
 import { DeepPartial, In, Repository } from "typeorm";
 
@@ -162,6 +164,23 @@ export class AttributeSourcesService {
 		}
 
 		return null;
+	}
+
+	buildFormattedBufferUrl(
+		resourceUrl: string,
+		pluginId: string,
+		sourceId: string,
+		entity: string,
+		key: string,
+	): RelativeUrl {
+		const query = new URLSearchParams({
+			plugin: pluginId,
+			source: sourceId,
+			entity,
+			key,
+		});
+
+		return new RelativeUrl(`${resourceUrl}?${query.toString()}`);
 	}
 
 	doSourcesMatch(
@@ -680,20 +699,53 @@ export class AttributeSourcesService {
 
 			candidates.sort((a, b) => a.group - b.group || a.ordinal - b.ordinal);
 
+			// Only the first source that provides values is used; values from
+			// other sources are never combined. Source-less (custom) rows rank
+			// first and are reported as having no source.
+			const firstSource = candidates[0].group;
+			const firstSourceCandidates = candidates.filter(
+				(candidate) => candidate.group === firstSource,
+			);
+
 			const selected = definition.supportsMultiple
-				? candidates
-				: candidates.slice(0, 1);
+				? firstSourceCandidates
+				: firstSourceCandidates.slice(0, 1);
 
 			const finalResponse = selected[0].response;
-			finalResponse.pluginId = definition.pluginId;
-			finalResponse.sourceId = definition.sourceId;
+			finalResponse.pluginId =
+				firstSource === -1 ? null : finalResponse.pluginId;
+			finalResponse.sourceId =
+				firstSource === -1 ? null : finalResponse.sourceId;
 
 			for (let i = 1; i < selected.length; i++) {
 				(finalResponse.values as any[]).push(...selected[i].response.values);
 			}
 
+			finalResponse.formatterPluginId = definition.pluginId || null;
+			finalResponse.formatterSourceId = definition.sourceId || null;
+
 			if (definition.type === "buffer") {
-				finalResponse.formatted = null;
+				// Buffer formatters are applied on demand by the resources
+				// endpoint, so the formatted representation is a URL pointing at
+				// it with the formatter's query parameters.
+				const formatter = this.getBufferAttributeFormatter(
+					type,
+					definition.pluginId,
+					definition.sourceId,
+					key,
+				);
+
+				finalResponse.formatted = formatter
+					? (finalResponse.values as ResourceResponse[]).map((value) =>
+							this.buildFormattedBufferUrl(
+								value.url.url,
+								definition.pluginId,
+								definition.sourceId,
+								type,
+								key,
+							),
+						)
+					: null;
 			} else {
 				finalResponse.formatted = finalResponse.values.map((value) =>
 					this.formatAttributeValue(

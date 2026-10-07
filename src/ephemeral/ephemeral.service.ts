@@ -27,6 +27,7 @@ import {
 import { randomUUID } from "crypto";
 import { In } from "typeorm";
 import { RelativeUrl } from "src/interception/relative-url";
+import { ResourceResponse } from "src/resource-manager/response/resource.response";
 import { ArtistIdentityTarget } from "src/artist-manager/enum/artist-identity-target.enum";
 import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
 import { AlbumManagerService } from "src/album-manager/album-manager.service";
@@ -37,7 +38,6 @@ import { DBArtistIdentity } from "src/artist-manager/entity/artist-identity.enti
 import { AlbumResponse } from "src/albums/response/album.response";
 import { AlbumArtistResponse } from "src/albums/response/album-artist.response";
 import { DBAlbumIdentity } from "src/albums/entity/album-identity.entity";
-import { AttributeType } from "src/attributes/enum/attribute-type.enum";
 import { TrackId } from "src/tracks/interface/track-id.interface";
 import { DBTrack } from "src/tracks/entities/track.entity";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
@@ -913,6 +913,37 @@ export class EphemeralService {
 			const formatValue = (value: string | number | boolean) =>
 				this.attributeSourcesService.formatAttributeValue(resolved, value);
 
+			const formatEntry = (entry: unknown): string | RelativeUrl | null => {
+				if (attributeTemplate.attribute.type === "buffer") {
+					// Buffer formatters are applied on demand by the resources
+					// endpoint, so the formatted representation is a URL pointing
+					// at it with the formatter's query parameters.
+					const formatter =
+						this.attributeSourcesService.getBufferAttributeFormatter(
+							type,
+							resolved.pluginId,
+							resolved.sourceId,
+							attribute.key,
+						);
+
+					if (!formatter) {
+						return null;
+					}
+
+					const resource = entry as ResourceResponse;
+
+					return this.attributeSourcesService.buildFormattedBufferUrl(
+						resource.url.url,
+						resolved.pluginId,
+						resolved.sourceId,
+						type,
+						attribute.key,
+					);
+				}
+
+				return formatValue(entry as string | number | boolean);
+			};
+
 			function create<T>(
 				constructor: new () => BasePersistentAttributeResponse<T>,
 				value: T,
@@ -931,22 +962,20 @@ export class EphemeralService {
 					}
 					existingAttribute.values.push(value);
 					if (existingAttribute.formatted) {
-						existingAttribute.formatted.push(
-							formatValue(value as string | number | boolean),
-						);
+						const entry = formatEntry(value);
+						if (entry !== null) {
+							existingAttribute.formatted.push(entry);
+						}
 					}
 				} else {
 					const newAttribute = new constructor();
 					newAttribute.values = [value];
-					if (newAttribute.type == AttributeType.BUFFER) {
-						newAttribute.formatted = null;
-					} else {
-						newAttribute.formatted = [
-							formatValue(value as string | number | boolean),
-						];
-					}
-					newAttribute.pluginId = resolved.pluginId;
-					newAttribute.sourceId = resolved.sourceId;
+					const entry = formatEntry(value);
+					newAttribute.formatted = entry === null ? null : [entry];
+					newAttribute.pluginId = attributeSource.plugin.package.name;
+					newAttribute.sourceId = attributeSource.source.id;
+					newAttribute.formatterPluginId = resolved.pluginId || null;
+					newAttribute.formatterSourceId = resolved.sourceId || null;
 					attributeRecord[attribute.key] = newAttribute;
 				}
 			}

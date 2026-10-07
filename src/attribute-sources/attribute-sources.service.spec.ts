@@ -2,6 +2,7 @@ import { AttributeSourcesService } from "./attribute-sources.service";
 import { DBTrackAttribute } from "src/attributes/entities/track-attribute.entity";
 import { LoadedAttributeSource } from "src/attributes/interface/loaded-attribute-source.interface";
 import { DBResource } from "src/resource-manager/entities/resource.entity";
+import { RelativeUrl } from "src/interception/relative-url";
 
 function makeSource(name: string, id: string): LoadedAttributeSource {
 	return {
@@ -83,7 +84,7 @@ describe("AttributeSourcesService.toMap", () => {
 		expect(service.toMap(rows, "track")).toEqual({});
 	});
 
-	it("uses the highest priority defining source's formatter for values from other sources", () => {
+	it("attributes values to the providing source but formats them with the defining source's formatter", () => {
 		const a = makeSource("a", "src-a");
 		const b = makeSource("b", "src-b");
 		seedSources(service, [a, b]);
@@ -106,8 +107,10 @@ describe("AttributeSourcesService.toMap", () => {
 		expect(map.title.type).toBe("string");
 		expect(map.title.values).toEqual(["hello"]);
 		expect(map.title.formatted).toEqual(["HELLO"]);
-		expect(map.title.pluginId).toBe("a");
-		expect(map.title.sourceId).toBe("src-a");
+		expect(map.title.pluginId).toBe("b");
+		expect(map.title.sourceId).toBe("src-b");
+		expect(map.title.formatterPluginId).toBe("a");
+		expect(map.title.formatterSourceId).toBe("src-a");
 	});
 
 	it("keeps only the first row when the canonical definition does not support multiple", () => {
@@ -129,7 +132,7 @@ describe("AttributeSourcesService.toMap", () => {
 		expect(map.title.values).toEqual(["first"]);
 	});
 
-	it("merges all matching rows ordered by source then ordinal when multiple are supported", () => {
+	it("uses only the first source that provides values when multiple are supported", () => {
 		const a = makeSource("a", "src-a");
 		const b = makeSource("b", "src-b");
 		seedSources(service, [a, b]);
@@ -153,10 +156,12 @@ describe("AttributeSourcesService.toMap", () => {
 
 		const map = service.toMap(rows, "track");
 
-		expect(map.title.values).toEqual(["a0", "a1", "b0"]);
+		expect(map.title.values).toEqual(["a0", "a1"]);
+		expect(map.title.pluginId).toBe("a");
+		expect(map.title.sourceId).toBe("src-a");
 	});
 
-	it("orders custom rows before sourced rows", () => {
+	it("prefers custom rows and does not combine them with sourced rows", () => {
 		const a = makeSource("a", "src-a");
 		seedSources(service, [a]);
 		service.registerTrackAttribute(a, {
@@ -172,10 +177,14 @@ describe("AttributeSourcesService.toMap", () => {
 
 		const map = service.toMap(rows, "track");
 
-		expect(map.title.values).toEqual(["custom", "source"]);
+		expect(map.title.values).toEqual(["custom"]);
+		expect(map.title.pluginId).toBeNull();
+		expect(map.title.sourceId).toBeNull();
+		expect(map.title.formatterPluginId).toBe("a");
+		expect(map.title.formatterSourceId).toBe("src-a");
 	});
 
-	it("sets formatted to null for buffer attributes", () => {
+	it("sets formatted to null for buffer attributes without a formatter", () => {
 		const a = makeSource("a", "src-a");
 		seedSources(service, [a]);
 		service.registerTrackAttribute(a, {
@@ -196,5 +205,40 @@ describe("AttributeSourcesService.toMap", () => {
 
 		expect(map.art.formatted).toBeNull();
 		expect(map.art.values).toEqual([{ uuid: "u" }]);
+		expect(map.art.pluginId).toBe("a");
+		expect(map.art.sourceId).toBe("src-a");
+		expect(map.art.formatterPluginId).toBe("a");
+		expect(map.art.formatterSourceId).toBe("src-a");
+	});
+
+	it("emits a formatter URL for buffer attributes with a formatter", () => {
+		const a = makeSource("a", "src-a");
+		seedSources(service, [a]);
+		service.registerTrackAttribute(a, {
+			key: "art",
+			type: "buffer",
+			supportsMultiple: false,
+			formatter: () => Promise.resolve(null),
+		});
+
+		const rows = [
+			makeRow("a", "src-a", "art", 0, {
+				value_buffer: {
+					toResponse: () => ({
+						uuid: "u",
+						extension: "webp",
+						sha256: null,
+						url: new RelativeUrl("/resources/abc/u.webp"),
+					}),
+				} as unknown as DBResource,
+			}),
+		];
+
+		const map = service.toMap(rows, "track");
+
+		expect(map.art.formatted).toHaveLength(1);
+		expect((map.art.formatted![0] as RelativeUrl).url).toBe(
+			"/resources/abc/u.webp?plugin=a&source=src-a&entity=track&key=art",
+		);
 	});
 });
