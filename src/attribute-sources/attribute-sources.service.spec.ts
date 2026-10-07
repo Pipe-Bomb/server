@@ -181,8 +181,36 @@ describe("AttributeSourcesService.toMap", () => {
 		expect(map.title.values).toEqual(["custom"]);
 		expect(map.title.pluginId).toBeNull();
 		expect(map.title.sourceId).toBeNull();
-		expect(map.title.formatterPluginId).toBe("a");
-		expect(map.title.formatterSourceId).toBe("src-a");
+		expect(map.title.formatterPluginId).toBeNull();
+		expect(map.title.formatterSourceId).toBeNull();
+	});
+
+	it("falls through to a lower-priority source that provides the formatter", () => {
+		const a = makeSource("a", "src-a");
+		const b = makeSource("b", "src-b");
+		seedSources(service, [a, b]);
+
+		service.registerTrackAttribute(a, {
+			key: "title",
+			type: "string",
+			supportsMultiple: true,
+		});
+		service.registerTrackAttribute(b, {
+			key: "title",
+			type: "string",
+			supportsMultiple: true,
+			formatter: (value) => value.toUpperCase(),
+		});
+
+		const rows = [makeRow("a", "src-a", "title", 0, { value_string: "hello" })];
+		const map = service.toMap(rows, "track");
+
+		expect(map.title.values).toEqual(["hello"]);
+		expect(map.title.formatted).toEqual(["HELLO"]);
+		expect(map.title.pluginId).toBe("a");
+		expect(map.title.sourceId).toBe("src-a");
+		expect(map.title.formatterPluginId).toBe("b");
+		expect(map.title.formatterSourceId).toBe("src-b");
 	});
 
 	it("sets formatted to null for buffer attributes without a formatter", () => {
@@ -208,8 +236,8 @@ describe("AttributeSourcesService.toMap", () => {
 		expect(map.art.values).toEqual([{ uuid: "u" }]);
 		expect(map.art.pluginId).toBe("a");
 		expect(map.art.sourceId).toBe("src-a");
-		expect(map.art.formatterPluginId).toBe("a");
-		expect(map.art.formatterSourceId).toBe("src-a");
+		expect(map.art.formatterPluginId).toBeNull();
+		expect(map.art.formatterSourceId).toBeNull();
 	});
 
 	it("emits a formatter resource for buffer attributes with a formatter", () => {
