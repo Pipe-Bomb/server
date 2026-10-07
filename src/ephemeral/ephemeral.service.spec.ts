@@ -2,7 +2,7 @@ import { EphemeralService } from "./ephemeral.service";
 import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
 import { LoadedAttributeSource } from "src/attributes/interface/loaded-attribute-source.interface";
 import { LoadedAttribute } from "src/attributes/interface/loaded-attribute.interface";
-import { RelativeUrl } from "src/interception/relative-url";
+import { ResourceResponse } from "src/resource-manager/response/resource.response";
 
 function makeSource(name: string, id: string): LoadedAttributeSource {
 	return {
@@ -133,8 +133,11 @@ describe("EphemeralService.createEphemeralAttributes", () => {
 			expect(result.thumb.formatterSourceId).toBe("src-a");
 			expect(result.thumb.formatted).toHaveLength(1);
 
-			const formatted = result.thumb.formatted![0] as RelativeUrl;
-			expect(formatted.url).toMatch(
+			const formatted = result.thumb.formatted![0] as ResourceResponse;
+			expect(formatted.extension).toBe("webp");
+			expect(formatted.sha256).toBeNull();
+			expect(formatted.uuid).toMatch(/^[0-9a-f-]+$/);
+			expect(formatted.url.url).toMatch(
 				/^\/ephemeral\/attribute-buffer\/[0-9a-f-]+\.webp\?plugin=a&source=src-a&entity=track&key=thumb$/,
 			);
 		} finally {

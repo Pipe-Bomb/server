@@ -166,13 +166,13 @@ export class AttributeSourcesService {
 		return null;
 	}
 
-	buildFormattedBufferUrl(
-		resourceUrl: string,
+	buildFormattedBufferResource(
+		resource: ResourceResponse,
 		pluginId: string,
 		sourceId: string,
 		entity: string,
 		key: string,
-	): RelativeUrl {
+	): ResourceResponse {
 		const query = new URLSearchParams({
 			plugin: pluginId,
 			source: sourceId,
@@ -180,7 +180,12 @@ export class AttributeSourcesService {
 			key,
 		});
 
-		return new RelativeUrl(`${resourceUrl}?${query.toString()}`);
+		return {
+			uuid: resource.uuid,
+			url: new RelativeUrl(`${resource.url.url}?${query.toString()}`),
+			extension: resource.extension,
+			sha256: null,
+		};
 	}
 
 	doSourcesMatch(
@@ -737,8 +742,8 @@ export class AttributeSourcesService {
 
 				finalResponse.formatted = formatter
 					? (finalResponse.values as ResourceResponse[]).map((value) =>
-							this.buildFormattedBufferUrl(
-								value.url.url,
+							this.buildFormattedBufferResource(
+								value,
 								definition.pluginId,
 								definition.sourceId,
 								type,

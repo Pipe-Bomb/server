@@ -2,6 +2,7 @@ import { AttributeSourcesService } from "./attribute-sources.service";
 import { DBTrackAttribute } from "src/attributes/entities/track-attribute.entity";
 import { LoadedAttributeSource } from "src/attributes/interface/loaded-attribute-source.interface";
 import { DBResource } from "src/resource-manager/entities/resource.entity";
+import { ResourceResponse } from "src/resource-manager/response/resource.response";
 import { RelativeUrl } from "src/interception/relative-url";
 
 function makeSource(name: string, id: string): LoadedAttributeSource {
@@ -211,7 +212,7 @@ describe("AttributeSourcesService.toMap", () => {
 		expect(map.art.formatterSourceId).toBe("src-a");
 	});
 
-	it("emits a formatter URL for buffer attributes with a formatter", () => {
+	it("emits a formatter resource for buffer attributes with a formatter", () => {
 		const a = makeSource("a", "src-a");
 		seedSources(service, [a]);
 		service.registerTrackAttribute(a, {
@@ -237,7 +238,11 @@ describe("AttributeSourcesService.toMap", () => {
 		const map = service.toMap(rows, "track");
 
 		expect(map.art.formatted).toHaveLength(1);
-		expect((map.art.formatted![0] as RelativeUrl).url).toBe(
+		const formatted = map.art.formatted![0] as ResourceResponse;
+		expect(formatted.uuid).toBe("u");
+		expect(formatted.extension).toBe("webp");
+		expect(formatted.sha256).toBeNull();
+		expect(formatted.url.url).toBe(
 			"/resources/abc/u.webp?plugin=a&source=src-a&entity=track&key=art",
 		);
 	});

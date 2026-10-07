@@ -883,7 +883,7 @@ export class EphemeralService {
 	): Record<string, PersistentAttributeResponse> {
 		const attributeRecord: Record<
 			string,
-			BasePersistentAttributeResponse<any>
+			BasePersistentAttributeResponse<any, any>
 		> = {};
 
 		for (const attribute of attributes) {
@@ -913,11 +913,13 @@ export class EphemeralService {
 			const formatValue = (value: string | number | boolean) =>
 				this.attributeSourcesService.formatAttributeValue(resolved, value);
 
-			const formatEntry = (entry: unknown): string | RelativeUrl | null => {
+			const formatEntry = (
+				entry: unknown,
+			): string | ResourceResponse | null => {
 				if (attributeTemplate.attribute.type === "buffer") {
 					// Buffer formatters are applied on demand by the resources
-					// endpoint, so the formatted representation is a URL pointing
-					// at it with the formatter's query parameters.
+					// endpoint, so the formatted representation is a resource
+					// pointing at it with the formatter's query parameters.
 					const formatter =
 						this.attributeSourcesService.getBufferAttributeFormatter(
 							type,
@@ -930,10 +932,8 @@ export class EphemeralService {
 						return null;
 					}
 
-					const resource = entry as ResourceResponse;
-
-					return this.attributeSourcesService.buildFormattedBufferUrl(
-						resource.url.url,
+					return this.attributeSourcesService.buildFormattedBufferResource(
+						entry as ResourceResponse,
 						resolved.pluginId,
 						resolved.sourceId,
 						type,
@@ -944,8 +944,8 @@ export class EphemeralService {
 				return formatValue(entry as string | number | boolean);
 			};
 
-			function create<T>(
-				constructor: new () => BasePersistentAttributeResponse<T>,
+			function create<T, F>(
+				constructor: new () => BasePersistentAttributeResponse<T, F>,
 				value: T,
 			) {
 				const existingAttribute = attributeRecord[attribute.key];
@@ -962,7 +962,7 @@ export class EphemeralService {
 					}
 					existingAttribute.values.push(value);
 					if (existingAttribute.formatted) {
-						const entry = formatEntry(value);
+						const entry = formatEntry(value) as F | null;
 						if (entry !== null) {
 							existingAttribute.formatted.push(entry);
 						}
@@ -970,7 +970,7 @@ export class EphemeralService {
 				} else {
 					const newAttribute = new constructor();
 					newAttribute.values = [value];
-					const entry = formatEntry(value);
+					const entry = formatEntry(value) as F | null;
 					newAttribute.formatted = entry === null ? null : [entry];
 					newAttribute.pluginId = attributeSource.plugin.package.name;
 					newAttribute.sourceId = attributeSource.source.id;
