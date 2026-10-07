@@ -1,15 +1,17 @@
 import path from "path";
 import { Repository } from "typeorm";
-import { ResourcesService } from "./resources.service";
+import { ResourceManagerService } from "./resource-manager.service";
 import { DBResource } from "./entities/resource.entity";
 
 const UUID = "123e4567-e89b-12d3-a456-426614174000";
 
-describe("ResourcesService", () => {
-	let service: ResourcesService;
+describe("ResourceManagerService", () => {
+	let service: ResourceManagerService;
 
 	beforeEach(() => {
-		service = new ResourcesService({} as unknown as Repository<DBResource>);
+		service = new ResourceManagerService(
+			{} as unknown as Repository<DBResource>,
+		);
 	});
 
 	it("should be defined", () => {
@@ -18,9 +20,11 @@ describe("ResourcesService", () => {
 
 	describe("resolveResourcePath", () => {
 		it("resolves a valid resource path", () => {
-			expect(service.resolveResourcePath("123", `${UUID}.png`)).toBe(
-				path.resolve("resources", "123", `${UUID}.png`),
-			);
+			expect(service.resolveResourcePath("123", `${UUID}.png`)).toEqual({
+				path: path.resolve("resources", "123", `${UUID}.png`),
+				uuid: UUID,
+				extension: "png",
+			});
 		});
 
 		it("allows multi-dot extensions", () => {

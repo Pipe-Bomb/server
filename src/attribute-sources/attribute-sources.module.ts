@@ -5,7 +5,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { DBArtistAttribute } from "src/attributes/entities/artist-attribute.entity";
 import { DBTrackAttribute } from "src/attributes/entities/track-attribute.entity";
 import { TasksModule } from "src/tasks/tasks.module";
-import { ResourcesModule } from "src/resources/resources.module";
+import { ResourceManagerModule } from "src/resource-manager/resource-manager.module";
 import { DBAlbumAttribute } from "src/attributes/entities/album-attribute.entity";
 import { DBPlaylistAttribute } from "src/attributes/entities/playlist-attribute.entity";
 
@@ -18,7 +18,7 @@ import { DBPlaylistAttribute } from "src/attributes/entities/playlist-attribute.
 			DBPlaylistAttribute,
 		]),
 		TasksModule,
-		ResourcesModule,
+		ResourceManagerModule,
 	],
 	controllers: [AttributeSourcesController],
 	providers: [AttributeSourcesService],

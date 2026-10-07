@@ -5,6 +5,7 @@ import {
 	Attribute,
 	AttributeValue,
 	AttributeFormatter,
+	BufferAttributeFormatter,
 } from "@sdk";
 import { CustomAttributeDto } from "src/attributes/dto/custom-attribute.dto";
 import { OrderedAttributeSourceDto } from "src/attributes/dto/ordered-attribute-source.dto";
@@ -19,7 +20,7 @@ import { LoadedAttribute } from "src/attributes/interface/loaded-attribute.inter
 import { PersistentAttributeResponse } from "src/attributes/response/persistent-attribute.response";
 import { ResolvedAttributeDefinition } from "src/attributes/interface/resolved-attribute-definition.interface";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
-import { ResourcesService } from "src/resources/resources.service";
+import { ResourceManagerService } from "src/resource-manager/resource-manager.service";
 import { TasksService } from "src/tasks/tasks.service";
 import { DeepPartial, In, Repository } from "typeorm";
 
@@ -43,7 +44,7 @@ export class AttributeSourcesService {
 		@InjectRepository(DBPlaylistAttribute)
 		private readonly playlistAttributesRepository: Repository<DBPlaylistAttribute>,
 		private readonly tasksService: TasksService,
-		private readonly resourcesService: ResourcesService,
+		private readonly resourceManagerService: ResourceManagerService,
 	) {}
 
 	unregisterAttributeSource(plugin: LoadedPlugin, source: AttributeSource) {
@@ -135,6 +136,32 @@ export class AttributeSourcesService {
 					plugin.package.name == pluginId && source.id == sourceId,
 			) ?? null
 		);
+	}
+
+	getBufferAttributeFormatter(
+		type: "track" | "artist" | "album" | "playlist",
+		pluginId: string,
+		sourceId: string,
+		key: string,
+	): BufferAttributeFormatter | null {
+		for (const loaded of this.getAttributeSet(type)) {
+			if (
+				loaded.attribute.key != key ||
+				loaded.attribute.type != "buffer" ||
+				!loaded.source
+			) {
+				continue;
+			}
+
+			if (
+				loaded.source.plugin.package.name == pluginId &&
+				loaded.source.source.id == sourceId
+			) {
+				return loaded.attribute.formatter ?? null;
+			}
+		}
+
+		return null;
 	}
 
 	doSourcesMatch(
@@ -475,7 +502,7 @@ export class AttributeSourcesService {
 							} else {
 								buffer = await attribute.value.buffer();
 							}
-							entity.value_buffer = await this.resourcesService.create(
+							entity.value_buffer = await this.resourceManagerService.create(
 								buffer,
 								attribute.value.extension,
 							);

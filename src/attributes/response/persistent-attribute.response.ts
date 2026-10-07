@@ -2,7 +2,7 @@
 
 import { ApiProperty, ApiSchema } from "@nestjs/swagger";
 import { AttributeType } from "../enum/attribute-type.enum";
-import { ResourceResponse } from "src/resources/response/resource.response";
+import { ResourceResponse } from "src/resource-manager/response/resource.response";
 
 export class BasePersistentAttributeResponse<T> {
 	// @ApiProperty()

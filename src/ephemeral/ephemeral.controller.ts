@@ -23,7 +23,7 @@ import { AttributeSourcesService } from "src/attribute-sources/attribute-sources
 import { EphemeralSearchResultsResponse } from "./response/ephemeral-search-results.response";
 import Mime from "mime";
 import path from "path";
-import { ResourcesService } from "src/resources/resources.service";
+import { ResourceManagerService } from "src/resource-manager/resource-manager.service";
 import { CreationSessionResponse } from "./response/creation-session.response";
 
 @Controller("ephemeral")
@@ -31,7 +31,7 @@ export class EphemeralController {
 	constructor(
 		private readonly ephemeralService: EphemeralService,
 		private readonly attributeSourcesService: AttributeSourcesService,
-		private readonly resourcesService: ResourcesService,
+		private readonly resourceManagerService: ResourceManagerService,
 	) {}
 
 	@Get()
@@ -133,11 +133,11 @@ export class EphemeralController {
 			throw new BadRequestException();
 		}
 
-		const width = this.resourcesService.sanitizeDimension(widthStr);
-		const height = this.resourcesService.sanitizeDimension(heightStr);
+		const width = this.resourceManagerService.sanitizeDimension(widthStr);
+		const height = this.resourceManagerService.sanitizeDimension(heightStr);
 
 		if (width || height) {
-			const resized = await this.resourcesService.resizeImage(buffer, {
+			const resized = await this.resourceManagerService.resizeImage(buffer, {
 				width,
 				height,
 			});

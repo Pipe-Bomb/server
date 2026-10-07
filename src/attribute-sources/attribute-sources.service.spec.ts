@@ -1,7 +1,7 @@
 import { AttributeSourcesService } from "./attribute-sources.service";
 import { DBTrackAttribute } from "src/attributes/entities/track-attribute.entity";
 import { LoadedAttributeSource } from "src/attributes/interface/loaded-attribute-source.interface";
-import { DBResource } from "src/resources/entities/resource.entity";
+import { DBResource } from "src/resource-manager/entities/resource.entity";
 
 function makeSource(name: string, id: string): LoadedAttributeSource {
 	return {

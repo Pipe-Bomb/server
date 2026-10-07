@@ -8,7 +8,7 @@ import path from "path";
 import sharp from "sharp";
 
 @Injectable()
-export class ResourcesService {
+export class ResourceManagerService {
 	private readonly logger = new Logger("Resources Service");
 
 	private readonly MAX_IMAGE_DIMENSION = 4096;
@@ -28,7 +28,7 @@ export class ResourcesService {
 		);
 	}
 
-	resolveResourcePath(dir: string, file: string): string | null {
+	resolveResourcePath(dir: string, file: string) {
 		if (!/^[0-9a-fA-F]{3}$/.test(dir)) {
 			return null;
 		}
@@ -70,7 +70,11 @@ export class ResourcesService {
 			return null;
 		}
 
-		return resolved;
+		return {
+			path: resolved,
+			uuid,
+			extension,
+		};
 	}
 
 	async create(buffer: Buffer, extension: string) {

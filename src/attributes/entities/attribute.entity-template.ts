@@ -7,10 +7,10 @@ import {
 	PersistentIntegerAttributeResponse,
 	PersistentStringAttributeResponse,
 } from "../response/persistent-attribute.response";
-import { DBResource } from "src/resources/entities/resource.entity";
+import { DBResource } from "src/resource-manager/entities/resource.entity";
 import { SavedAttribute, SavedAttributeValues } from "@sdk";
 import { AttributeType } from "../enum/attribute-type.enum";
-import { ResourceResponse } from "src/resources/response/resource.response";
+import { ResourceResponse } from "src/resource-manager/response/resource.response";
 
 @Index(["entityRelationId"])
 export abstract class DBAttributeTemplate {
