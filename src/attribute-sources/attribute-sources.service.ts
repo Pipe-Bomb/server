@@ -730,9 +730,6 @@ export class AttributeSourcesService {
 			finalResponse.formatterSourceId = definition.sourceId || null;
 
 			if (definition.type === "buffer") {
-				// Buffer formatters are applied on demand by the resources
-				// endpoint, so the formatted representation is a URL pointing at
-				// it with the formatter's query parameters.
 				const formatter = this.getBufferAttributeFormatter(
 					type,
 					definition.pluginId,
@@ -750,7 +747,7 @@ export class AttributeSourcesService {
 								key,
 							),
 						)
-					: null;
+					: (finalResponse.values as ResourceResponse[]).slice();
 			} else {
 				finalResponse.formatted = finalResponse.values.map((value) =>
 					this.formatAttributeValue(

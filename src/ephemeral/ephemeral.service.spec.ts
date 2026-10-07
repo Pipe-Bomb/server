@@ -133,12 +133,66 @@ describe("EphemeralService.createEphemeralAttributes", () => {
 			expect(result.thumb.formatterSourceId).toBe("src-a");
 			expect(result.thumb.formatted).toHaveLength(1);
 
-			const formatted = result.thumb.formatted![0] as ResourceResponse;
+			const formatted = result.thumb.formatted[0] as ResourceResponse;
 			expect(formatted.extension).toBe("webp");
 			expect(formatted.sha256).toBeNull();
 			expect(formatted.uuid).toMatch(/^[0-9a-f-]+$/);
 			expect(formatted.url.url).toMatch(
 				/^\/ephemeral\/attribute-buffer\/[0-9a-f-]+\.webp\?plugin=a&source=src-a&entity=track&key=thumb$/,
+			);
+		} finally {
+			jest.useRealTimers();
+		}
+	});
+
+	it("mirrors the raw resource for buffer attributes without a formatter", () => {
+		jest.useFakeTimers();
+
+		try {
+			const b = makeSource("b", "src-b");
+			(
+				attributeSourcesService as unknown as {
+					sources: LoadedAttributeSource[];
+				}
+			).sources.push(b);
+
+			attributeSourcesService.registerTrackAttribute(b, {
+				key: "thumb",
+				type: "buffer",
+				supportsMultiple: false,
+			});
+
+			const possibleAttributes: LoadedAttribute[] = [
+				{
+					attribute: {
+						key: "thumb",
+						type: "buffer",
+						supportsMultiple: false,
+					},
+					source: b,
+				},
+			];
+
+			const result = service.createEphemeralAttributes(
+				[
+					{
+						key: "thumb",
+						value: { extension: "webp", buffer: Buffer.from("x") },
+					},
+				],
+				b,
+				possibleAttributes,
+				"track",
+			);
+
+			expect(result.thumb.formatterPluginId).toBeNull();
+			expect(result.thumb.formatterSourceId).toBeNull();
+			expect(result.thumb.formatted).toHaveLength(1);
+			expect(result.thumb.formatted[0]).toEqual(result.thumb.values[0]);
+
+			const formatted = result.thumb.formatted[0] as ResourceResponse;
+			expect(formatted.url.url).toMatch(
+				/^\/ephemeral\/attribute-buffer\/[0-9a-f-]+\.webp$/,
 			);
 		} finally {
 			jest.useRealTimers();

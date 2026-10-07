@@ -213,7 +213,7 @@ describe("AttributeSourcesService.toMap", () => {
 		expect(map.title.formatterSourceId).toBe("src-b");
 	});
 
-	it("sets formatted to null for buffer attributes without a formatter", () => {
+	it("mirrors values for buffer attributes without a formatter", () => {
 		const a = makeSource("a", "src-a");
 		seedSources(service, [a]);
 		service.registerTrackAttribute(a, {
@@ -232,12 +232,30 @@ describe("AttributeSourcesService.toMap", () => {
 
 		const map = service.toMap(rows, "track");
 
-		expect(map.art.formatted).toBeNull();
+		expect(map.art.formatted).toEqual([{ uuid: "u" }]);
+		expect(map.art.formatted).not.toBe(map.art.values);
 		expect(map.art.values).toEqual([{ uuid: "u" }]);
 		expect(map.art.pluginId).toBe("a");
 		expect(map.art.sourceId).toBe("src-a");
 		expect(map.art.formatterPluginId).toBeNull();
 		expect(map.art.formatterSourceId).toBeNull();
+	});
+
+	it("stringifies scalar attributes without a formatter", () => {
+		const a = makeSource("a", "src-a");
+		seedSources(service, [a]);
+		service.registerTrackAttribute(a, {
+			key: "channels",
+			type: "integer",
+			supportsMultiple: false,
+		});
+
+		const rows = [makeRow("a", "src-a", "channels", 0, { value_int: 2 })];
+		const map = service.toMap(rows, "track");
+
+		expect(map.channels.formatted).toEqual(["2"]);
+		expect(map.channels.formatterPluginId).toBeNull();
+		expect(map.channels.formatterSourceId).toBeNull();
 	});
 
 	it("emits a formatter resource for buffer attributes with a formatter", () => {
@@ -266,7 +284,7 @@ describe("AttributeSourcesService.toMap", () => {
 		const map = service.toMap(rows, "track");
 
 		expect(map.art.formatted).toHaveLength(1);
-		const formatted = map.art.formatted![0] as ResourceResponse;
+		const formatted = map.art.formatted[0] as ResourceResponse;
 		expect(formatted.uuid).toBe("u");
 		expect(formatted.extension).toBe("webp");
 		expect(formatted.sha256).toBeNull();
