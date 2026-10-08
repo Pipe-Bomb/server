@@ -11,6 +11,7 @@ import { AttributeType } from "src/attributes/enum/attribute-type.enum";
 import { DBSmartPlaylistFilterGroup } from "src/playlists/entity/smart-playlist-filter-group.entity";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { DBTrack } from "src/tracks/entities/track.entity";
+import { resolveRelationLoadStrategy } from "src/util/relation-load-strategy.util";
 import { WorkflowsService } from "src/workflows/workflows.service";
 import {
 	Repository,
@@ -54,7 +55,15 @@ export class TrackManagerService {
 	}
 
 	find(options: FindManyOptions<DBTrack>) {
-		return this.tracksRepository.find(options);
+		return this.tracksRepository.find({
+			...options,
+			relationLoadStrategy:
+				options.relationLoadStrategy ??
+				resolveRelationLoadStrategy(
+					this.tracksRepository.metadata,
+					options.relations,
+				),
+		});
 	}
 
 	count(where: FindOptionsWhere<DBTrack> | FindOptionsWhere<DBTrack>[]) {
@@ -62,7 +71,15 @@ export class TrackManagerService {
 	}
 
 	findOne(options: FindOneOptions<DBTrack>) {
-		return this.tracksRepository.findOne(options);
+		return this.tracksRepository.findOne({
+			...options,
+			relationLoadStrategy:
+				options.relationLoadStrategy ??
+				resolveRelationLoadStrategy(
+					this.tracksRepository.metadata,
+					options.relations,
+				),
+		});
 	}
 
 	async deleteAll() {

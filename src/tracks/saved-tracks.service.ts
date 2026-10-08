@@ -65,6 +65,7 @@ export class SavedTracksService {
 			},
 			take: options.amount,
 			skip: options.offset,
+			relationLoadStrategy: "query",
 			relations: {
 				track: {
 					attributes: options.withAttributes,
