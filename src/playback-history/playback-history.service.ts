@@ -65,6 +65,7 @@ export class PlaybackHistoryService {
 				},
 				take: options.amount,
 				skip: options.offset,
+				relationLoadStrategy: "query",
 			});
 
 		return {
