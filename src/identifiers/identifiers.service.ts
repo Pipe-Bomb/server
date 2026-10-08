@@ -4,7 +4,7 @@ import { Identifier, TrackIdentifier } from "sdk/identifier";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { DeregistrationBlockedError } from "src/util/deregistration-blocked.error";
 import { DBIdentity } from "./entities/identity.entity";
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
 import { DBTrack } from "src/tracks/entities/track.entity";
 import { LoadedLibraryHandler } from "src/libraries/interface/loaded-library.interface";
 import { IdentifierResponse } from "./response/identifier.response";
@@ -18,6 +18,8 @@ import { IdentifierTarget } from "./enum/identifier-target.enum";
 import { IdentifierType } from "./enum/identifier-type.enum";
 import { DisabledIdentifiersService } from "./disabled-identifiers.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
+import { TrackManagerService } from "src/track-manager/track-manager.service";
+import { emitServerEvent } from "src/util/emitter.util";
 
 @Injectable()
 export class IdentifiersService {
@@ -34,6 +36,7 @@ export class IdentifiersService {
 		private readonly disabledIdentifiersService: DisabledIdentifiersService,
 		private readonly artistManagerService: ArtistManagerService,
 		private readonly albumManagerService: AlbumManagerService,
+		private readonly trackManagerService: TrackManagerService,
 		private readonly emitter: EventEmitter2,
 	) {}
 
@@ -139,6 +142,8 @@ export class IdentifiersService {
 			throw new Error("Identifier does not exist");
 		}
 
+		const before = await this.getTrackIdentities(track);
+
 		await this.identitiesRepository.upsert(
 			{
 				pluginId: identity.pluginId,
@@ -151,6 +156,11 @@ export class IdentifiersService {
 				conflictPaths: ["pluginId", "identifierId", "trackUuid", "ordinal"],
 			},
 		);
+
+		const after = await this.getTrackIdentities(track);
+		if (this.identitySignature(before) !== this.identitySignature(after)) {
+			emitServerEvent(this.emitter, "track.identities.updated", track);
+		}
 	}
 
 	public getDisabledSet(): Promise<Set<string>> {
@@ -167,6 +177,8 @@ export class IdentifiersService {
 		this.logger.debug(
 			`Identifying Track "${track.trackId}" using ${identifiers.length} Identifiers...`,
 		);
+
+		const before = await this.getTrackIdentities(track);
 
 		const effectivelyDisabled = new Set<string>();
 
@@ -277,6 +289,21 @@ export class IdentifiersService {
 				);
 			}
 		}
+
+		const after = await this.getTrackIdentities(track);
+		if (this.identitySignature(before) !== this.identitySignature(after)) {
+			emitServerEvent(this.emitter, "track.identities.updated", track);
+		}
+	}
+
+	private identitySignature(identities: DBIdentity[]): string {
+		return identities
+			.map(
+				(identity) =>
+					`${identity.pluginId}:${identity.identifierId}:${identity.ordinal}:${identity.identity}`,
+			)
+			.sort()
+			.join("|");
 	}
 
 	all() {
@@ -309,32 +336,68 @@ export class IdentifiersService {
 			}
 		}
 
+		let affected: { trackUuid: string }[];
+
 		if (!identifiers.length) {
+			affected = await this.identitiesRepository
+				.createQueryBuilder()
+				.distinct(true)
+				.select("identity.trackUuid", "trackUuid")
+				.from(DBIdentity, "identity")
+				.getRawMany<{ trackUuid: string }>();
+
 			await this.identitiesRepository.deleteAll();
+		} else {
+			const conditionStrings: string[] = [];
+			const queryParameters: Record<string, string> = {};
+
+			for (const [index, { pluginId, identityId }] of identifiers.entries()) {
+				const pluginKey = `p_${index}`;
+				const identifierKey = `i_${index}`;
+
+				conditionStrings.push(
+					`(pluginId = :${pluginKey} AND identifierId = :${identifierKey})`,
+				);
+
+				queryParameters[pluginKey] = pluginId;
+				queryParameters[identifierKey] = identityId;
+			}
+
+			const condition = `NOT (${conditionStrings.join(" OR ")})`;
+
+			affected = await this.identitiesRepository
+				.createQueryBuilder()
+				.distinct(true)
+				.select("identity.trackUuid", "trackUuid")
+				.from(DBIdentity, "identity")
+				.where(condition, queryParameters)
+				.getRawMany<{ trackUuid: string }>();
+
+			await this.identitiesRepository
+				.createQueryBuilder()
+				.delete()
+				.from(DBIdentity)
+				.where(condition, queryParameters)
+				.execute();
+		}
+
+		await this.emitIdentitiesUpdatedForUuids(
+			affected.map((row) => row.trackUuid),
+		);
+	}
+
+	private async emitIdentitiesUpdatedForUuids(uuids: string[]) {
+		if (!uuids.length) {
 			return;
 		}
 
-		const conditionStrings: string[] = [];
-		const queryParameters: Record<string, string> = {};
+		const tracks = await this.trackManagerService.find({
+			where: { uuid: In(uuids) },
+		});
 
-		for (const [index, { pluginId, identityId }] of identifiers.entries()) {
-			const pluginKey = `p_${index}`;
-			const identifierKey = `i_${index}`;
-
-			conditionStrings.push(
-				`(pluginId = :${pluginKey} AND identifierId = :${identifierKey})`,
-			);
-
-			queryParameters[pluginKey] = pluginId;
-			queryParameters[identifierKey] = identityId;
+		for (const track of tracks) {
+			emitServerEvent(this.emitter, "track.identities.updated", track);
 		}
-
-		await this.identitiesRepository
-			.createQueryBuilder()
-			.delete()
-			.from(DBIdentity)
-			.where(`NOT (${conditionStrings.join(" OR ")})`, queryParameters)
-			.execute();
 	}
 
 	allArtist() {

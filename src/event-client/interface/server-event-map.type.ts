@@ -9,6 +9,8 @@ export type ServerEventMap = {
 	"track.removed": DBTrack;
 	"track.identities.updated": DBTrack;
 	"track.attributes.updated": DBTrack;
+	"track.artists.updated": DBTrack;
+	"track.albums.updated": DBTrack;
 
 	"album.added": DBAlbum;
 	"album.removed": DBAlbum;

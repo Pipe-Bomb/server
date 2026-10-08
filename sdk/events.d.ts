@@ -11,6 +11,8 @@ export type EventMap = {
 	"track-removed": [SavedTrack];
 	"track-identities-updated": [SavedTrack];
 	"track-attributes-updated": [SavedTrack];
+	"track-artists-updated": [SavedTrack];
+	"track-albums-updated": [SavedTrack];
 
 	"album-added": [SavedAlbum];
 	"album-removed": [SavedAlbum];

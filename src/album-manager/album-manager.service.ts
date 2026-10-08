@@ -19,6 +19,8 @@ import { LoadedIdentifier } from "src/identifiers/interface/loaded-identifier";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { DBTrack } from "src/tracks/entities/track.entity";
 import { resolveRelationLoadStrategy } from "src/util/relation-load-strategy.util";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { emitServerEvent } from "src/util/emitter.util";
 import {
 	DataSource,
 	DeepPartial,
@@ -53,6 +55,7 @@ export class AlbumManagerService {
 		private readonly albumTracksRepository: Repository<DBAlbumTrack>,
 		private readonly dataSource: DataSource,
 		private readonly externalUrlsService: ExternalUrlsService,
+		private readonly emitter: EventEmitter2,
 	) {}
 
 	getIdentifiers() {
@@ -319,6 +322,8 @@ export class AlbumManagerService {
 		// Optional: Metadata sources often provide position
 		position?: { disc: number; track: number },
 	) {
+		const before = await this.getTrackAlbumLinks(track.uuid);
+
 		await this.dataSource.transaction(async (tm) => {
 			const atRepo = tm.getRepository(DBAlbumTrack);
 
@@ -344,6 +349,11 @@ export class AlbumManagerService {
 				);
 			}
 		});
+
+		const after = await this.getTrackAlbumLinks(track.uuid);
+		if (this.trackAlbumSignature(before) !== this.trackAlbumSignature(after)) {
+			emitServerEvent(this.emitter, "track.albums.updated", track);
+		}
 	}
 
 	public async clearTrackLinks(
@@ -351,11 +361,32 @@ export class AlbumManagerService {
 		pluginId: string,
 		identifierId: string,
 	) {
+		const before = await this.getTrackAlbumLinks(track.uuid);
+
 		await this.albumTracksRepository.delete({
 			trackUuid: track.uuid,
 			pluginId,
 			identifierId,
 		});
+
+		const after = await this.getTrackAlbumLinks(track.uuid);
+		if (this.trackAlbumSignature(before) !== this.trackAlbumSignature(after)) {
+			emitServerEvent(this.emitter, "track.albums.updated", track);
+		}
+	}
+
+	private getTrackAlbumLinks(trackUuid: string) {
+		return this.albumTracksRepository.findBy({ trackUuid });
+	}
+
+	private trackAlbumSignature(links: DBAlbumTrack[]): string {
+		return links
+			.map(
+				(link) =>
+					`${link.albumUuid}:${link.pluginId}:${link.identifierId}:${link.discNumber}:${link.trackNumber}`,
+			)
+			.sort()
+			.join("|");
 	}
 
 	async clearArtistLinks(

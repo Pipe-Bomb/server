@@ -579,6 +579,10 @@ export class AttributeSourcesService {
 		});
 	}
 
+	public getTrackAttributeRows(trackUuid: string) {
+		return this.trackAttributesRepository.findBy({ entityId: trackUuid });
+	}
+
 	public async upsertArtistAttributes(attributes: DBArtistAttribute[]) {
 		await this.artistAttributesRepository.upsert(attributes, {
 			conflictPaths: ["pluginId", "entityId", "sourceId", "ordinal", "key"],

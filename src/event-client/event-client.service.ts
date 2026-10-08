@@ -27,6 +27,12 @@ const EVENT_BINDINGS: Record<keyof EventMap, ServerEventBinding> = {
 	"track-attributes-updated": bindEvent("track.attributes.updated", (track) => [
 		track.toSavedResponse(),
 	]),
+	"track-artists-updated": bindEvent("track.artists.updated", (track) => [
+		track.toSavedResponse(),
+	]),
+	"track-albums-updated": bindEvent("track.albums.updated", (track) => [
+		track.toSavedResponse(),
+	]),
 	"album-added": bindEvent("album.added", (album) => [album.toSavedResponse()]),
 	"album-removed": bindEvent("album.removed", (album) => [
 		album.toSavedResponse(),

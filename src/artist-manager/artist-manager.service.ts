@@ -36,6 +36,8 @@ import { DBArtistMerge } from "./entity/artist-merge.entity";
 import { DBAlbumArtist } from "src/albums/entity/album-artist.entity";
 import { DBAlbumIdentity } from "src/albums/entity/album-identity.entity";
 import { DBIdentity } from "src/identifiers/entities/identity.entity";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { emitServerEvent } from "src/util/emitter.util";
 
 @Injectable()
 export class ArtistManagerService {
@@ -59,22 +61,32 @@ export class ArtistManagerService {
 		private readonly trackManagerService: TrackManagerService,
 		private readonly albumManagerService: AlbumManagerService,
 		private readonly dataSource: DataSource,
+		private readonly emitter: EventEmitter2,
 	) {}
 
 	async setJoinPhrase(
-		trackUuid: string,
+		track: DBTrack,
 		artistUuid: string,
 		joinPhrase: string | null,
 	) {
+		const before = await this.getTrackArtistLinks(track.uuid);
+
 		await this.trackArtistsRepository.update(
 			{
-				trackUuid,
+				trackUuid: track.uuid,
 				artistUuid,
 			},
 			{
 				joinPhrase,
 			},
 		);
+
+		const after = await this.getTrackArtistLinks(track.uuid);
+		if (
+			this.trackArtistSignature(before) !== this.trackArtistSignature(after)
+		) {
+			emitServerEvent(this.emitter, "track.artists.updated", track);
+		}
 	}
 
 	async resolveArtist(
@@ -135,6 +147,23 @@ export class ArtistManagerService {
 		pluginId: string,
 		identifierId: string,
 	) {
+		const before = await this.getTrackArtistLinks(track.uuid);
+
+		await this.clearTrackLinksInternal(track, pluginId, identifierId);
+
+		const after = await this.getTrackArtistLinks(track.uuid);
+		if (
+			this.trackArtistSignature(before) !== this.trackArtistSignature(after)
+		) {
+			emitServerEvent(this.emitter, "track.artists.updated", track);
+		}
+	}
+
+	private async clearTrackLinksInternal(
+		track: DBTrack,
+		pluginId: string,
+		identifierId: string,
+	) {
 		await this.trackArtistsRepository.delete({
 			trackUuid: track.uuid,
 			pluginId,
@@ -148,7 +177,9 @@ export class ArtistManagerService {
 		pluginId: string,
 		identifierId: string,
 	) {
-		await this.clearTrackLinks(track, pluginId, identifierId);
+		const before = await this.getTrackArtistLinks(track.uuid);
+
+		await this.clearTrackLinksInternal(track, pluginId, identifierId);
 		await this.trackArtistsRepository.insert(
 			artistUuids.map((artistUuid, ordinal) => ({
 				trackUuid: track.uuid,
@@ -158,6 +189,27 @@ export class ArtistManagerService {
 				ordinal,
 			})),
 		);
+
+		const after = await this.getTrackArtistLinks(track.uuid);
+		if (
+			this.trackArtistSignature(before) !== this.trackArtistSignature(after)
+		) {
+			emitServerEvent(this.emitter, "track.artists.updated", track);
+		}
+	}
+
+	private getTrackArtistLinks(trackUuid: string) {
+		return this.trackArtistsRepository.findBy({ trackUuid });
+	}
+
+	private trackArtistSignature(links: DBTrackArtist[]): string {
+		return links
+			.map(
+				(link) =>
+					`${link.artistUuid}:${link.pluginId}:${link.identifierId}:${link.ordinal}:${link.joinPhrase ?? ""}`,
+			)
+			.sort()
+			.join("|");
 	}
 
 	async findOne(
@@ -653,7 +705,7 @@ export class ArtistManagerService {
 				const artistDateMs = (artist: DBArtist): number => {
 					const v = artist.dateAdded as unknown;
 					if (typeof v === "string") {
-						return new Date((v as string).replace(" ", "T")).getTime();
+						return new Date(v.replace(" ", "T")).getTime();
 					}
 					return artist.dateAdded;
 				};

@@ -1,18 +1,63 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { EventClientService } from './event-client.service';
+jest.mock("@nestjs/event-emitter", () => ({
+	EventEmitter2: class EventEmitter2 {},
+}));
 
-describe('EventClientService', () => {
-  let service: EventClientService;
+import { EventClientService } from "./event-client.service";
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [EventClientService],
-    }).compile();
+describe("EventClientService", () => {
+	let service: EventClientService;
+	let listeners: Map<string, (value: any) => void>;
+	let serverEmitter: { on: jest.Mock };
 
-    service = module.get<EventClientService>(EventClientService);
-  });
+	beforeEach(() => {
+		listeners = new Map();
+		serverEmitter = {
+			on: jest.fn((event: string, callback: (value: any) => void) => {
+				listeners.set(event, callback);
+			}),
+		};
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
+		service = new EventClientService(serverEmitter as any);
+	});
+
+	it("binds every server event to an SDK listener", () => {
+		expect(serverEmitter.on).toHaveBeenCalledWith(
+			"track.artists.updated",
+			expect.any(Function),
+		);
+		expect(serverEmitter.on).toHaveBeenCalledWith(
+			"track.albums.updated",
+			expect.any(Function),
+		);
+	});
+
+	it("forwards track.artists.updated to the SDK track-artists-updated event", () => {
+		const received: unknown[] = [];
+		service.addSdkListener("track-artists-updated", (track) =>
+			received.push(track),
+		);
+
+		listeners.get("track.artists.updated")!({
+			toSavedResponse: () => "saved-track",
+		});
+
+		expect(received).toEqual(["saved-track"]);
+	});
+
+	it("stops forwarding after removeSdkListener", () => {
+		const received: unknown[] = [];
+		const callback = (track: unknown) => received.push(track);
+		service.addSdkListener("track-albums-updated", callback);
+
+		listeners.get("track.albums.updated")!({
+			toSavedResponse: () => "saved-track",
+		});
+		expect(received).toEqual(["saved-track"]);
+
+		service.removeSdkListener("track-albums-updated", callback);
+		listeners.get("track.albums.updated")!({
+			toSavedResponse: () => "saved-track",
+		});
+		expect(received).toEqual(["saved-track"]);
+	});
 });
