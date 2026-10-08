@@ -262,8 +262,20 @@ export class TrackManagerService {
 				`Added ${toInsert.length} new Tracks to Library "${libraryHandler.id}" for Plugin "${plugin.package.name}"`,
 			);
 
+			const insertedTracks = await this.tracksRepository.find({
+				where: {
+					pluginId: plugin.package.name,
+					libraryId: libraryHandler.id,
+					trackId: In(toInsert.map((track) => track.trackId)),
+				},
+			});
+
 			for (const listener of this.addTrackListeners) {
 				listener();
+			}
+
+			for (const track of insertedTracks) {
+				emitServerEvent(this.emitter, "track.added", track);
 			}
 		}
 
