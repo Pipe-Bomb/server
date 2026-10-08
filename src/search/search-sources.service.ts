@@ -85,9 +85,9 @@ export class SearchSourcesService {
 		return null;
 	}
 
-hasSource(): boolean {
-	return this.sources.size > 0;
-}
+	hasSource(): boolean {
+		return this.getActive() !== null;
+	}
 
 	getLoaded(): LoadedSearchSource | null {
 		return this.getActive();

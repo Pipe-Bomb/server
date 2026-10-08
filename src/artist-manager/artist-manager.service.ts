@@ -653,7 +653,7 @@ export class ArtistManagerService {
 				const artistDateMs = (artist: DBArtist): number => {
 					const v = artist.dateAdded as unknown;
 					if (typeof v === "string") {
-						return new Date(v.replace(" ", "T")).getTime();
+						return new Date((v as string).replace(" ", "T")).getTime();
 					}
 					return artist.dateAdded;
 				};

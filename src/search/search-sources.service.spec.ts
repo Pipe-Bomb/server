@@ -55,10 +55,12 @@ describe("SearchSourcesService", () => {
     expect(() => service.register(source, plugin)).toThrow();
   });
 
-  it("hasSource returns true when source exists", () => {
+  it("hasSource reflects whether an active source is loaded", async () => {
     const plugin = { package: { name: "plugin1" } } as any;
     const source = new MockSearchSource();
     service.register(source, plugin);
+    expect(service.hasSource()).toBe(false);
+    await service.setActive("plugin1", "source1");
     expect(service.hasSource()).toBe(true);
   });
 

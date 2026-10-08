@@ -278,7 +278,7 @@ export class AlbumsService {
 				const albumDateMs = (album: DBAlbum): number => {
 					const v = album.dateAdded as unknown;
 					if (typeof v === "string") {
-						return new Date(v.replace(" ", "T")).getTime();
+						return new Date((v as string).replace(" ", "T")).getTime();
 					}
 					return album.dateAdded;
 				};
@@ -699,7 +699,7 @@ export class AlbumsService {
 		let pool: DBAlbum[] = [];
 		let activeThreads = 0;
 		let isFinding = false;
-		const chunksLoaded = 0;
+		let chunksLoaded = 0;
 		let allChunksLoaded = false;
 		let completed = 0;
 		const failedUuids: string[] = [];
