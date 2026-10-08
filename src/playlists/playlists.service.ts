@@ -428,6 +428,7 @@ export class PlaylistsService {
 				dateAdded: "asc",
 				ordinal: "asc",
 			},
+			relationLoadStrategy: "query",
 			take: options.amount,
 			skip: options.offset,
 		});
