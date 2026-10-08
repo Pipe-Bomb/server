@@ -321,6 +321,7 @@ export class PlaylistsService {
 			where: {
 				uuid,
 			},
+			relationLoadStrategy: "query",
 			relations: {
 				attributes: options.withAttributes,
 				owner: options.withOwner,
@@ -495,6 +496,7 @@ export class PlaylistsService {
 					where: {
 						uuid,
 					},
+					relationLoadStrategy: "query",
 					relations: {
 						attributes: relations?.attributes,
 						filterGroups: relations?.filterGroups && {

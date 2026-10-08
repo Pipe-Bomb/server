@@ -55,21 +55,21 @@ export class SavedArtistsService {
 			withIdentities?: boolean;
 		},
 	) {
-		const [artists, total] =
-			await this.savedArtistsRepository.findAndCount({
-				where: user ? { userUuid: user.uuid } : {},
-				order: {
-					dateAdded: "DESC",
+		const [artists, total] = await this.savedArtistsRepository.findAndCount({
+			where: user ? { userUuid: user.uuid } : {},
+			order: {
+				dateAdded: "DESC",
+			},
+			take: options.amount,
+			skip: options.offset,
+			relationLoadStrategy: "query",
+			relations: {
+				artist: {
+					attributes: options.withAttributes,
+					identities: options.withIdentities,
 				},
-				take: options.amount,
-				skip: options.offset,
-				relations: {
-					artist: {
-						attributes: options.withAttributes,
-						identities: options.withIdentities,
-					},
-				},
-			});
+			},
+		});
 
 		return {
 			artists,

@@ -75,6 +75,7 @@ export class SavedAlbumsService {
 			},
 			take: options.amount,
 			skip: options.offset,
+			relationLoadStrategy: "query",
 			relations: {
 				album: options.withAlbums && {
 					attributes: options.withAttributes,

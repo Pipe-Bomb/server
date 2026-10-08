@@ -141,6 +141,7 @@ export class UserManagerService {
 	) {
 		return this.usersRepository.findOne({
 			where: { uuid },
+			relationLoadStrategy: "query",
 			relations: {
 				playlists: !!options.withPlaylists && {
 					attributes: options.withPlaylistAttributes,
