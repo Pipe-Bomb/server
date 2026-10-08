@@ -127,6 +127,7 @@ export class TracksController {
 				libraryId,
 				trackId,
 			},
+			relationLoadStrategy: "query",
 			relations: {
 				attributes: true,
 				identities: true,
@@ -196,6 +197,7 @@ export class TracksController {
 				libraryId,
 				trackId,
 			})),
+			relationLoadStrategy: "query",
 			relations: {
 				attributes: true,
 				identities: true,

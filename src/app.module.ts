@@ -12,7 +12,7 @@ import { AttributesModule } from "./attributes/attributes.module";
 import { TasksModule } from "./tasks/tasks.module";
 import { LanguageModule } from "./language/language.module";
 import { ArtistsModule } from "./artists/artists.module";
-import { ResourcesModule } from "./resources/resources.module";
+import { ResourceManagerModule } from "./resource-manager/resource-manager.module";
 import { AttributeSourcesModule } from "./attribute-sources/attribute-sources.module";
 import { IconsModule } from "./icons/icons.module";
 import { ExternalUrlsModule } from "./external-urls/external-urls.module";
@@ -43,7 +43,8 @@ import { MarketplacesModule } from "./marketplace/marketplaces.module";
 import { PlaybackHistoryModule } from "./playback-history/playback-history.module";
 import { BookmarksModule } from "./bookmarks/bookmarks.module";
 import { EventEmitterModule } from "@nestjs/event-emitter";
-import { EventClientModule } from './event-client/event-client.module';
+import { EventClientModule } from "./event-client/event-client.module";
+import { ResourcesModule } from "./resources/resources.module";
 
 @Module({
 	imports: [
@@ -65,6 +66,7 @@ import { EventClientModule } from './event-client/event-client.module';
 		TasksModule,
 		LanguageModule,
 		ArtistsModule,
+		ResourceManagerModule,
 		ResourcesModule,
 		AttributeSourcesModule,
 		IconsModule,

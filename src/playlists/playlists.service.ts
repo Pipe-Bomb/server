@@ -321,6 +321,7 @@ export class PlaylistsService {
 			where: {
 				uuid,
 			},
+			relationLoadStrategy: "query",
 			relations: {
 				attributes: options.withAttributes,
 				owner: options.withOwner,
@@ -428,6 +429,7 @@ export class PlaylistsService {
 				dateAdded: "asc",
 				ordinal: "asc",
 			},
+			relationLoadStrategy: "query",
 			take: options.amount,
 			skip: options.offset,
 		});
@@ -494,6 +496,7 @@ export class PlaylistsService {
 					where: {
 						uuid,
 					},
+					relationLoadStrategy: "query",
 					relations: {
 						attributes: relations?.attributes,
 						filterGroups: relations?.filterGroups && {

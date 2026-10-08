@@ -5,8 +5,7 @@ import {
 	Attribute,
 	AttributeValue,
 	AttributeFormatter,
-	AttributeType,
-	AttributeValues,
+	BufferAttributeFormatter,
 } from "@sdk";
 import { CustomAttributeDto } from "src/attributes/dto/custom-attribute.dto";
 import { OrderedAttributeSourceDto } from "src/attributes/dto/ordered-attribute-source.dto";
@@ -19,8 +18,11 @@ import { AttributeType as AttributeTypeEnum } from "src/attributes/enum/attribut
 import { LoadedAttributeSource } from "src/attributes/interface/loaded-attribute-source.interface";
 import { LoadedAttribute } from "src/attributes/interface/loaded-attribute.interface";
 import { PersistentAttributeResponse } from "src/attributes/response/persistent-attribute.response";
+import { ResolvedAttributeDefinition } from "src/attributes/interface/resolved-attribute-definition.interface";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
-import { ResourcesService } from "src/resources/resources.service";
+import { ResourceManagerService } from "src/resource-manager/resource-manager.service";
+import { ResourceResponse } from "src/resource-manager/response/resource.response";
+import { RelativeUrl } from "src/interception/relative-url";
 import { TasksService } from "src/tasks/tasks.service";
 import { DeepPartial, In, Repository } from "typeorm";
 
@@ -44,7 +46,7 @@ export class AttributeSourcesService {
 		@InjectRepository(DBPlaylistAttribute)
 		private readonly playlistAttributesRepository: Repository<DBPlaylistAttribute>,
 		private readonly tasksService: TasksService,
-		private readonly resourcesService: ResourcesService,
+		private readonly resourceManagerService: ResourceManagerService,
 	) {}
 
 	unregisterAttributeSource(plugin: LoadedPlugin, source: AttributeSource) {
@@ -136,6 +138,54 @@ export class AttributeSourcesService {
 					plugin.package.name == pluginId && source.id == sourceId,
 			) ?? null
 		);
+	}
+
+	getBufferAttributeFormatter(
+		type: "track" | "artist" | "album" | "playlist",
+		pluginId: string,
+		sourceId: string,
+		key: string,
+	): BufferAttributeFormatter | null {
+		for (const loaded of this.getAttributeSet(type)) {
+			if (
+				loaded.attribute.key != key ||
+				loaded.attribute.type != "buffer" ||
+				!loaded.source
+			) {
+				continue;
+			}
+
+			if (
+				loaded.source.plugin.package.name == pluginId &&
+				loaded.source.source.id == sourceId
+			) {
+				return loaded.attribute.formatter ?? null;
+			}
+		}
+
+		return null;
+	}
+
+	buildFormattedBufferResource(
+		resource: ResourceResponse,
+		pluginId: string,
+		sourceId: string,
+		entity: string,
+		key: string,
+	): ResourceResponse {
+		const query = new URLSearchParams({
+			plugin: pluginId,
+			source: sourceId,
+			entity,
+			key,
+		});
+
+		return {
+			uuid: resource.uuid,
+			url: new RelativeUrl(`${resource.url.url}?${query.toString()}`),
+			extension: resource.extension,
+			sha256: null,
+		};
 	}
 
 	doSourcesMatch(
@@ -476,7 +526,7 @@ export class AttributeSourcesService {
 							} else {
 								buffer = await attribute.value.buffer();
 							}
-							entity.value_buffer = await this.resourcesService.create(
+							entity.value_buffer = await this.resourceManagerService.create(
 								buffer,
 								attribute.value.extension,
 							);
@@ -590,7 +640,11 @@ export class AttributeSourcesService {
 			return null;
 		}
 
-		const format = type && this.getFormatter(type);
+		const output: Record<string, PersistentAttributeResponse> = {};
+
+		if (!type) {
+			return output;
+		}
 
 		const map = new Map<string, T[]>();
 
@@ -603,60 +657,101 @@ export class AttributeSourcesService {
 			}
 		}
 
-		const output: Record<string, PersistentAttributeResponse> = {};
-
 		for (const [key, values] of map) {
-			let finalResponse: PersistentAttributeResponse | null = null;
-
-			if (
-				values.some((attribute) => !attribute.pluginId && !attribute.sourceId)
-			) {
-				const responses = values
-					.filter((attribute) => !attribute.pluginId && !attribute.sourceId)
-					.map((attribute) => attribute.toResponse());
-				finalResponse = responses[0];
-				for (let i = 1; i < responses.length; i++) {
-					(finalResponse.values as any[]).push(...responses[i].values);
-				}
-			} else {
-				for (const { source, plugin } of this.sources) {
-					if (
-						values.some(
-							(attribute) =>
-								attribute.pluginId == plugin.package.name &&
-								attribute.sourceId == source.id,
-						)
-					) {
-						const responses = values
-							.filter(
-								(attribute) =>
-									attribute.pluginId == plugin.package.name &&
-									attribute.sourceId == source.id,
-							)
-							.map((attribute) => attribute.toResponse());
-
-						finalResponse = responses[0];
-						for (let i = 1; i < responses.length; i++) {
-							(finalResponse.values as any[]).push(...responses[i].values);
-						}
-						break;
-					}
-				}
-			}
-
-			if (!finalResponse) {
+			const definition = this.resolveAttributeDefinition(type, key);
+			if (!definition) {
 				continue;
 			}
 
-			if (!format || finalResponse.type == AttributeTypeEnum.BUFFER) {
-				finalResponse.formatted = null;
+			const candidates: {
+				group: number;
+				ordinal: number;
+				response: PersistentAttributeResponse;
+			}[] = [];
+
+			for (const attribute of values) {
+				let group: number;
+				if (!attribute.pluginId && !attribute.sourceId) {
+					group = -1;
+				} else {
+					group = this.sources.findIndex(
+						(source) =>
+							source.plugin.package.name == attribute.pluginId &&
+							source.source.id == attribute.sourceId,
+					);
+					if (group < 0) {
+						continue;
+					}
+				}
+
+				let response: PersistentAttributeResponse;
+				try {
+					response = attribute.toResponse();
+				} catch {
+					continue;
+				}
+
+				if (String(response.type) !== String(definition.type)) {
+					continue;
+				}
+
+				candidates.push({ group, ordinal: attribute.ordinal, response });
+			}
+
+			if (!candidates.length) {
+				continue;
+			}
+
+			candidates.sort((a, b) => a.group - b.group || a.ordinal - b.ordinal);
+
+			// Only the first source that provides values is used; values from
+			// other sources are never combined. Source-less (custom) rows rank
+			// first and are reported as having no source.
+			const firstSource = candidates[0].group;
+			const firstSourceCandidates = candidates.filter(
+				(candidate) => candidate.group === firstSource,
+			);
+
+			const selected = definition.supportsMultiple
+				? firstSourceCandidates
+				: firstSourceCandidates.slice(0, 1);
+
+			const finalResponse = selected[0].response;
+			finalResponse.pluginId =
+				firstSource === -1 ? null : finalResponse.pluginId;
+			finalResponse.sourceId =
+				firstSource === -1 ? null : finalResponse.sourceId;
+
+			for (let i = 1; i < selected.length; i++) {
+				(finalResponse.values as any[]).push(...selected[i].response.values);
+			}
+
+			finalResponse.formatterPluginId = definition.pluginId || null;
+			finalResponse.formatterSourceId = definition.sourceId || null;
+
+			if (definition.type === "buffer") {
+				const formatter = this.getBufferAttributeFormatter(
+					type,
+					definition.pluginId,
+					definition.sourceId,
+					key,
+				);
+
+				finalResponse.formatted = formatter
+					? (finalResponse.values as ResourceResponse[]).map((value) =>
+							this.buildFormattedBufferResource(
+								value,
+								definition.pluginId,
+								definition.sourceId,
+								type,
+								key,
+							),
+						)
+					: (finalResponse.values as ResourceResponse[]).slice();
 			} else {
 				finalResponse.formatted = finalResponse.values.map((value) =>
-					format(
-						finalResponse.pluginId,
-						finalResponse.sourceId,
-						key,
-						finalResponse.type,
+					this.formatAttributeValue(
+						definition,
 						value as string | number | boolean,
 					),
 				);
@@ -668,67 +763,77 @@ export class AttributeSourcesService {
 		return output;
 	}
 
-	getSources() {
-		return [...this.sources];
+	public resolveAttributeDefinition(
+		type: "track" | "artist" | "album" | "playlist",
+		key: string,
+	): ResolvedAttributeDefinition | null {
+		const candidates: { priority: number; loaded: LoadedAttribute }[] = [];
+
+		for (const loaded of this.getAttributeSet(type)) {
+			if (loaded.attribute.key !== key) {
+				continue;
+			}
+
+			let priority: number;
+			if (loaded.source) {
+				priority = this.sources.indexOf(loaded.source);
+				if (priority < 0) {
+					continue;
+				}
+			} else {
+				priority = this.sources.length;
+			}
+
+			candidates.push({ priority, loaded });
+		}
+
+		if (!candidates.length) {
+			return null;
+		}
+
+		candidates.sort((a, b) => a.priority - b.priority);
+
+		const attribute = candidates[0].loaded.attribute;
+
+		const formatterLoaded =
+			candidates.find(
+				(candidate) =>
+					candidate.loaded.attribute.type === attribute.type &&
+					candidate.loaded.attribute.formatter,
+			)?.loaded ?? null;
+
+		return {
+			type: attribute.type,
+			supportsMultiple: attribute.supportsMultiple,
+			pluginId: formatterLoaded?.source?.plugin.package.name ?? "",
+			sourceId: formatterLoaded?.source?.source.id ?? "",
+			formatter:
+				attribute.type === "buffer"
+					? null
+					: ((formatterLoaded?.attribute.formatter as AttributeFormatter) ??
+						null),
+		};
 	}
 
-	getFormatter(type: "track" | "artist" | "album" | "playlist") {
-		const attributeSet = {
+	public formatAttributeValue(
+		definition: ResolvedAttributeDefinition,
+		value: string | number | boolean,
+	): string {
+		return definition.formatter
+			? definition.formatter(value)
+			: value.toString();
+	}
+
+	private getAttributeSet(type: "track" | "artist" | "album" | "playlist") {
+		return {
 			track: this.trackAttributes,
 			artist: this.artistAttributes,
 			album: this.albumAttributes,
 			playlist: this.playlistAttributes,
 		}[type];
+	}
 
-		const formatterMap = new Map<
-			string,
-			{
-				formatter: AttributeFormatter;
-				pluginId: string;
-				sourceId: string;
-				priority: number;
-			}
-		>();
-
-		for (const { attribute, source } of attributeSet) {
-			if (attribute.type != "buffer" && attribute.formatter) {
-				const key = `${attribute.key}:${attribute.type}`;
-
-				let index = 0;
-				if (source) {
-					const sourceIndex = this.sources.indexOf(source);
-					if (sourceIndex >= 0) {
-						index = sourceIndex + 1;
-					}
-				}
-
-				const currentFormatter = formatterMap.get(key);
-				if (currentFormatter && currentFormatter.priority < index) {
-					continue;
-				}
-
-				formatterMap.set(key, {
-					formatter: attribute.formatter as AttributeFormatter<any>,
-					pluginId: source?.plugin.package.name ?? "",
-					sourceId: source?.source.id ?? "",
-					priority: index,
-				});
-			}
-		}
-
-		return <T extends AttributeType>(
-			_pluginId: string,
-			_sourceId: string,
-			key: string,
-			valueType: AttributeType,
-			value: AttributeValues[T],
-		) => {
-			const mapKey = `${key}:${valueType}`;
-			const formatter = formatterMap.get(mapKey);
-			if (formatter) {
-				return formatter.formatter(value);
-			}
-			return value.toString();
-		};
+	getSources() {
+		return [...this.sources];
 	}
 }

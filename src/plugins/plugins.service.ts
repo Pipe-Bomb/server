@@ -613,7 +613,6 @@ export class PluginsService {
 						libraryId,
 						trackId,
 					},
-					relationLoadStrategy: "query",
 					relations: {
 						identities: relations?.identities,
 						attributes: relations?.attributes,
@@ -751,7 +750,6 @@ export class PluginsService {
 						libraryId,
 						trackId,
 					})),
-					relationLoadStrategy: "query",
 					relations: {
 						identities: relations?.identities,
 						attributes: relations?.attributes,
@@ -792,7 +790,6 @@ export class PluginsService {
 				}
 				const albums = await this.albumManagerService.findManyRaw({
 					where: { uuid: In(uuids) },
-					relationLoadStrategy: "query",
 					relations: {
 						identities: relations?.identities,
 						attributes: relations?.attributes,
@@ -842,7 +839,6 @@ export class PluginsService {
 				}
 				const artists = await this.artistManagerService.findManyRaw({
 					where: { uuid: In(uuids) },
-					relationLoadStrategy: "query",
 					relations: {
 						identities: relations?.identities,
 						attributes: relations?.attributes,

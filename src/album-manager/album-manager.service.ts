@@ -18,9 +18,11 @@ import { ExistingDependency } from "src/identifiers/interface/existing-identifie
 import { LoadedIdentifier } from "src/identifiers/interface/loaded-identifier";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { DBTrack } from "src/tracks/entities/track.entity";
+import { resolveRelationLoadStrategy } from "src/util/relation-load-strategy.util";
 import {
 	DataSource,
 	DeepPartial,
+	FindOptionsRelations,
 	FindOptionsSelect,
 	FindOptionsSelectByString,
 	FindManyOptions,
@@ -74,26 +76,39 @@ export class AlbumManagerService {
 		where?: FindOptionsWhere<DBAlbum> | FindOptionsWhere<DBAlbum>[];
 		select?: FindOptionsSelect<DBAlbum> | FindOptionsSelectByString<DBAlbum>;
 	}) {
+		const relations: FindOptionsRelations<DBAlbum> = {
+			attributes: options.withAttributes,
+			identities: options.withIdentities,
+			artists: !!options.withArtists && {
+				artist: {
+					attributes: true,
+				},
+			},
+		};
+
 		return this.albumsRepository.find({
 			where: options.where,
 			take: options.amount,
 			skip: options.offset,
-			relationLoadStrategy: "query",
+			relationLoadStrategy: resolveRelationLoadStrategy(
+				this.albumsRepository.metadata,
+				relations,
+			),
 			select: options.select,
-			relations: {
-				attributes: options.withAttributes,
-				identities: options.withIdentities,
-				artists: !!options.withArtists && {
-					artist: {
-						attributes: true,
-					},
-				},
-			},
+			relations,
 		});
 	}
 
 	findManyRaw(options: FindManyOptions<DBAlbum>) {
-		return this.albumsRepository.find(options);
+		return this.albumsRepository.find({
+			...options,
+			relationLoadStrategy:
+				options.relationLoadStrategy ??
+				resolveRelationLoadStrategy(
+					this.albumsRepository.metadata,
+					options.relations,
+				),
+		});
 	}
 
 	async updateAttributionRunId(runId: string, albumUuids: string[]) {
@@ -129,29 +144,35 @@ export class AlbumManagerService {
 			select: ["uuid"],
 		});
 
+		const relations: FindOptionsRelations<DBAlbumArtist> = {
+			album: {
+				identities: options.withIdentities,
+				attributes: options.withAttributes,
+				artists: options.withArtists && {
+					artist: {
+						identities: options.withArtistIdentities,
+						attributes: options.withArtistAttributes,
+					},
+				},
+				tracks: options.withTracks && {
+					track: {
+						identities: options.withTrackIdentities,
+						attributes: options.withTrackAttributes,
+					},
+				},
+			},
+		};
+
 		const albumArtists = await this.albumArtistsRepository.find({
 			where: {
 				artistUuid: artist.uuid,
 				albumUuid: In(albums.map((album) => album.uuid)),
 			},
-			relations: {
-				album: {
-					identities: options.withIdentities,
-					attributes: options.withAttributes,
-					artists: options.withArtists && {
-						artist: {
-							identities: options.withArtistIdentities,
-							attributes: options.withArtistAttributes,
-						},
-					},
-					tracks: options.withTracks && {
-						track: {
-							identities: options.withTrackIdentities,
-							attributes: options.withTrackAttributes,
-						},
-					},
-				},
-			},
+			relationLoadStrategy: resolveRelationLoadStrategy(
+				this.albumArtistsRepository.metadata,
+				relations,
+			),
+			relations,
 		});
 
 		const uniqueMap = new Map<string, DBAlbumArtist>();
@@ -181,33 +202,38 @@ export class AlbumManagerService {
 			withTrackArtistAttributes?: boolean;
 		} = {},
 	) {
+		const relations: FindOptionsRelations<DBAlbum> = {
+			attributes: options.withAttributes,
+			identities: options.withIdentities,
+			artists: !!options.withArtists && {
+				artist: {
+					attributes: options.withArtistAttributes,
+					identities: options.withArtistIdentities,
+				},
+			},
+			tracks: !!options.withTracks && {
+				track: {
+					artists: !!options.withTrackArtists && {
+						artist: {
+							identities: options.withTrackArtistIdentities,
+							attributes: options.withTrackArtistAttributes,
+						},
+					},
+					identities: options.withTrackIdentities,
+					attributes: options.withTrackAttributes,
+				},
+			},
+		};
+
 		const album = await this.albumsRepository.findOne({
 			where: {
 				uuid,
 			},
-			relationLoadStrategy: "query",
-			relations: {
-				attributes: options.withAttributes,
-				identities: options.withIdentities,
-				artists: !!options.withArtists && {
-					artist: {
-						attributes: options.withArtistAttributes,
-						identities: options.withArtistIdentities,
-					},
-				},
-				tracks: !!options.withTracks && {
-					track: {
-						artists: !!options.withTrackArtists && {
-							artist: {
-								identities: options.withTrackArtistIdentities,
-								attributes: options.withTrackArtistAttributes,
-							},
-						},
-						identities: options.withTrackIdentities,
-						attributes: options.withTrackAttributes,
-					},
-				},
-			},
+			relationLoadStrategy: resolveRelationLoadStrategy(
+				this.albumsRepository.metadata,
+				relations,
+			),
+			relations,
 		});
 
 		return album;
