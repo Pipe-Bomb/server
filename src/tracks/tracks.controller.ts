@@ -37,7 +37,8 @@ import { SavedTracksService } from "./saved-tracks.service";
 import { ReqUser } from "src/users/user.decorator";
 import { FetchUserPipe } from "src/users/user.pipe";
 import { DBUser } from "src/users/entity/user.entity";
-import { TrackCreationSessionResponse } from "src/ephemeral/response/track-creation-session.response";
+import { SavedTracksResponse } from "./response/saved-tracks.response";
+import { CreationSessionResponse } from "src/ephemeral/response/creation-session.response";
 
 @Controller("tracks")
 export class TracksController {
@@ -55,16 +56,21 @@ export class TracksController {
 
 	@Get("saved")
 	@ApiOperation({ operationId: "getSavedTracks" })
-	@ApiOkResponse()
+	@ApiOkResponse({
+		type: SavedTracksResponse,
+	})
 	@ApiUnauthorizedResponse()
 	async getSavedTracks(
 		@Query("pageSize") pageSize?: string,
 		@Query("page") page?: string,
 		@ReqUser(FetchUserPipe) user?: DBUser,
-	) {
-		const size = Math.min(Math.max(parseInt(pageSize ?? "20", 10) || 20, 1), 30);
+	): Promise<SavedTracksResponse> {
+		const size = Math.min(
+			Math.max(parseInt(pageSize ?? "20", 10) || 20, 1),
+			30,
+		);
 		const pageNum = Math.max(parseInt(page ?? "1", 10) || 1, 1);
-		const { tracks, count } = await this.savedTracksService.getSavedTracks(
+		const { tracks, total } = await this.savedTracksService.getSavedTracks(
 			user ?? null,
 			{
 				amount: size,
@@ -80,14 +86,14 @@ export class TracksController {
 			tracks: tracks
 				.filter((entry) => entry.track)
 				.map((entry) => entry.track!.toResponse()),
-			count,
+			total,
 		};
 	}
 
 	@Get("saved/pending")
 	@ApiOperation({ operationId: "getSavedTracksPending" })
 	@ApiOkResponse({
-		type: TrackCreationSessionResponse,
+		type: CreationSessionResponse,
 		isArray: true,
 	})
 	@ApiUnauthorizedResponse()
@@ -121,6 +127,7 @@ export class TracksController {
 				libraryId,
 				trackId,
 			},
+			relationLoadStrategy: "query",
 			relations: {
 				attributes: true,
 				identities: true,
@@ -190,6 +197,7 @@ export class TracksController {
 				libraryId,
 				trackId,
 			})),
+			relationLoadStrategy: "query",
 			relations: {
 				attributes: true,
 				identities: true,
@@ -287,7 +295,9 @@ export class TracksController {
 
 	@Put(":pluginId/:libraryId/:trackId/save")
 	@ApiOperation({ operationId: "saveTrack" })
-	@ApiOkResponse()
+	@ApiOkResponse({
+		type: CreationSessionResponse,
+	})
 	@ApiNoContentResponse()
 	@ApiUnauthorizedResponse()
 	@ApiNotFoundResponse()
@@ -296,7 +306,7 @@ export class TracksController {
 		@Param("libraryId") libraryId: string,
 		@Param("trackId") trackId: string,
 		@ReqUser(FetchUserPipe) user: DBUser,
-	) {
+	): Promise<CreationSessionResponse | void> {
 		const track = await this.trackManagerService.findOne({
 			where: { pluginId, libraryId, trackId },
 		});
@@ -305,15 +315,14 @@ export class TracksController {
 			return;
 		}
 
-		const sessionUuid = await this.savedTracksService.saveEphemeralTrack(
+		const session = await this.savedTracksService.saveEphemeralTrack(
 			pluginId,
 			libraryId,
 			trackId,
 			user,
 		);
-
-		if (sessionUuid) {
-			return { sessionUuid };
+		if (session) {
+			return this.ephemeralService.toCreationSessionResponse(session);
 		}
 	}
 

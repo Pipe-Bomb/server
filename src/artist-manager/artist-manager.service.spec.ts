@@ -14,6 +14,17 @@ import { DBAlbumArtist } from "src/albums/entity/album-artist.entity";
 import { ArtistIdentityTarget } from "./enum/artist-identity-target.enum";
 import { DBArtistMerge } from "./entity/artist-merge.entity";
 
+const createRelationMetadata = (): any => {
+	const relation: any = {
+		isOneToMany: true,
+		isManyToMany: false,
+	};
+	relation.inverseEntityMetadata = {
+		findRelationWithPropertyPath: () => createRelationMetadata(),
+	};
+	return relation;
+};
+
 const createMockRepo = () => ({
 	find: jest.fn(),
 	findOne: jest.fn(),
@@ -24,6 +35,9 @@ const createMockRepo = () => ({
 	countBy: jest.fn(),
 	create: jest.fn(),
 	createQueryBuilder: jest.fn(),
+	metadata: {
+		findRelationWithPropertyPath: () => createRelationMetadata(),
+	},
 });
 
 const makePlugin = (name: string) =>
@@ -320,7 +334,7 @@ describe("ArtistManagerService", () => {
 			await service.findOne("missing", {});
 			expect(artistsRepo.findOne).toHaveBeenCalledWith({
 				where: { uuid: "missing" },
-				relationLoadStrategy: "query",
+				relationLoadStrategy: "join",
 				relations: {
 					attributes: undefined,
 					identities: undefined,
@@ -380,7 +394,7 @@ describe("ArtistManagerService", () => {
 			expect(artistsRepo.find).toHaveBeenCalledWith({
 				take: 10,
 				skip: 5,
-				relationLoadStrategy: "query",
+				relationLoadStrategy: "join",
 				select: undefined,
 				relations: {
 					attributes: true,
@@ -395,7 +409,10 @@ describe("ArtistManagerService", () => {
 			artistsRepo.find.mockResolvedValue([{ uuid: "x" }]);
 			const opts = { take: 1 } as any;
 			await expect(service.findManyRaw(opts)).resolves.toEqual([{ uuid: "x" }]);
-			expect(artistsRepo.find).toHaveBeenCalledWith(opts);
+			expect(artistsRepo.find).toHaveBeenCalledWith({
+				...opts,
+				relationLoadStrategy: "join",
+			});
 		});
 	});
 
@@ -416,7 +433,7 @@ describe("ArtistManagerService", () => {
 			expect(artistsRepo.find).toHaveBeenCalledWith({
 				take: 1,
 				skip: undefined,
-				relationLoadStrategy: "query",
+				relationLoadStrategy: "join",
 				select: undefined,
 				relations: {
 					attributes: undefined,
@@ -1107,7 +1124,7 @@ describe("ArtistManagerService", () => {
 			expect(artistsRepo.find).toHaveBeenLastCalledWith({
 				take: 1000,
 				skip: 2000,
-				relationLoadStrategy: "query",
+				relationLoadStrategy: "join",
 				select: undefined,
 				relations: {
 					attributes: undefined,

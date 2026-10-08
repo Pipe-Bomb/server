@@ -25,9 +25,12 @@ import {
 	PersistentStringAttributeResponse,
 } from "src/attributes/response/persistent-attribute.response";
 import { randomUUID } from "crypto";
+import { In } from "typeorm";
 import { RelativeUrl } from "src/interception/relative-url";
+import { ResourceResponse } from "src/resource-manager/response/resource.response";
 import { ArtistIdentityTarget } from "src/artist-manager/enum/artist-identity-target.enum";
 import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
+import { AlbumManagerService } from "src/album-manager/album-manager.service";
 import { ArtistResponse } from "src/artist-manager/response/artist.response";
 import { EphemeralTrackResponse } from "./response/ephemeral-track.response";
 import { TrackArtistResponse } from "src/tracks/response/track-artist.response";
@@ -35,13 +38,12 @@ import { DBArtistIdentity } from "src/artist-manager/entity/artist-identity.enti
 import { AlbumResponse } from "src/albums/response/album.response";
 import { AlbumArtistResponse } from "src/albums/response/album-artist.response";
 import { DBAlbumIdentity } from "src/albums/entity/album-identity.entity";
-import { AttributeType } from "src/attributes/enum/attribute-type.enum";
 import { TrackId } from "src/tracks/interface/track-id.interface";
 import { DBTrack } from "src/tracks/entities/track.entity";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { IdentifiersService } from "src/identifiers/identifiers.service";
 import { TrackCreationSession } from "./interface/track-creation-session.interface";
-import { TrackCreationSessionResponse } from "./response/track-creation-session.response";
+import { CreationSessionResponse } from "./response/creation-session.response";
 
 @Injectable()
 export class EphemeralService {
@@ -66,6 +68,7 @@ export class EphemeralService {
 	constructor(
 		private readonly attributeSourcesService: AttributeSourcesService,
 		private readonly artistManagerService: ArtistManagerService,
+		private readonly albumManagerService: AlbumManagerService,
 		private readonly trackManagerService: TrackManagerService,
 		private readonly identifiersService: IdentifiersService,
 	) {}
@@ -293,6 +296,21 @@ export class EphemeralService {
 		});
 	}
 
+	async resolveTrackUuids(
+		pluginId: string,
+		libraryId: string,
+		trackIds: string[],
+	): Promise<Map<string, string>> {
+		if (!trackIds.length) {
+			return new Map();
+		}
+		const rows = await this.trackManagerService.find({
+			where: { pluginId, libraryId, trackId: In(trackIds) },
+			select: ["trackId", "uuid"],
+		});
+		return new Map(rows.map(({ trackId, uuid }) => [trackId, uuid]));
+	}
+
 	getEphemeralSourceByArtistIdentity(pluginId: string, identityId: string) {
 		return this.artistIdentifiers.get(`${pluginId}:${identityId}`) ?? null;
 	}
@@ -477,8 +495,15 @@ export class EphemeralService {
 			attributeSource,
 		);
 
+		const albumUuid = await this.albumManagerService.resolveAlbum(
+			pluginId,
+			identityId,
+			identity,
+			false,
+		);
+
 		return {
-			uuid: null,
+			uuid: albumUuid,
 			artists: artists.map((artist, index) => ({
 				artist,
 				artistUuid: artist.uuid,
@@ -501,6 +526,7 @@ export class EphemeralService {
 				},
 			],
 			tracks: null,
+			bookmarked: null,
 		};
 	}
 
@@ -540,8 +566,16 @@ export class EphemeralService {
 					),
 			);
 
+		const artistUuid = await this.artistManagerService.resolveArtist(
+			pluginId,
+			identityId,
+			identity,
+			ArtistIdentityTarget.ARTIST,
+			false,
+		);
+
 		return {
-			uuid: null,
+			uuid: artistUuid,
 			albums: null,
 			identities: [
 				{
@@ -560,6 +594,7 @@ export class EphemeralService {
 						"artist",
 					)
 				: null,
+			bookmarked: null,
 		};
 	}
 
@@ -567,8 +602,21 @@ export class EphemeralService {
 		albums: IdentifiableAlbumMetadata[],
 		attributeSource: LoadedAttributeSource | null,
 	): Promise<AlbumResponse[]> {
+		const albumUuids = await Promise.all(
+			albums.map((album) =>
+				this.albumManagerService.resolveAlbum(
+					album.pluginId,
+					album.identityId,
+					album.identity,
+					false,
+				),
+			),
+		);
+
 		if (!attributeSource) {
-			return albums.map((album) => this.toAlbumResponse(album, null, null));
+			return albums.map((album, index) =>
+				this.toAlbumResponse(album, null, null, albumUuids[index] ?? null),
+			);
 		}
 
 		const albumArtists = albums.flatMap((album) => album.artists ?? []);
@@ -592,7 +640,7 @@ export class EphemeralService {
 				),
 			);
 
-		return albums.map((album) => {
+		return albums.map((album, albumIndex) => {
 			const attributes = this.createEphemeralAttributes(
 				album.attributes ?? [],
 				attributeSource,
@@ -621,8 +669,9 @@ export class EphemeralService {
 			return {
 				artists,
 				attributes,
-				uuid: null,
+				uuid: albumUuids[albumIndex] ?? null,
 				tracks: null,
+				bookmarked: null,
 				identities: [
 					{
 						pluginId: album.pluginId,
@@ -639,12 +688,14 @@ export class EphemeralService {
 		album: IdentifiableAlbumMetadata,
 		attributes: Record<string, PersistentAttributeResponse> | null,
 		artists: AlbumArtistResponse[] | null,
+		uuid: string | null,
 	): AlbumResponse {
 		return {
-			uuid: null,
+			uuid,
 			artists,
 			attributes,
 			tracks: null,
+			bookmarked: null,
 			identities: [
 				{
 					pluginId: album.pluginId,
@@ -661,9 +712,21 @@ export class EphemeralService {
 		ephemeralSource: LoadedEphemeralSource,
 		attributeSource: LoadedAttributeSource | null,
 	): Promise<EphemeralTrackResponse[]> {
+		const trackUuids = await this.resolveTrackUuids(
+			ephemeralSource.plugin.package.name,
+			ephemeralSource.source.getLibraryHandler().id,
+			tracks.map((track) => track.id),
+		);
+
 		if (!attributeSource) {
 			return tracks.map((track) =>
-				this.toTrackResponse(track, ephemeralSource, null, null),
+				this.toTrackResponse(
+					track,
+					ephemeralSource,
+					null,
+					null,
+					trackUuids.get(track.id) ?? null,
+				),
 			);
 		}
 
@@ -714,7 +777,13 @@ export class EphemeralService {
 				return artist;
 			});
 
-			return this.toTrackResponse(track, ephemeralSource, attributes, artists);
+			return this.toTrackResponse(
+				track,
+				ephemeralSource,
+				attributes,
+				artists,
+				trackUuids.get(track.id) ?? null,
+			);
 		});
 	}
 
@@ -767,6 +836,7 @@ export class EphemeralService {
 				: null,
 			albums: null,
 			tracks: null,
+			bookmarked: null,
 			identities: [
 				{
 					pluginId: artist.pluginId,
@@ -783,15 +853,18 @@ export class EphemeralService {
 		source: LoadedEphemeralSource,
 		attributes: Record<string, PersistentAttributeResponse> | null,
 		artists: TrackArtistResponse[] | null,
+		uuid: string | null,
 	): EphemeralTrackResponse {
 		try {
 			return {
+				uuid,
 				trackId: track.id,
 				title: track.title,
 				pluginId: source.plugin.package.name,
 				libraryId: source.source.getLibraryHandler().id,
 				attributes,
 				artists,
+				bookmarked: null,
 			};
 		} catch (e) {
 			this.logger.error(
@@ -810,7 +883,7 @@ export class EphemeralService {
 	): Record<string, PersistentAttributeResponse> {
 		const attributeRecord: Record<
 			string,
-			BasePersistentAttributeResponse<any>
+			BasePersistentAttributeResponse<any, any>
 		> = {};
 
 		for (const attribute of attributes) {
@@ -824,10 +897,48 @@ export class EphemeralService {
 				);
 			}
 
-			const format = this.attributeSourcesService.getFormatter(type);
+			const definition =
+				this.attributeSourcesService.resolveAttributeDefinition(
+					type,
+					attribute.key,
+				);
 
-			function create<T>(
-				constructor: new () => BasePersistentAttributeResponse<T>,
+			if (!definition || attributeTemplate.attribute.type !== definition.type) {
+				continue;
+			}
+
+			const resolved = definition;
+			const formatValue = (value: string | number | boolean) =>
+				this.attributeSourcesService.formatAttributeValue(resolved, value);
+
+			const formatEntry = (entry: unknown): string | ResourceResponse => {
+				if (attributeTemplate.attribute.type === "buffer") {
+					const formatter =
+						this.attributeSourcesService.getBufferAttributeFormatter(
+							type,
+							resolved.pluginId,
+							resolved.sourceId,
+							attribute.key,
+						);
+
+					if (!formatter) {
+						return entry as ResourceResponse;
+					}
+
+					return this.attributeSourcesService.buildFormattedBufferResource(
+						entry as ResourceResponse,
+						resolved.pluginId,
+						resolved.sourceId,
+						type,
+						attribute.key,
+					);
+				}
+
+				return formatValue(entry as string | number | boolean);
+			};
+
+			function create<T, F>(
+				constructor: new () => BasePersistentAttributeResponse<T, F>,
 				value: T,
 			) {
 				const existingAttribute = attributeRecord[attribute.key];
@@ -837,41 +948,21 @@ export class EphemeralService {
 							"Received multiple attributes of different types with the same key",
 						);
 					}
-					if (attributeTemplate!.attribute.supportsMultiple) {
+					if (!resolved.supportsMultiple) {
 						throw new Error(
 							"Received multiple values for an attribute that expects only one",
 						);
 					}
 					existingAttribute.values.push(value);
-					if (existingAttribute.formatted) {
-						existingAttribute.formatted.push(
-							format(
-								attributeSource.plugin.package.name,
-								attributeSource.source.id,
-								attribute.key,
-								existingAttribute.type,
-								value as string | number | boolean,
-							),
-						);
-					}
+					existingAttribute.formatted.push(formatEntry(value) as F);
 				} else {
 					const newAttribute = new constructor();
 					newAttribute.values = [value];
-					if (newAttribute.type == AttributeType.BUFFER) {
-						newAttribute.formatted = null;
-					} else {
-						newAttribute.formatted = [
-							format(
-								attributeSource.plugin.package.name,
-								attributeSource.source.id,
-								attribute.key,
-								newAttribute.type,
-								value as string | number | boolean,
-							),
-						];
-					}
+					newAttribute.formatted = [formatEntry(value) as F];
 					newAttribute.pluginId = attributeSource.plugin.package.name;
 					newAttribute.sourceId = attributeSource.source.id;
+					newAttribute.formatterPluginId = resolved.pluginId || null;
+					newAttribute.formatterSourceId = resolved.sourceId || null;
 					attributeRecord[attribute.key] = newAttribute;
 				}
 			}
@@ -1188,9 +1279,13 @@ export class EphemeralService {
 		return sessions;
 	}
 
+	getCreationSession(sessionUuid: string) {
+		return this.creationSessions.get(sessionUuid) ?? null;
+	}
+
 	toCreationSessionResponse(
 		session: TrackCreationSession,
-	): TrackCreationSessionResponse {
+	): CreationSessionResponse {
 		return {
 			uuid: session.uuid,
 			dateStarted: new Date(session.started),

@@ -1,61 +1,86 @@
-import { Controller, Get, Logger, Param, Query, Res } from "@nestjs/common";
-import { ResourcesService } from "./resources.service";
-import type { Response } from "express";
-import { join } from "path";
-import mime from "mime";
-import { readFile } from "fs/promises";
+import {
+	Controller,
+	Get,
+	InternalServerErrorException,
+	Logger,
+	NotFoundException,
+	Param,
+	Query,
+	Req,
+	Res,
+	StreamableFile,
+} from "@nestjs/common";
+import type { Request, Response } from "express";
+import { createReadStream } from "fs";
+import { stat } from "fs/promises";
 import { ApiQuery } from "@nestjs/swagger";
+import { ResourceManagerService } from "src/resource-manager/resource-manager.service";
+import { BufferAttributeStreamService } from "src/attribute-sources/buffer-attribute-stream.service";
 
 @Controller("resources")
 export class ResourcesController {
 	private readonly logger = new Logger("Resources Controller");
 
-	constructor(private readonly resourcesService: ResourcesService) {}
+	constructor(
+		private readonly resourceManagerService: ResourceManagerService,
+		private readonly bufferAttributeStreamService: BufferAttributeStreamService,
+	) {}
 
 	@Get("/:dir/:file")
 	@ApiQuery({
-		name: "width",
+		name: "plugin",
 		required: false,
-		type: "integer",
+		type: "string",
 	})
 	@ApiQuery({
-		name: "height",
+		name: "source",
 		required: false,
-		type: "integer",
+		type: "string",
+	})
+	@ApiQuery({
+		name: "entity",
+		required: false,
+		type: "string",
+	})
+	@ApiQuery({
+		name: "key",
+		required: false,
+		type: "string",
 	})
 	async get(
-		@Res() res: Response,
+		@Req() req: Request,
+		@Res({ passthrough: true }) res: Response,
 		@Param("dir") dir: string,
 		@Param("file") file: string,
-		@Query("width") widthStr?: string,
-		@Query("height") heightStr?: string,
-	) {
-		try {
-			if (dir.length == 3) {
-				const path = join("resources", dir, file);
-				const mimeType = mime.getType(file);
-				if (mimeType) {
-					const buffer = await readFile(path);
-
-					const width = this.resourcesService.sanitizeDimension(widthStr);
-					const height = this.resourcesService.sanitizeDimension(heightStr);
-
-					if (width || height) {
-						const resized = await this.resourcesService.resizeImage(buffer, {
-							width,
-							height,
-						});
-
-						res.type("image/webp").send(resized);
-					} else {
-						res.type(mimeType).send(buffer);
-					}
-				}
-				return;
-			}
-		} catch (e) {
-			this.logger.error(e);
+		@Query() queryParams: Record<string, string>,
+		@Query("plugin") pluginId?: string,
+		@Query("source") sourceId?: string,
+		@Query("entity") entity?: string,
+		@Query("key") key?: string,
+	): Promise<StreamableFile | void> {
+		const fileInfo = this.resourceManagerService.resolveResourcePath(dir, file);
+		if (!fileInfo) {
+			throw new NotFoundException("Not found");
 		}
-		res.status(404).type("text/html").send("Not found");
+		const { path, uuid, extension } = fileInfo;
+
+		try {
+			await stat(path);
+		} catch (e) {
+			if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+				throw new NotFoundException("Not found");
+			}
+			this.logger.error(`Failed to read resource "${file}"`, e as Error);
+			throw new InternalServerErrorException("Failed to read resource");
+		}
+
+		return this.bufferAttributeStreamService.serve(
+			req,
+			res,
+			{ uuid, extension, file },
+			() => createReadStream(path),
+			queryParams,
+			{ pluginId, sourceId, entity, key },
+		);
 	}
 }

@@ -1,3 +1,5 @@
+import type { Readable } from "stream";
+
 export type AttributeValues = {
 	string: string;
 	integer: number;
@@ -8,16 +10,37 @@ export type AttributeValues = {
 
 export type AttributeType = keyof AttributeValues;
 
-type AttributeFormatter<T extends AttributeType = AttributeType> = (
+export type AttributeFormatter<T extends AttributeType = AttributeType> = (
 	value: AttributeValues[T],
 ) => string;
+
+export interface BufferAttributeFormatterInfo {
+	getStream: () => Readable;
+	uuid: string;
+	extension: string;
+	params: Record<string, string>;
+}
+
+export interface BufferAttributeFormatterResult {
+	stream: Readable;
+	contentType?: string;
+	extension?: string;
+}
+
+export type BufferAttributeFormatter = (
+	info: BufferAttributeFormatterInfo,
+) => Promise<BufferAttributeFormatterResult | null>;
 
 export type Attribute<T extends AttributeType = AttributeType> = {
 	[K in T]: {
 		key: string;
 		type: K;
 		supportsMultiple: boolean;
-	} & (K extends "buffer" ? {} : { formatter?: AttributeFormatter<K> });
+	} & (K extends "buffer"
+		? {
+				formatter?: BufferAttributeFormatter;
+			}
+		: { formatter?: AttributeFormatter<K> });
 }[T];
 
 export interface BufferAttributeValue {

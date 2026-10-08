@@ -75,6 +75,7 @@ export class DBArtist {
 			identities,
 			tracks,
 			albums,
+			bookmarked: null,
 		};
 	}
 
@@ -89,6 +90,7 @@ export class DBArtist {
 				null,
 			tracks: this.tracks?.map((track) => track.toSavedResponse()) ?? null,
 			albums: this.albums?.map((album) => album.toSavedResponse()) ?? null,
+			bookmarks: null,
 		};
 	}
 }

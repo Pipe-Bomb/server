@@ -2,28 +2,39 @@
 
 import { ApiProperty, ApiSchema } from "@nestjs/swagger";
 import { AttributeType } from "../enum/attribute-type.enum";
-import { ResourceResponse } from "src/resources/response/resource.response";
+import { ResourceResponse } from "src/resource-manager/response/resource.response";
 
-export class BasePersistentAttributeResponse<T> {
-	// @ApiProperty()
-	// key: string;
-
+export class BasePersistentAttributeResponse<T, F = string> {
 	@ApiProperty({ enum: AttributeType })
 	type: AttributeType;
 
-	@ApiProperty()
-	pluginId: string;
-
-	@ApiProperty()
-	sourceId: string;
-
 	@ApiProperty({
-		type: [String],
+		type: String,
 		nullable: true,
 	})
-	formatted: string[] | null;
+	pluginId: string | null;
+
+	@ApiProperty({
+		type: String,
+		nullable: true,
+	})
+	sourceId: string | null;
+
+	@ApiProperty({
+		type: String,
+		nullable: true,
+	})
+	formatterPluginId: string | null;
+
+	@ApiProperty({
+		type: String,
+		nullable: true,
+	})
+	formatterSourceId: string | null;
 
 	values: T[];
+
+	formatted: F[];
 }
 
 @ApiSchema({ name: "StringAttribute" })
@@ -35,6 +46,11 @@ export class PersistentStringAttributeResponse extends BasePersistentAttributeRe
 		type: [String],
 	})
 	declare values: string[];
+
+	@ApiProperty({
+		type: [String],
+	})
+	declare formatted: string[];
 }
 
 @ApiSchema({ name: "IntegerAttribute" })
@@ -46,6 +62,11 @@ export class PersistentIntegerAttributeResponse extends BasePersistentAttributeR
 		type: [Number],
 	})
 	declare values: number[];
+
+	@ApiProperty({
+		type: [String],
+	})
+	declare formatted: string[];
 }
 
 @ApiSchema({ name: "DecimalAttribute" })
@@ -57,6 +78,11 @@ export class PersistentDecimalAttributeResponse extends BasePersistentAttributeR
 		type: [Number],
 	})
 	declare values: number[];
+
+	@ApiProperty({
+		type: [String],
+	})
+	declare formatted: string[];
 }
 
 @ApiSchema({ name: "BooleanAttribute" })
@@ -68,10 +94,18 @@ export class PersistentBooleanAttributeResponse extends BasePersistentAttributeR
 		type: [Boolean],
 	})
 	declare values: boolean[];
+
+	@ApiProperty({
+		type: [String],
+	})
+	declare formatted: string[];
 }
 
 @ApiSchema({ name: "BufferAttribute" })
-export class PersistentBufferAttributeResponse extends BasePersistentAttributeResponse<ResourceResponse> {
+export class PersistentBufferAttributeResponse extends BasePersistentAttributeResponse<
+	ResourceResponse,
+	ResourceResponse
+> {
 	@ApiProperty({ enum: [AttributeType.BUFFER] })
 	override type = AttributeType.BUFFER;
 
@@ -79,6 +113,11 @@ export class PersistentBufferAttributeResponse extends BasePersistentAttributeRe
 		type: [ResourceResponse],
 	})
 	declare values: ResourceResponse[];
+
+	@ApiProperty({
+		type: [ResourceResponse],
+	})
+	declare formatted: ResourceResponse[];
 }
 
 export type PersistentAttributeResponse =

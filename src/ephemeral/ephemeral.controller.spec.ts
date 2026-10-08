@@ -1,155 +1,164 @@
+import { NotFoundException } from "@nestjs/common";
+import type { Request, Response } from "express";
+import { Readable } from "stream";
+import { EphemeralController } from "./ephemeral.controller";
+import { EphemeralService } from "./ephemeral.service";
+
 jest.mock("mime", () => ({
 	__esModule: true,
-	default: { getType: jest.fn() },
+	default: {
+		getType: jest.fn(),
+	},
 }));
+import type { BufferAttributeStreamService } from "src/attribute-sources/buffer-attribute-stream.service";
 
-import {
-	BadRequestException,
-	NotFoundException,
-	StreamableFile,
-} from "@nestjs/common";
-import { EphemeralController } from "./ephemeral.controller";
-import mime from "mime";
+const UUID = "123e4567-e89b-12d3-a456-426614174000";
+
+function createRequest() {
+	return {
+		method: "GET",
+		path: "/ephemeral/attribute-buffer/file.png",
+		headers: {},
+	} as unknown as Request;
+}
+
+function createResponse() {
+	return {} as unknown as Response;
+}
+
+async function readStream(stream: Readable) {
+	const chunks: Buffer[] = [];
+	for await (const chunk of stream) {
+		chunks.push(chunk as Buffer);
+	}
+	return Buffer.concat(chunks).toString();
+}
 
 describe("EphemeralController", () => {
 	let controller: EphemeralController;
-	let ephemeralService: any;
-	let attributeSourcesService: any;
-	let resourcesService: any;
+	let ephemeralService: { getProxiedAttribute: jest.Mock };
+	let bufferAttributeStream: {
+		serve: jest.MockedFunction<BufferAttributeStreamService["serve"]>;
+	};
 
 	beforeEach(() => {
-		jest.clearAllMocks();
-		(
-			mime.getType as jest.Mock
-		).mockReturnValue("image/png");
-		ephemeralService = {
-			allFlat: jest.fn().mockReturnValue([]),
-			find: jest.fn(),
-			search: jest.fn().mockResolvedValue({
-				tracks: [],
-				artists: [],
-				albums: [],
-				attributeSource: null,
-			}),
-			toTracksResponse: jest.fn().mockResolvedValue([]),
-			toArtistsResponse: jest.fn().mockResolvedValue([]),
-			toAlbumsResponse: jest.fn().mockResolvedValue([]),
-			getProxiedAttribute: jest.fn(),
-		};
-		attributeSourcesService = {};
-		resourcesService = {
-			sanitizeDimension: jest.fn().mockReturnValue(null),
-			resizeImage: jest.fn().mockResolvedValue(Buffer.from("webp")),
+		ephemeralService = { getProxiedAttribute: jest.fn() };
+		bufferAttributeStream = {
+			serve: jest.fn() as unknown as jest.MockedFunction<
+				BufferAttributeStreamService["serve"]
+			>,
 		};
 
 		controller = new EphemeralController(
-			ephemeralService,
-			attributeSourcesService,
-			resourcesService,
+			ephemeralService as unknown as EphemeralService,
+			bufferAttributeStream as unknown as BufferAttributeStreamService,
 		);
 	});
 
-	describe("getAll", () => {
-		it("returns a response for each source", () => {
-			ephemeralService.allFlat.mockReturnValue([
-				{
-					source: { id: "src-1", getName: () => "Source" },
-					plugin: { package: { name: "plug-a" } },
-				},
-			]);
-
-			expect(controller.getAll()).toEqual([
-				{ id: "src-1", pluginId: "plug-a", name: "Source" },
-			]);
-		});
+	it("throws NotFound for a malformed file name", async () => {
+		await expect(
+			controller.getAttributeBuffer(
+				createRequest(),
+				createResponse(),
+				"file",
+				{},
+			),
+		).rejects.toThrow(NotFoundException);
+		expect(bufferAttributeStream.serve).not.toHaveBeenCalled();
 	});
 
-	describe("search", () => {
-		it("throws NotFoundException for an unknown source", async () => {
-			ephemeralService.find.mockReturnValue(null);
-			await expect(
-				controller.search({ pluginId: "plug-a", sourceId: "x" } as any),
-			).rejects.toThrow(NotFoundException);
-		});
+	it("throws NotFound when the proxied attribute is missing", async () => {
+		ephemeralService.getProxiedAttribute.mockReturnValue(null);
 
-		it("returns tracks, artists and albums", async () => {
-			const source = { source: { id: "src-1" }, plugin: { package: { name: "plug-a" } } };
-			ephemeralService.find.mockReturnValue(source);
-			ephemeralService.toTracksResponse.mockResolvedValue([{ trackId: "t1" }]);
-			ephemeralService.toArtistsResponse.mockResolvedValue([{ uuid: "a1" }]);
-			ephemeralService.toAlbumsResponse.mockResolvedValue([{ uuid: "al1" }]);
-
-			const result = await controller.search({
-				pluginId: "plug-a",
-				sourceId: "src-1",
-				query: "q",
-			} as any);
-
-			expect(ephemeralService.search).toHaveBeenCalledWith(source, {
-				query: "q",
-			});
-			expect(result).toEqual({
-				tracks: [{ trackId: "t1" }],
-				artists: [{ uuid: "a1" }],
-				albums: [{ uuid: "al1" }],
-			});
-		});
+		await expect(
+			controller.getAttributeBuffer(
+				createRequest(),
+				createResponse(),
+				`${UUID}.png`,
+				{},
+			),
+		).rejects.toThrow(NotFoundException);
+		expect(bufferAttributeStream.serve).not.toHaveBeenCalled();
 	});
 
-	describe("getAttributeBuffer", () => {
-		it("throws NotFoundException for an unknown attribute", async () => {
-			ephemeralService.getProxiedAttribute.mockReturnValue(null);
-			await expect(
-				controller.getAttributeBuffer("abc.png"),
-			).rejects.toThrow(NotFoundException);
+	it("delegates an in-memory buffer to the stream service", async () => {
+		ephemeralService.getProxiedAttribute.mockReturnValue({
+			extension: "png",
+			buffer: Buffer.from("hello"),
 		});
+		bufferAttributeStream.serve.mockResolvedValue(undefined);
+		const req = createRequest();
+		const res = createResponse();
 
-		it("throws BadRequestException when the mime type is unknown", async () => {
-			(mime.getType as jest.Mock).mockReturnValue(null);
-			ephemeralService.getProxiedAttribute.mockReturnValue({
-				extension: "png",
-				buffer: Buffer.from("data"),
-			});
-			await expect(
-				controller.getAttributeBuffer("abc.png"),
-			).rejects.toThrow(BadRequestException);
+		await controller.getAttributeBuffer(req, res, `${UUID}.png`, {});
+
+		expect(ephemeralService.getProxiedAttribute).toHaveBeenCalledWith(UUID);
+		expect(bufferAttributeStream.serve).toHaveBeenCalledWith(
+			req,
+			res,
+			{ uuid: UUID, extension: "png", file: `${UUID}.png` },
+			expect.any(Function),
+			{},
+			{
+				pluginId: undefined,
+				sourceId: undefined,
+				entity: undefined,
+				key: undefined,
+			},
+		);
+
+		const getStream = bufferAttributeStream.serve.mock.calls[0][3];
+		expect(await readStream(getStream())).toBe("hello");
+	});
+
+	it("awaits lazily-produced buffers", async () => {
+		ephemeralService.getProxiedAttribute.mockReturnValue({
+			extension: "png",
+			buffer: () => Promise.resolve(Buffer.from("world")),
 		});
+		bufferAttributeStream.serve.mockResolvedValue(undefined);
 
-		it("serves the buffer with its mime type", async () => {
-			ephemeralService.getProxiedAttribute.mockReturnValue({
-				extension: "png",
-				buffer: Buffer.from("data"),
-			});
+		await controller.getAttributeBuffer(
+			createRequest(),
+			createResponse(),
+			`${UUID}.png`,
+			{},
+		);
 
-			const result = await controller.getAttributeBuffer("abc.png");
+		const getStream = bufferAttributeStream.serve.mock.calls[0][3];
+		expect(await readStream(getStream())).toBe("world");
+	});
 
-			expect(result).toBeInstanceOf(StreamableFile);
-			expect(result.getHeaders().type).toBe("image/png");
+	it("forwards formatter control params to the service", async () => {
+		ephemeralService.getProxiedAttribute.mockReturnValue({
+			extension: "png",
+			buffer: Buffer.from("hello"),
 		});
+		bufferAttributeStream.serve.mockResolvedValue(undefined);
 
-		it("resolves a buffer provided as a lazy function", async () => {
-			ephemeralService.getProxiedAttribute.mockReturnValue({
-				extension: "png",
-				buffer: jest.fn().mockResolvedValue(Buffer.from("lazy")),
-			});
+		await controller.getAttributeBuffer(
+			createRequest(),
+			createResponse(),
+			`${UUID}.png`,
+			{ width: "100" },
+			"plugin",
+			"source",
+			"track",
+			"front",
+		);
 
-			const result = await controller.getAttributeBuffer("abc.png");
-			expect(result.getHeaders().type).toBe("image/png");
-		});
-
-		it("resizes and returns webp when a dimension is provided", async () => {
-			ephemeralService.getProxiedAttribute.mockReturnValue({
-				extension: "png",
-				buffer: Buffer.from("data"),
-			});
-			resourcesService.sanitizeDimension
-				.mockReturnValueOnce(100)
-				.mockReturnValueOnce(null);
-
-			const result = await controller.getAttributeBuffer("abc.png", "100");
-
-			expect(resourcesService.resizeImage).toHaveBeenCalled();
-			expect(result.getHeaders().type).toBe("image/webp");
-		});
+		expect(bufferAttributeStream.serve).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.anything(),
+			{ uuid: UUID, extension: "png", file: `${UUID}.png` },
+			expect.any(Function),
+			{ width: "100" },
+			{
+				pluginId: "plugin",
+				sourceId: "source",
+				entity: "track",
+				key: "front",
+			},
+		);
 	});
 });

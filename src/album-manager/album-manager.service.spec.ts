@@ -9,6 +9,17 @@ import { DBAlbumTrack } from "src/albums/entity/album-track.entity";
 import { ExternalUrlsService } from "src/external-urls/external-urls.service";
 import { DeregistrationBlockedError } from "src/util/deregistration-blocked.error";
 
+const createRelationMetadata = (): any => {
+	const relation: any = {
+		isOneToMany: true,
+		isManyToMany: false,
+	};
+	relation.inverseEntityMetadata = {
+		findRelationWithPropertyPath: () => createRelationMetadata(),
+	};
+	return relation;
+};
+
 const createMockRepo = () => ({
 	find: jest.fn(),
 	findOne: jest.fn(),
@@ -19,6 +30,9 @@ const createMockRepo = () => ({
 	countBy: jest.fn(),
 	create: jest.fn(),
 	createQueryBuilder: jest.fn(),
+	metadata: {
+		findRelationWithPropertyPath: () => createRelationMetadata(),
+	},
 });
 
 const makePlugin = (name: string) =>
@@ -152,7 +166,10 @@ describe("AlbumManagerService", () => {
 			await expect(service.findManyRaw(opts)).resolves.toEqual([
 				{ uuid: "x" },
 			]);
-			expect(albumsRepo.find).toHaveBeenCalledWith(opts);
+			expect(albumsRepo.find).toHaveBeenCalledWith({
+				...opts,
+				relationLoadStrategy: "join",
+			});
 		});
 	});
 

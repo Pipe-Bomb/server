@@ -1,8 +1,13 @@
 import { LibraryHandler, LibraryHandlerId } from "./library-handler";
 import type { Plugin } from "./plugin";
 import { SavedAlbum, SavedArtist, SavedTrack } from "./database";
+import { Identity } from "./information-helper";
 import { AudioSession } from "./audio-session";
 import { AudioProducerType } from "./audio-producer";
+
+export interface SavedEntitySaveResult {
+	sessionUuid: string | null;
+}
 
 export interface DataClient {
 	getPlugin(pluginId: string): Plugin | null;
@@ -67,6 +72,7 @@ export interface DataClient {
 			relations?: {
 				identities?: boolean;
 				attributes?: boolean;
+				bookmarks?: boolean;
 				artists?:
 					| boolean
 					| {
@@ -89,6 +95,7 @@ export interface DataClient {
 			relations?: {
 				identities?: boolean;
 				attributes?: boolean;
+				bookmarks?: boolean;
 				artists?:
 					| boolean
 					| {
@@ -117,6 +124,7 @@ export interface DataClient {
 			relations?: {
 				identities?: boolean;
 				attributes?: boolean;
+				bookmarks?: boolean;
 				albums?:
 					| boolean
 					| {
@@ -157,6 +165,7 @@ export interface DataClient {
 			relations?: {
 				identities?: boolean;
 				attributes?: boolean;
+				bookmarks?: boolean;
 				artists?:
 					| boolean
 					| {
@@ -179,6 +188,7 @@ export interface DataClient {
 			relations?: {
 				identities?: boolean;
 				attributes?: boolean;
+				bookmarks?: boolean;
 				artists?:
 					| boolean
 					| {
@@ -207,6 +217,7 @@ export interface DataClient {
 			relations?: {
 				identities?: boolean;
 				attributes?: boolean;
+				bookmarks?: boolean;
 				albums?:
 					| boolean
 					| {
@@ -258,4 +269,19 @@ export interface DataClient {
 		amount: number,
 		offset?: number,
 	): Promise<string[]>;
+
+	saveAlbum(album: string | Identity, userUuid: string): Promise<string | null>;
+
+	unsaveAlbum(albumUuid: string, userUuid: string): Promise<void>;
+
+	saveArtist(artist: string | Identity, userUuid: string): Promise<void>;
+
+	unsaveArtist(artistUuid: string, userUuid: string): Promise<void>;
+
+	saveTrack(
+		track: string | { pluginId: string; libraryId: string; trackId: string },
+		userUuid: string,
+	): Promise<string | null>;
+
+	unsaveTrack(trackUuid: string, userUuid: string): Promise<void>;
 }

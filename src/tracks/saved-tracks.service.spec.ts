@@ -94,7 +94,7 @@ describe("SavedTracksService", () => {
 				}),
 			);
 			expect(result.tracks).toHaveLength(1);
-			expect(result.count).toBe(1);
+			expect(result.total).toBe(1);
 		});
 
 		it("should return all tracks when user is null", async () => {
@@ -140,12 +140,13 @@ describe("SavedTracksService", () => {
 
 		it("should create track and return session uuid", async () => {
 			const sessionUuid = "session-1";
-			mockTrackManagerService.findOne.mockResolvedValue(null);
-			mockEphemeralService.find.mockReturnValue({});
-			mockEphemeralService.createTracks.mockResolvedValue({
+			const session = {
 				uuid: sessionUuid,
 				promise: Promise.resolve([{} as DBTrack]),
-			});
+			};
+			mockTrackManagerService.findOne.mockResolvedValue(null);
+			mockEphemeralService.find.mockReturnValue({});
+			mockEphemeralService.createTracks.mockResolvedValue(session);
 
 			const result = await service.saveEphemeralTrack(
 				"plug",
@@ -154,7 +155,7 @@ describe("SavedTracksService", () => {
 				makeUser(),
 			);
 
-			expect(result).toBe(sessionUuid);
+			expect(result).toBe(session);
 			expect(mockEphemeralService.createTracks).toHaveBeenCalledWith(
 				[{ pluginId: "plug", libraryId: "lib", trackId: "track-1" }],
 				{ userUuid: "user-1" },

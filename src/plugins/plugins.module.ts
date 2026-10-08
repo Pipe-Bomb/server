@@ -20,6 +20,9 @@ import { WorkflowsModule } from "src/workflows/workflows.module";
 import { PrivilegesModule } from "src/privileges/privileges.module";
 import { SearchModule } from "src/search/search.module";
 import { PlaybackHistoryModule } from "src/playback-history/playback-history.module";
+import { AlbumsModule } from "src/albums/albums.module";
+import { ArtistsModule } from "src/artists/artists.module";
+import { TracksModule } from "src/tracks/tracks.module";
 
 @Module({
 	imports: [
@@ -42,6 +45,9 @@ import { PlaybackHistoryModule } from "src/playback-history/playback-history.mod
 		PrivilegesModule,
 		SearchModule,
 		PlaybackHistoryModule,
+		AlbumsModule,
+		ArtistsModule,
+		TracksModule,
 	],
 	controllers: [PluginsController],
 	providers: [PluginsService],

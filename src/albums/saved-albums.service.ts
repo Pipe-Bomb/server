@@ -64,7 +64,7 @@ export class SavedAlbumsService {
 			withArtists?: boolean;
 		},
 	) {
-		const [albums, count] = await this.savedAlbumsRepository.findAndCount({
+		const [albums, total] = await this.savedAlbumsRepository.findAndCount({
 			where: user
 				? {
 						userUuid: user.uuid,
@@ -75,6 +75,7 @@ export class SavedAlbumsService {
 			},
 			take: options.amount,
 			skip: options.offset,
+			relationLoadStrategy: "query",
 			relations: {
 				album: options.withAlbums && {
 					attributes: options.withAttributes,
@@ -90,7 +91,7 @@ export class SavedAlbumsService {
 
 		return {
 			albums,
-			count,
+			total,
 		};
 	}
 
@@ -99,7 +100,7 @@ export class SavedAlbumsService {
 		identifierId: string,
 		identity: string,
 		user: DBUser,
-	): Promise<string> {
+	) {
 		const source = this.ephemeralService.getEphemeralSourceByAlbumIdentity(
 			pluginId,
 			identifierId,
@@ -167,8 +168,7 @@ export class SavedAlbumsService {
 
 		session.promise
 			.then(async (createdTracks: (DBTrack | null)[]) => {
-				const allTracks: (DBTrack | null)[] =
-					Array(trackIds.length).fill(null);
+				const allTracks: (DBTrack | null)[] = Array(trackIds.length).fill(null);
 
 				for (let i = 0; i < resolved.length; i++) {
 					if (resolved[i]) allTracks[i] = resolved[i];
@@ -218,6 +218,6 @@ export class SavedAlbumsService {
 				this.logger.error("Failed to save ephemeral album", e);
 			});
 
-		return session.uuid;
+		return session;
 	}
 }

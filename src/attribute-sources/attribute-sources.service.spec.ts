@@ -1,803 +1,295 @@
 import { AttributeSourcesService } from "./attribute-sources.service";
+import { DBTrackAttribute } from "src/attributes/entities/track-attribute.entity";
+import { LoadedAttributeSource } from "src/attributes/interface/loaded-attribute-source.interface";
+import { DBResource } from "src/resource-manager/entities/resource.entity";
+import { ResourceResponse } from "src/resource-manager/response/resource.response";
+import { RelativeUrl } from "src/interception/relative-url";
 
-describe("AttributeSourcesService", () => {
+function makeSource(name: string, id: string): LoadedAttributeSource {
+	return {
+		plugin: { package: { name } },
+		source: { id, getName: () => id },
+	} as unknown as LoadedAttributeSource;
+}
+
+function seedSources(
+	service: AttributeSourcesService,
+	sources: LoadedAttributeSource[],
+) {
+	(service as unknown as { sources: LoadedAttributeSource[] }).sources.push(
+		...sources,
+	);
+}
+
+function makeRow(
+	pluginId: string,
+	sourceId: string,
+	key: string,
+	ordinal: number,
+	value: Partial<DBTrackAttribute>,
+): DBTrackAttribute {
+	const row = new DBTrackAttribute();
+	row.entityId = "entity";
+	row.entityRelationId = "entity";
+	row.pluginId = pluginId;
+	row.sourceId = sourceId;
+	row.key = key;
+	row.ordinal = ordinal;
+	Object.assign(row, value);
+	return row;
+}
+
+describe("AttributeSourcesService.toMap", () => {
 	let service: AttributeSourcesService;
-	let mockTrackAttributesRepository: any;
-	let mockArtistAttributesRepository: any;
-	let mockAlbumAttributesRepository: any;
-	let mockPlaylistAttributesRepository: any;
-	let mockTasksService: any;
-	let mockResourcesService: any;
-
-	const makePlugin = (name: string) => ({ package: { name } });
-
-	const makeSource = (id: string) => {
-		const source: any = {
-			id,
-			enable: jest.fn(),
-			getName: () => id,
-		};
-		return source;
-	};
 
 	beforeEach(() => {
-		jest.clearAllMocks();
-		mockTrackAttributesRepository = {
-			create: jest.fn(),
-			upsert: jest.fn(),
-		};
-		mockArtistAttributesRepository = {
-			create: jest.fn(),
-			delete: jest.fn(),
-			insert: jest.fn(),
-			upsert: jest.fn(),
-		};
-		mockAlbumAttributesRepository = {
-			create: jest.fn(),
-			delete: jest.fn(),
-			insert: jest.fn(),
-		};
-		mockPlaylistAttributesRepository = {
-			create: jest.fn(),
-			delete: jest.fn(),
-			insert: jest.fn(),
-		};
-		mockTasksService = {
-			registerPluginTask: jest.fn(),
-		};
-		mockResourcesService = {
-			create: jest.fn(),
-		};
-
 		service = new AttributeSourcesService(
-			mockTrackAttributesRepository as any,
-			mockArtistAttributesRepository as any,
-			mockAlbumAttributesRepository as any,
-			mockPlaylistAttributesRepository as any,
-			mockTasksService as any,
-			mockResourcesService as any,
+			{} as any,
+			{} as any,
+			{} as any,
+			{} as any,
+			{} as any,
+			{} as any,
 		);
 	});
 
-	describe("registerAttributeSource", () => {
-		it("enables the source and registers its attributes", () => {
-			const source = makeSource("src");
-			source.enable.mockImplementation((helper: any) => {
-				helper.registerTrackAttributes([
-					{ key: "duration", type: "integer", supportsMultiple: false },
-				]);
-				helper.registerPluginTask({ id: "task" });
-			});
-			const plugin = makePlugin("plug");
-
-			service.registerAttributeSource(plugin as any, source);
-
-			expect(source.enable).toHaveBeenCalledTimes(1);
-			expect(service.getSources()).toHaveLength(1);
-			expect(service.getTrackAttributes()).toEqual([
-				expect.objectContaining({
-					attribute: expect.objectContaining({ key: "duration" }),
-				}),
-			]);
-			expect(mockTasksService.registerPluginTask).toHaveBeenCalledWith(
-				{ id: "task" },
-				plugin,
-			);
-		});
-
-		it("throws when the plugin already registered a source with the same id", () => {
-			service.registerAttributeSource(makePlugin("plug") as any, makeSource("src"));
-
-			expect(() =>
-				service.registerAttributeSource(
-					makePlugin("plug") as any,
-					makeSource("src"),
-				),
-			).toThrow(/already registered/);
-		});
+	it("returns null for a null attribute list", () => {
+		expect(service.toMap(null, "track")).toBeNull();
 	});
 
-	describe("unregisterAttributeSource", () => {
-		it("removes the source and its attributes", () => {
-			const source = makeSource("src");
-			source.enable.mockImplementation((helper: any) => {
-				helper.registerTrackAttributes([
-					{ key: "duration", type: "integer", supportsMultiple: false },
-				]);
-			});
-			service.registerAttributeSource(makePlugin("plug") as any, source);
-
-			service.unregisterAttributeSource(makePlugin("plug") as any, source);
-
-			expect(service.getSources()).toHaveLength(0);
-			expect(service.getTrackAttributes()).toHaveLength(0);
-		});
-
-		it("is a no-op for an unknown source", () => {
-			service.unregisterAttributeSource(makePlugin("plug") as any, makeSource("src"));
-
-			expect(service.getSources()).toHaveLength(0);
-		});
-
-		it("removes artist, album, and playlist attributes as well", () => {
-			const source = makeSource("src");
-			source.enable.mockImplementation((helper: any) => {
-				helper.registerArtistAttributes([
-					{ key: "a", type: "string", supportsMultiple: false },
-				]);
-				helper.registerAlbumAttributes([
-					{ key: "b", type: "string", supportsMultiple: false },
-				]);
-				helper.registerPlaylistAttributes([
-					{ key: "c", type: "string", supportsMultiple: false },
-				]);
-			});
-			service.registerAttributeSource(makePlugin("plug") as any, source);
-
-			expect(service.getArtistAttributes()).toHaveLength(1);
-			expect(service.getAlbumAttributes()).toHaveLength(1);
-			expect(service.getPlaylistAttributes()).toHaveLength(1);
-
-			service.unregisterAttributeSource(makePlugin("plug") as any, source);
-
-			expect(service.getArtistAttributes()).toHaveLength(0);
-			expect(service.getAlbumAttributes()).toHaveLength(0);
-			expect(service.getPlaylistAttributes()).toHaveLength(0);
-		});
+	it("returns an empty map when the entity type cannot be determined", () => {
+		const rows = [makeRow("a", "src-a", "title", 0, { value_string: "hello" })];
+		expect(service.toMap(rows, null)).toEqual({});
 	});
 
-	describe("getAttributeSource", () => {
-		it("returns the loaded source or null", () => {
-			service.registerAttributeSource(makePlugin("plug") as any, makeSource("src"));
-
-			expect(service.getAttributeSource("plug", "src")).not.toBeNull();
-			expect(service.getAttributeSource("plug", "other")).toBeNull();
+	it("drops values whose type does not match the canonical definition", () => {
+		const a = makeSource("a", "src-a");
+		seedSources(service, [a]);
+		service.registerTrackAttribute(a, {
+			key: "title",
+			type: "string",
+			supportsMultiple: true,
 		});
+
+		const rows = [makeRow("a", "src-a", "title", 0, { value_decimal: 3 })];
+
+		expect(service.toMap(rows, "track")).toEqual({});
 	});
 
-	describe("doSourcesMatch", () => {
-		it("treats two null sources as a match", () => {
-			expect(service.doSourcesMatch(null, null)).toBe(true);
-		});
+	it("drops keys that no registered source defines", () => {
+		const a = makeSource("a", "src-a");
+		seedSources(service, [a]);
 
-		it("compares plugin and source ids", () => {
-			service.registerAttributeSource(makePlugin("p1") as any, makeSource("a"));
-			service.registerAttributeSource(makePlugin("p1") as any, makeSource("b"));
-			service.registerAttributeSource(makePlugin("p2") as any, makeSource("a"));
+		const rows = [makeRow("a", "src-a", "ghost", 0, { value_string: "x" })];
 
-			const loaded1 = service.getAttributeSource("p1", "a")!;
-			const loaded2 = service.getAttributeSource("p2", "a")!;
-
-			expect(service.doSourcesMatch(loaded1, loaded1)).toBe(true);
-			expect(service.doSourcesMatch(loaded1, loaded2)).toBe(false);
-		});
-
-		it("returns false when only one source is null", () => {
-			service.registerAttributeSource(makePlugin("p1") as any, makeSource("a"));
-			const loaded = service.getAttributeSource("p1", "a")!;
-
-			expect(service.doSourcesMatch(loaded, null)).toBe(false);
-			expect(service.doSourcesMatch(null, loaded)).toBe(false);
-		});
+		expect(service.toMap(rows, "track")).toEqual({});
 	});
 
-	describe("registerTrackAttribute", () => {
-		it("registers a custom attribute with a null source", () => {
-			service.registerTrackAttribute(
-				null,
-				{ key: "custom", type: "string", supportsMultiple: false } as any,
-			);
+	it("attributes values to the providing source but formats them with the defining source's formatter", () => {
+		const a = makeSource("a", "src-a");
+		const b = makeSource("b", "src-b");
+		seedSources(service, [a, b]);
 
-			expect(service.getTrackAttributes()).toHaveLength(1);
+		service.registerTrackAttribute(a, {
+			key: "title",
+			type: "string",
+			supportsMultiple: true,
+			formatter: (value) => value.toUpperCase(),
+		});
+		service.registerTrackAttribute(b, {
+			key: "title",
+			type: "string",
+			supportsMultiple: true,
 		});
 
-		it("throws on duplicate custom attribute keys", () => {
-			service.registerTrackAttribute(
-				null,
-				{ key: "custom", type: "string", supportsMultiple: false } as any,
-			);
+		const rows = [makeRow("b", "src-b", "title", 0, { value_string: "hello" })];
+		const map = service.toMap(rows, "track");
 
-			expect(() =>
-				service.registerTrackAttribute(
-					null,
-					{ key: "custom", type: "string", supportsMultiple: false } as any,
-				),
-			).toThrow(/Custom "track" Attribute has already been registered/);
-		});
-
-		it("throws on duplicate source attribute keys", () => {
-			service.registerAttributeSource(makePlugin("plug") as any, makeSource("src"));
-			const loaded = service.getAttributeSource("plug", "src");
-
-			service.registerTrackAttribute(
-				loaded,
-				{ key: "k", type: "string", supportsMultiple: false } as any,
-			);
-
-			expect(() =>
-				service.registerTrackAttribute(
-					loaded,
-					{ key: "k", type: "string", supportsMultiple: false } as any,
-				),
-			).toThrow(/has already registered a "track" Attribute/);
-		});
+		expect(map.title.type).toBe("string");
+		expect(map.title.values).toEqual(["hello"]);
+		expect(map.title.formatted).toEqual(["HELLO"]);
+		expect(map.title.pluginId).toBe("b");
+		expect(map.title.sourceId).toBe("src-b");
+		expect(map.title.formatterPluginId).toBe("a");
+		expect(map.title.formatterSourceId).toBe("src-a");
 	});
 
-	describe("createTrackAttributes", () => {
-		const makeCreate = () =>
-			mockTrackAttributesRepository.create.mockImplementation((data: any) => ({
-				...data,
-				ordinal: 0,
-			}));
-
-		it("creates entities with typed values", async () => {
-			makeCreate();
-			service.registerTrackAttribute(
-				null,
-				{ key: "title", type: "string", supportsMultiple: false } as any,
-			);
-
-			const result = await service.createTrackAttributes(
-				"track-uuid",
-				[{ key: "title", value: "Hello" }],
-				null,
-			);
-
-			expect(mockTrackAttributesRepository.create).toHaveBeenCalledWith({
-				entityId: "track-uuid",
-				entityRelationId: "track-uuid",
-				pluginId: "",
-				sourceId: "",
-				key: "title",
-			});
-			expect(result).toHaveLength(1);
-			expect(result[0].value_string).toBe("Hello");
-			expect(result[0].ordinal).toBe(0);
+	it("keeps only the first row when the canonical definition does not support multiple", () => {
+		const a = makeSource("a", "src-a");
+		seedSources(service, [a]);
+		service.registerTrackAttribute(a, {
+			key: "title",
+			type: "string",
+			supportsMultiple: false,
 		});
 
-		it("increments the ordinal for repeated keys", async () => {
-			makeCreate();
-			service.registerTrackAttribute(
-				null,
-				{ key: "genre", type: "string", supportsMultiple: true } as any,
-			);
+		const rows = [
+			makeRow("a", "src-a", "title", 1, { value_string: "second" }),
+			makeRow("a", "src-a", "title", 0, { value_string: "first" }),
+		];
 
-			const result = await service.createTrackAttributes(
-				"track-uuid",
-				[
-					{ key: "genre", value: "Rock" },
-					{ key: "genre", value: "Pop" },
-				],
-				null,
-			);
+		const map = service.toMap(rows, "track");
 
-			expect(result.map((a: any) => a.ordinal)).toEqual([0, 1]);
-		});
-
-		it("skips attributes with a mismatched type", async () => {
-			makeCreate();
-			service.registerTrackAttribute(
-				null,
-				{ key: "title", type: "string", supportsMultiple: false } as any,
-			);
-
-			const result = await service.createTrackAttributes(
-				"track-uuid",
-				[{ key: "title", value: 42 as any }],
-				null,
-			);
-
-			expect(result).toEqual([]);
-		});
-
-		it("stores buffer attributes through the resources service", async () => {
-			makeCreate();
-			service.registerTrackAttribute(
-				null,
-				{ key: "cover", type: "buffer", supportsMultiple: false } as any,
-			);
-			mockResourcesService.create.mockResolvedValue({ resourceUuid: "res" });
-
-			const result = await service.createTrackAttributes(
-				"track-uuid",
-				[{ key: "cover", value: { buffer: Buffer.from("png"), extension: "png" } }],
-				null,
-			);
-
-			expect(mockResourcesService.create).toHaveBeenCalledWith(
-				Buffer.from("png"),
-				"png",
-			);
-			expect(result).toHaveLength(1);
-		});
-
-		it("stamps the plugin and source ids when a source is provided", async () => {
-			makeCreate();
-			const plugin = makePlugin("plug");
-			const source = makeSource("src");
-			source.enable.mockImplementation((helper: any) => {
-				helper.registerTrackAttributes([
-					{ key: "duration", type: "integer", supportsMultiple: false },
-				]);
-			});
-			service.registerAttributeSource(plugin as any, source);
-			const loaded = service.getAttributeSource("plug", "src")!;
-
-			const result = await service.createTrackAttributes(
-				"track-uuid",
-				[{ key: "duration", value: 90 }],
-				loaded,
-			);
-
-			expect(mockTrackAttributesRepository.create).toHaveBeenCalledWith(
-				expect.objectContaining({
-					pluginId: "plug",
-					sourceId: "src",
-				}),
-			);
-			expect(result[0].value_int).toBe(90);
-		});
-
-		it("throws for unregistered custom attribute keys", async () => {
-			makeCreate();
-			service.registerTrackAttribute(
-				null,
-				{ key: "known", type: "string", supportsMultiple: false } as any,
-			);
-
-			await expect(
-				service.createTrackAttributes(
-					"track-uuid",
-					[{ key: "unknown", value: 1 }],
-					null,
-				),
-			).rejects.toThrow(
-				/Custom Attribute has not been registered with key "unknown"/,
-			);
-		});
-
-		it("skips boolean attributes with a non-boolean value", async () => {
-			makeCreate();
-			service.registerTrackAttribute(
-				null,
-				{ key: "flag", type: "boolean", supportsMultiple: false } as any,
-			);
-
-			const result = await service.createTrackAttributes(
-				"track-uuid",
-				[{ key: "flag", value: "yes" as any }],
-				null,
-			);
-
-			expect(result).toEqual([]);
-		});
-
-		it("stores boolean attributes with a boolean value", async () => {
-			makeCreate();
-			service.registerTrackAttribute(
-				null,
-				{ key: "flag", type: "boolean", supportsMultiple: false } as any,
-			);
-
-			const result = await service.createTrackAttributes(
-				"track-uuid",
-				[{ key: "flag", value: true }],
-				null,
-			);
-
-			expect(result[0].value_boolean).toBe(true);
-		});
-
-		it("skips integer attributes with a fractional value", async () => {
-			makeCreate();
-			service.registerTrackAttribute(
-				null,
-				{ key: "year", type: "integer", supportsMultiple: false } as any,
-			);
-
-			const result = await service.createTrackAttributes(
-				"track-uuid",
-				[{ key: "year", value: 2000.5 }],
-				null,
-			);
-
-			expect(result).toEqual([]);
-		});
-
-		it("skips decimal attributes with an Infinity value", async () => {
-			makeCreate();
-			service.registerTrackAttribute(
-				null,
-				{ key: "rating", type: "decimal", supportsMultiple: false } as any,
-			);
-
-			const result = await service.createTrackAttributes(
-				"track-uuid",
-				[{ key: "rating", value: Infinity }],
-				null,
-			);
-
-			expect(result).toEqual([]);
-		});
-
-		it("resolves function buffers before storing the resource", async () => {
-			makeCreate();
-			service.registerTrackAttribute(
-				null,
-				{ key: "cover", type: "buffer", supportsMultiple: false } as any,
-			);
-			mockResourcesService.create.mockResolvedValue({ resourceUuid: "res" });
-
-			const result = await service.createTrackAttributes(
-				"track-uuid",
-				[
-					{
-						key: "cover",
-						value: {
-							buffer: () => Promise.resolve(Buffer.from("lazy")),
-							extension: "jpg",
-						},
-					},
-				],
-				null,
-			);
-
-			expect(mockResourcesService.create).toHaveBeenCalledWith(
-				Buffer.from("lazy"),
-				"jpg",
-			);
-			expect(result).toHaveLength(1);
-		});
+		expect(map.title.values).toEqual(["first"]);
 	});
 
-	describe("customToAttributeValues", () => {
-		it("wraps buffer values and passes plain values through", () => {
-			const result = service.customToAttributeValues([
-				{ key: "text", type: "string", value: "hi" } as any,
-				{
-					key: "cover",
-					type: "buffer",
-					value: Buffer.from("png"),
-					extension: "png",
-				} as any,
-			]);
+	it("uses only the first source that provides values when multiple are supported", () => {
+		const a = makeSource("a", "src-a");
+		const b = makeSource("b", "src-b");
+		seedSources(service, [a, b]);
 
-			expect(result).toEqual([
-				{ key: "text", value: "hi" },
-				{
-					key: "cover",
-					value: { buffer: Buffer.from("png"), extension: "png" },
-				},
-			]);
+		service.registerTrackAttribute(a, {
+			key: "title",
+			type: "string",
+			supportsMultiple: true,
 		});
+		service.registerTrackAttribute(b, {
+			key: "title",
+			type: "string",
+			supportsMultiple: true,
+		});
+
+		const rows = [
+			makeRow("b", "src-b", "title", 0, { value_string: "b0" }),
+			makeRow("a", "src-a", "title", 1, { value_string: "a1" }),
+			makeRow("a", "src-a", "title", 0, { value_string: "a0" }),
+		];
+
+		const map = service.toMap(rows, "track");
+
+		expect(map.title.values).toEqual(["a0", "a1"]);
+		expect(map.title.pluginId).toBe("a");
+		expect(map.title.sourceId).toBe("src-a");
 	});
 
-	describe("entity attribute creation", () => {
-		const makeCreate = (repository: any) =>
-			repository.create.mockImplementation((data: any) => ({
-				...data,
-				ordinal: 0,
-			}));
-
-		it("creates artist attributes through the artist repository", async () => {
-			makeCreate(mockArtistAttributesRepository);
-			service.registerArtistAttribute(
-				null,
-				{ key: "name", type: "string", supportsMultiple: false } as any,
-			);
-
-			const result = await service.createArtistAttributes(
-				"artist-uuid",
-				[{ key: "name", value: "Ada" }],
-				null,
-			);
-
-			expect(mockArtistAttributesRepository.create).toHaveBeenCalledWith(
-				expect.objectContaining({ entityId: "artist-uuid", key: "name" }),
-			);
-			expect(result[0].value_string).toBe("Ada");
+	it("prefers custom rows and does not combine them with sourced rows", () => {
+		const a = makeSource("a", "src-a");
+		seedSources(service, [a]);
+		service.registerTrackAttribute(a, {
+			key: "title",
+			type: "string",
+			supportsMultiple: true,
 		});
 
-		it("creates album attributes through the album repository", async () => {
-			makeCreate(mockAlbumAttributesRepository);
-			service.registerAlbumAttribute(
-				null,
-				{ key: "title", type: "string", supportsMultiple: false } as any,
-			);
+		const rows = [
+			makeRow("a", "src-a", "title", 0, { value_string: "source" }),
+			makeRow("", "", "title", 0, { value_string: "custom" }),
+		];
 
-			const result = await service.createAlbumAttributes(
-				"album-uuid",
-				[{ key: "title", value: "Opus" }],
-				null,
-			);
+		const map = service.toMap(rows, "track");
 
-			expect(mockAlbumAttributesRepository.create).toHaveBeenCalledWith(
-				expect.objectContaining({ entityId: "album-uuid", key: "title" }),
-			);
-			expect(result[0].value_string).toBe("Opus");
-		});
-
-		it("creates playlist attributes through the playlist repository", async () => {
-			makeCreate(mockPlaylistAttributesRepository);
-			service.registerPlaylistAttribute(
-				null,
-				{ key: "note", type: "string", supportsMultiple: false } as any,
-			);
-
-			const result = await service.createPlaylistAttributes(
-				"playlist-uuid",
-				[{ key: "note", value: "vibes" }],
-				null,
-			);
-
-			expect(mockPlaylistAttributesRepository.create).toHaveBeenCalledWith(
-				expect.objectContaining({
-					entityId: "playlist-uuid",
-					key: "note",
-				}),
-			);
-			expect(result[0].value_string).toBe("vibes");
-		});
+		expect(map.title.values).toEqual(["custom"]);
+		expect(map.title.pluginId).toBeNull();
+		expect(map.title.sourceId).toBeNull();
+		expect(map.title.formatterPluginId).toBeNull();
+		expect(map.title.formatterSourceId).toBeNull();
 	});
 
-	describe("attribute persistence", () => {
-		it("replaces all artist attributes", async () => {
-			await service.replaceAllArtistAttributes("artist-uuid", [
-				{ key: "a" },
-			] as any);
+	it("falls through to a lower-priority source that provides the formatter", () => {
+		const a = makeSource("a", "src-a");
+		const b = makeSource("b", "src-b");
+		seedSources(service, [a, b]);
 
-			expect(mockArtistAttributesRepository.delete).toHaveBeenCalledWith({
-				entityId: "artist-uuid",
-			});
-			expect(mockArtistAttributesRepository.insert).toHaveBeenCalledWith([
-				{ key: "a" },
-			]);
+		service.registerTrackAttribute(a, {
+			key: "title",
+			type: "string",
+			supportsMultiple: true,
+		});
+		service.registerTrackAttribute(b, {
+			key: "title",
+			type: "string",
+			supportsMultiple: true,
+			formatter: (value) => value.toUpperCase(),
 		});
 
-		it("upserts track attributes with the full conflict path", async () => {
-			await service.upsertTrackAttributes([{ key: "a" }] as any);
+		const rows = [makeRow("a", "src-a", "title", 0, { value_string: "hello" })];
+		const map = service.toMap(rows, "track");
 
-			expect(mockTrackAttributesRepository.upsert).toHaveBeenCalledWith(
-				[{ key: "a" }],
-				{
-					conflictPaths: ["pluginId", "entityId", "sourceId", "ordinal", "key"],
-				},
-			);
-		});
-
-		it("replaces all album attributes", async () => {
-			await service.replaceAllAlbumAttributes("album-uuid", [
-				{ key: "b" },
-			] as any);
-
-			expect(mockAlbumAttributesRepository.delete).toHaveBeenCalledWith({
-				entityId: "album-uuid",
-			});
-			expect(mockAlbumAttributesRepository.insert).toHaveBeenCalledWith([
-				{ key: "b" },
-			]);
-		});
-
-		it("upserts artist attributes with the full conflict path", async () => {
-			await service.upsertArtistAttributes([{ key: "a" }] as any);
-
-			expect(mockArtistAttributesRepository.upsert).toHaveBeenCalledWith(
-				[{ key: "a" }],
-				{
-					conflictPaths: ["pluginId", "entityId", "sourceId", "ordinal", "key"],
-				},
-			);
-		});
-
-		it("deletes by In(keys) with empty ids and re-inserts playlist attributes", async () => {
-			await service.upsertPlaylistAttributes(
-				"playlist-uuid",
-				null,
-				[
-					{ key: "a" },
-					{ key: "b" },
-				] as any,
-			);
-
-			const deleteWhere = mockPlaylistAttributesRepository.delete.mock
-				.calls[0][0];
-			expect(deleteWhere.entityId).toBe("playlist-uuid");
-			expect(deleteWhere.pluginId).toBe("");
-			expect(deleteWhere.sourceId).toBe("");
-			expect(deleteWhere.key._type).toBe("in");
-			expect(deleteWhere.key._value).toEqual(["a", "b"]);
-			expect(mockPlaylistAttributesRepository.insert).toHaveBeenCalledWith([
-				{ key: "a" },
-				{ key: "b" },
-			]);
-		});
+		expect(map.title.values).toEqual(["hello"]);
+		expect(map.title.formatted).toEqual(["HELLO"]);
+		expect(map.title.pluginId).toBe("a");
+		expect(map.title.sourceId).toBe("src-a");
+		expect(map.title.formatterPluginId).toBe("b");
+		expect(map.title.formatterSourceId).toBe("src-b");
 	});
 
-	describe("setSourceOrder", () => {
-		it("reorders sources and keeps unlisted ones at the end", () => {
-			service.registerAttributeSource(makePlugin("p") as any, makeSource("s1"));
-			service.registerAttributeSource(makePlugin("p") as any, makeSource("s2"));
-			service.registerAttributeSource(makePlugin("p") as any, makeSource("s3"));
-
-			service.setSourceOrder([
-				{ pluginId: "p", sourceId: "s3" },
-				{ pluginId: "p", sourceId: "s1" },
-			]);
-
-			expect(service.getSources().map((s) => s.source.id)).toEqual([
-				"s3",
-				"s1",
-				"s2",
-			]);
+	it("mirrors values for buffer attributes without a formatter", () => {
+		const a = makeSource("a", "src-a");
+		seedSources(service, [a]);
+		service.registerTrackAttribute(a, {
+			key: "art",
+			type: "buffer",
+			supportsMultiple: false,
 		});
+
+		const rows = [
+			makeRow("a", "src-a", "art", 0, {
+				value_buffer: {
+					toResponse: () => ({ uuid: "u" }),
+				} as unknown as DBResource,
+			}),
+		];
+
+		const map = service.toMap(rows, "track");
+
+		expect(map.art.formatted).toEqual([{ uuid: "u" }]);
+		expect(map.art.formatted).not.toBe(map.art.values);
+		expect(map.art.values).toEqual([{ uuid: "u" }]);
+		expect(map.art.pluginId).toBe("a");
+		expect(map.art.sourceId).toBe("src-a");
+		expect(map.art.formatterPluginId).toBeNull();
+		expect(map.art.formatterSourceId).toBeNull();
 	});
 
-	describe("getFormatter", () => {
-		it("uses the registered formatter for a key and type", () => {
-			service.registerTrackAttribute(
-				null,
-				{
-					key: "year",
-					type: "integer",
-					supportsMultiple: false,
-					formatter: (value: any) => `year:${value}`,
-				} as any,
-			);
-
-			const format = service.getFormatter("track");
-
-			expect(format("plug", "src", "year", "integer", 2000)).toBe("year:2000");
+	it("stringifies scalar attributes without a formatter", () => {
+		const a = makeSource("a", "src-a");
+		seedSources(service, [a]);
+		service.registerTrackAttribute(a, {
+			key: "channels",
+			type: "integer",
+			supportsMultiple: false,
 		});
 
-		it("falls back to toString for unformatted values", () => {
-			const format = service.getFormatter("track");
+		const rows = [makeRow("a", "src-a", "channels", 0, { value_int: 2 })];
+		const map = service.toMap(rows, "track");
 
-			expect(format("plug", "src", "year", "integer", 2000)).toBe("2000");
-		});
-
-		it("keeps the formatter of the earlier-registered source", () => {
-			const sourceA = makeSource("a");
-			sourceA.enable.mockImplementation((helper: any) => {
-				helper.registerTrackAttributes([
-					{
-						key: "k",
-						type: "integer",
-						supportsMultiple: false,
-						formatter: () => "from-a",
-					},
-				]);
-			});
-			const sourceB = makeSource("b");
-			sourceB.enable.mockImplementation((helper: any) => {
-				helper.registerTrackAttributes([
-					{
-						key: "k",
-						type: "integer",
-						supportsMultiple: false,
-						formatter: () => "from-b",
-					},
-				]);
-			});
-			service.registerAttributeSource(makePlugin("p1") as any, sourceA);
-			service.registerAttributeSource(makePlugin("p2") as any, sourceB);
-
-			const format = service.getFormatter("track");
-
-			expect(format("p1", "a", "k", "integer", 1)).toBe("from-a");
-		});
-
-		it("ignores formatters for buffer attributes", () => {
-			service.registerTrackAttribute(
-				null,
-				{
-					key: "cover",
-					type: "buffer",
-					supportsMultiple: false,
-					formatter: () => "buffered",
-				} as any,
-			);
-
-			const format = service.getFormatter("track");
-
-			expect(format("plug", "src", "cover", "buffer", "x")).toBe("x");
-		});
+		expect(map.channels.formatted).toEqual(["2"]);
+		expect(map.channels.formatterPluginId).toBeNull();
+		expect(map.channels.formatterSourceId).toBeNull();
 	});
 
-	describe("toMap", () => {
-		it("returns null for null attributes", () => {
-			expect(service.toMap(null, "track")).toBeNull();
+	it("emits a formatter resource for buffer attributes with a formatter", () => {
+		const a = makeSource("a", "src-a");
+		seedSources(service, [a]);
+		service.registerTrackAttribute(a, {
+			key: "art",
+			type: "buffer",
+			supportsMultiple: false,
+			formatter: () => Promise.resolve(null),
 		});
 
-		it("merges custom attributes into a single response", () => {
-			const makeResponse = (values: any[]) => () => ({
-				key: "k",
-				type: "string",
-				values,
-				pluginId: "",
-				sourceId: "",
-			});
-			const attributes = [
-				{ key: "k", pluginId: "", sourceId: "", toResponse: makeResponse(["a"]) },
-				{ key: "k", pluginId: "", sourceId: "", toResponse: makeResponse(["b"]) },
-			] as any;
-
-			const result = service.toMap(attributes, "track");
-
-			expect(result.k.values).toEqual(["a", "b"]);
-		});
-
-		it("merges source attributes and computes formatted values", () => {
-			service.registerAttributeSource(makePlugin("plug") as any, makeSource("src"));
-			const makeResponse = (values: any[]) => () => ({
-				key: "k",
-				type: "string",
-				values,
-				pluginId: "plug",
-				sourceId: "src",
-			});
-			const attributes = [
-				{
-					key: "k",
-					pluginId: "plug",
-					sourceId: "src",
-					toResponse: makeResponse(["a"]),
-				},
-				{
-					key: "k",
-					pluginId: "plug",
-					sourceId: "src",
-					toResponse: makeResponse(["b"]),
-				},
-			] as any;
-
-			const result = service.toMap(attributes, "track");
-
-			expect(result.k.values).toEqual(["a", "b"]);
-			expect(result.k.formatted).toEqual(["a", "b"]);
-		});
-
-		it("skips attributes whose source is not loaded", () => {
-			const makeResponse = (values: any[]) => () => ({
-				key: "k",
-				type: "string",
-				values,
-				pluginId: "ghost",
-				sourceId: "src",
-			});
-			const attributes = [
-				{
-					key: "k",
-					pluginId: "ghost",
-					sourceId: "src",
-					toResponse: makeResponse(["a"]),
-				},
-			] as any;
-
-			const result = service.toMap(attributes, "track");
-
-			expect(result).toEqual({});
-		});
-
-		it("leaves buffer responses unformatted", () => {
-			service.registerAttributeSource(makePlugin("plug") as any, makeSource("src"));
-			const attributes = [
-				{
-					key: "cover",
-					pluginId: "plug",
-					sourceId: "src",
+		const rows = [
+			makeRow("a", "src-a", "art", 0, {
+				value_buffer: {
 					toResponse: () => ({
-						key: "cover",
-						type: "buffer",
-						values: ["res-1"],
-						pluginId: "plug",
-						sourceId: "src",
+						uuid: "u",
+						extension: "webp",
+						sha256: null,
+						url: new RelativeUrl("/resources/abc/u.webp"),
 					}),
-				},
-			] as any;
+				} as unknown as DBResource,
+			}),
+		];
 
-			const result = service.toMap(attributes, "track");
+		const map = service.toMap(rows, "track");
 
-			expect(result.cover.formatted).toBeNull();
-		});
+		expect(map.art.formatted).toHaveLength(1);
+		const formatted = map.art.formatted[0] as ResourceResponse;
+		expect(formatted.uuid).toBe("u");
+		expect(formatted.extension).toBe("webp");
+		expect(formatted.sha256).toBeNull();
+		expect(formatted.url.url).toBe(
+			"/resources/abc/u.webp?plugin=a&source=src-a&entity=track&key=art",
+		);
 	});
 });

@@ -1,7 +1,7 @@
 import { ApiProperty, ApiSchema } from "@nestjs/swagger";
 
-@ApiSchema({ name: "TrackCreationSession" })
-export class TrackCreationSessionResponse {
+@ApiSchema({ name: "CreationSession" })
+export class CreationSessionResponse {
 	@ApiProperty()
 	uuid: string;
 

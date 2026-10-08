@@ -1,3 +1,11 @@
+jest.mock("mime", () => ({
+	__esModule: true,
+	default: {
+		getType: jest.fn(),
+		getExtension: jest.fn(),
+	},
+}));
+
 import { AlbumsController } from "./albums.controller";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 

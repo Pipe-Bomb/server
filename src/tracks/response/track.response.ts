@@ -29,6 +29,11 @@ export class TrackResponse {
 	@ApiProperty({
 		type: String,
 	})
+	uuid: string;
+
+	@ApiProperty({
+		type: String,
+	})
 	trackId: string;
 
 	@ApiProperty({
@@ -74,4 +79,10 @@ export class TrackResponse {
 		nullable: true,
 	})
 	identities: IdentityResponse[] | null;
+
+	@ApiProperty({
+		type: Boolean,
+		nullable: true,
+	})
+	bookmarked: boolean | null;
 }

@@ -53,6 +53,7 @@ describe("TracksController", () => {
 
 			expect(mockTrackManagerService.findOne).toHaveBeenCalledWith({
 				where: { pluginId: "plugin", libraryId: "lib", trackId: "track" },
+				relationLoadStrategy: "query",
 				relations: expect.objectContaining({
 					attributes: true,
 					identities: true,

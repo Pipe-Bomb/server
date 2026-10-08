@@ -520,6 +520,7 @@ describe("PlaylistsService", () => {
 
 			expect(playlistsRepository.findOne).toHaveBeenCalledWith({
 				where: { uuid: "pl-1" },
+				relationLoadStrategy: "query",
 				relations: {
 					attributes: true,
 					owner: true,

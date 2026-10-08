@@ -128,7 +128,7 @@ describe("SavedAlbumsService", () => {
 				}),
 			);
 			expect(result.albums).toHaveLength(1);
-			expect(result.count).toBe(1);
+			expect(result.total).toBe(1);
 		});
 	});
 
@@ -166,6 +166,10 @@ describe("SavedAlbumsService", () => {
 
 		it("should create tracks and return session uuid", async () => {
 			const sessionUuid = "session-1";
+			const session = {
+				uuid: sessionUuid,
+				promise: Promise.resolve([{} as DBTrack]),
+			};
 			mockEphemeralService.getEphemeralSourceByAlbumIdentity.mockReturnValue({});
 			mockEphemeralService.resolveEphemeralAlbum.mockResolvedValue({
 				artists: [],
@@ -175,10 +179,7 @@ describe("SavedAlbumsService", () => {
 			});
 			mockAlbumManagerService.resolveAlbum.mockResolvedValue("album-1");
 			mockLibrariesService.resolveTracks.mockResolvedValue([null]);
-			mockEphemeralService.createTracks.mockResolvedValue({
-				uuid: sessionUuid,
-				promise: Promise.resolve([{} as DBTrack]),
-			});
+			mockEphemeralService.createTracks.mockResolvedValue(session);
 
 			const result = await service.saveEphemeralAlbum(
 				"plug",
@@ -187,7 +188,7 @@ describe("SavedAlbumsService", () => {
 				makeUser(),
 			);
 
-			expect(result).toBe(sessionUuid);
+			expect(result).toBe(session);
 			expect(mockEphemeralService.createTracks).toHaveBeenCalledWith(
 				[
 					{

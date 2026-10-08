@@ -1,13 +1,10 @@
 import { Module } from "@nestjs/common";
-import { ResourcesService } from "./resources.service";
 import { ResourcesController } from "./resources.controller";
-import { TypeOrmModule } from "@nestjs/typeorm";
-import { DBResource } from "./entities/resource.entity";
+import { ResourceManagerModule } from "src/resource-manager/resource-manager.module";
+import { AttributeSourcesModule } from "src/attribute-sources/attribute-sources.module";
 
 @Module({
-	imports: [TypeOrmModule.forFeature([DBResource])],
+	imports: [ResourceManagerModule, AttributeSourcesModule],
 	controllers: [ResourcesController],
-	providers: [ResourcesService],
-	exports: [ResourcesService],
 })
 export class ResourcesModule {}

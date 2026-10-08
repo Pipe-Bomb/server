@@ -18,11 +18,13 @@ import { LoadedIdentifier } from "src/identifiers/interface/loaded-identifier";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { DBTrack } from "src/tracks/entities/track.entity";
+import { resolveRelationLoadStrategy } from "src/util/relation-load-strategy.util";
 import {
 	Repository,
 	DataSource,
 	In,
 	FindOptionsWhere,
+	FindOptionsRelations,
 	FindOptionsSelect,
 	FindManyOptions,
 	FindOptionsSelectByString,
@@ -181,17 +183,22 @@ export class ArtistManagerService {
 			withAlbumArtistAttributes?: boolean;
 		} = {},
 	) {
+		const relations: FindOptionsRelations<DBArtist> = {
+			attributes: options.withAttributes && {
+				value_buffer: true,
+			},
+			identities: options.withIdentities,
+		};
+
 		const artist = await this.artistsRepository.findOne({
 			where: {
 				uuid,
 			},
-			relationLoadStrategy: "query",
-			relations: {
-				attributes: options.withAttributes && {
-					value_buffer: true,
-				},
-				identities: options.withIdentities,
-			},
+			relationLoadStrategy: resolveRelationLoadStrategy(
+				this.artistsRepository.metadata,
+				relations,
+			),
+			relations,
 		});
 
 		if (!artist) {
@@ -212,27 +219,32 @@ export class ArtistManagerService {
 				select: ["uuid"],
 			});
 
+			const relations: FindOptionsRelations<DBTrackArtist> = {
+				track: {
+					attributes: options.withTrackAttributes,
+					artists: options.withTrackArtists && {
+						artist: {
+							attributes: true,
+						},
+					},
+					albums: options.withTrackAlbums && {
+						album: {
+							attributes: true,
+						},
+					},
+				},
+			};
+
 			const trackArtists = await this.trackArtistsRepository.find({
 				where: {
 					artistUuid: artist.uuid,
 					trackUuid: In(tracks.map((track) => track.uuid)),
 				},
-				relationLoadStrategy: "query",
-				relations: {
-					track: {
-						attributes: options.withTrackAttributes,
-						artists: options.withTrackArtists && {
-							artist: {
-								attributes: true,
-							},
-						},
-						albums: options.withTrackAlbums && {
-							album: {
-								attributes: true,
-							},
-						},
-					},
-				},
+				relationLoadStrategy: resolveRelationLoadStrategy(
+					this.trackArtistsRepository.metadata,
+					relations,
+				),
+				relations,
 			});
 
 			const uniqueMap = new Map<string, DBTrackArtist>();
@@ -275,20 +287,33 @@ export class ArtistManagerService {
 		withIdentities?: boolean;
 		select?: FindOptionsSelect<DBArtist> | FindOptionsSelectByString<DBArtist>;
 	}) {
+		const relations: FindOptionsRelations<DBArtist> = {
+			attributes: options.withAttributes,
+			identities: options.withIdentities,
+		};
+
 		return this.artistsRepository.find({
 			take: options.amount,
 			skip: options.offset,
-			relationLoadStrategy: "query",
+			relationLoadStrategy: resolveRelationLoadStrategy(
+				this.artistsRepository.metadata,
+				relations,
+			),
 			select: options.select,
-			relations: {
-				attributes: options.withAttributes,
-				identities: options.withIdentities,
-			},
+			relations,
 		});
 	}
 
 	findManyRaw(options: FindManyOptions<DBArtist>) {
-		return this.artistsRepository.find(options);
+		return this.artistsRepository.find({
+			...options,
+			relationLoadStrategy:
+				options.relationLoadStrategy ??
+				resolveRelationLoadStrategy(
+					this.artistsRepository.metadata,
+					options.relations,
+				),
+		});
 	}
 
 	async updateAttributionRunId(runId: string, artistUuids: string[]) {

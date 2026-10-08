@@ -134,6 +134,7 @@ export class DBTrack {
 		}
 
 		return {
+			uuid: this.uuid,
 			trackId: this.trackId,
 			pluginId: this.pluginId,
 			libraryId: this.libraryId,
@@ -143,6 +144,7 @@ export class DBTrack {
 			identities,
 			artists: (this.artists && artists) ?? null,
 			albums: (this.albums && albums) ?? null,
+			bookmarked: null,
 		};
 	}
 
@@ -161,6 +163,7 @@ export class DBTrack {
 				null,
 			artists: this.artists?.map((artist) => artist.toSavedResponse()) ?? null,
 			albums: this.albums?.map((album) => album.toSavedResponse()) ?? null,
+			bookmarks: null,
 		};
 	}
 }

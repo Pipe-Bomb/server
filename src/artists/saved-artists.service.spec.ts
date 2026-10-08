@@ -90,7 +90,7 @@ describe("SavedArtistsService", () => {
 				}),
 			);
 			expect(result.artists).toHaveLength(1);
-			expect(result.count).toBe(1);
+			expect(result.total).toBe(1);
 		});
 
 		it("should return all artists when user is null", async () => {

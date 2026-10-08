@@ -208,6 +208,7 @@ describe("UserManagerService", () => {
 
 			expect(mockRepo.findOne).toHaveBeenCalledWith({
 				where: { uuid: "uuid-1" },
+				relationLoadStrategy: "query",
 				relations: { playlists: false, privileges: undefined },
 			});
 		});
@@ -223,6 +224,7 @@ describe("UserManagerService", () => {
 
 			expect(mockRepo.findOne).toHaveBeenCalledWith({
 				where: { uuid: "uuid-1" },
+				relationLoadStrategy: "query",
 				relations: { playlists: { attributes: true }, privileges: true },
 			});
 		});
@@ -234,6 +236,7 @@ describe("UserManagerService", () => {
 
 			expect(mockRepo.findOne).toHaveBeenCalledWith({
 				where: { uuid: "uuid-1" },
+				relationLoadStrategy: "query",
 				relations: {
 					playlists: { attributes: undefined },
 					privileges: undefined,

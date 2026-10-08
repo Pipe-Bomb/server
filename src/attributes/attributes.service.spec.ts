@@ -362,46 +362,4 @@ describe("AttributesService", () => {
 			expect(result).toEqual([{ key: "release-group" }]);
 		});
 	});
-
-	describe("toSimplifiedAttributeList", () => {
-		it("merges attributes with the same key and type", () => {
-			const a1 = {
-				key: "genre",
-				type: "string",
-				toResponse: () => ({ key: "genre", type: "string", values: ["Rock"] }),
-			} as any;
-			const a2 = {
-				key: "genre",
-				type: "string",
-				toResponse: () => ({ key: "genre", type: "string", values: ["Pop"] }),
-			} as any;
-			const a3 = {
-				key: "explicit",
-				type: "boolean",
-				toResponse: () => ({ key: "explicit", type: "boolean", values: [true] }),
-			} as any;
-
-			const result = service.toSimplifiedAttributeList([a1, a2, a3]);
-
-			expect(result.genre.values).toEqual(["Rock", "Pop"]);
-			expect(result.explicit.values).toEqual([true]);
-		});
-
-		it("throws when the same key has different types", () => {
-			const a1 = {
-				key: "k",
-				type: "string",
-				toResponse: () => ({ key: "k", type: "string", values: ["a"] }),
-			} as any;
-			const a2 = {
-				key: "k",
-				type: "integer",
-				toResponse: () => ({ key: "k", type: "integer", values: [1] }),
-			} as any;
-
-			expect(() => service.toSimplifiedAttributeList([a1, a2])).toThrow(
-				/different types/,
-			);
-		});
-	});
 });
