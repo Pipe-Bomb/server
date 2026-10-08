@@ -79,6 +79,7 @@ export class PlaybackHistoryController {
 					},
 				},
 			},
+			relationLoadStrategy: "query",
 		});
 
 		const entryResponses: PlaybackHistoryEntryResponse[] = entries.map(
