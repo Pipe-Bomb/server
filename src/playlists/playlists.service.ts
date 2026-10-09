@@ -606,15 +606,12 @@ export class PlaylistsService {
 									}
 								: relations?.tracks,
 					},
-					order: {
-						tracks:
-							(relations?.tracks && {
-								dateAdded: "asc",
-								ordinal: "asc",
-							}) ||
-							undefined,
-					},
 				});
+
+				playlist?.tracks?.sort(
+					(a, b) => a.dateAdded - b.dateAdded || a.ordinal - b.ordinal,
+				);
+
 				return playlist?.toSavedResponse() ?? null;
 			},
 			addToPlaylist: async (uuid, trackUuids, options = {}) => {

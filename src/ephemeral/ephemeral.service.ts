@@ -47,6 +47,7 @@ import { CreationSessionResponse } from "./response/creation-session.response";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { emitServerEvent } from "src/util/emitter.util";
 import { attributeSignature } from "src/attributes/attribute-signature.util";
+import { DBArtistAttribute } from "src/attributes/entities/artist-attribute.entity";
 
 @Injectable()
 export class EphemeralService {
@@ -532,6 +533,118 @@ export class EphemeralService {
 			tracks: null,
 			bookmarked: null,
 		};
+	}
+
+	async createAlbumArtistsAndAttributes(
+		pluginId: string,
+		identifierId: string,
+		identity: string,
+		albumUuid: string,
+	): Promise<boolean> {
+		const source = this.albumIdentifiers.get(`${pluginId}:${identifierId}`);
+		if (!source) {
+			return false;
+		}
+
+		let album: Awaited<ReturnType<typeof source.source.resolveAlbum>>;
+		try {
+			album = await source.source.resolveAlbum(identifierId, identity);
+		} catch (e) {
+			this.logger.error(
+				`Ephemeral Source "${source.source.id}" from Plugin "${source.plugin.package.name}" failed to resolve album for identity "${identifierId}:${identity}":`,
+				e,
+			);
+			throw e;
+		}
+		if (!album) {
+			return false;
+		}
+
+		const artistEntries = album.artists ?? [];
+
+		const artistUuids: string[] = [];
+		for (const artist of artistEntries) {
+			const artistUuid = await this.artistManagerService.resolveArtist(
+				artist.pluginId,
+				artist.identityId,
+				artist.identity,
+				ArtistIdentityTarget.ALBUM,
+				true,
+			);
+			artistUuids.push(artistUuid);
+		}
+
+		if (artistUuids.length) {
+			const dbAlbum = await this.albumManagerService.findOne(albumUuid);
+			if (dbAlbum) {
+				await this.albumManagerService.setArtistLinks(
+					dbAlbum,
+					artistUuids,
+					pluginId,
+					identifierId,
+				);
+				for (let i = 0; i < artistEntries.length; i++) {
+					await this.albumManagerService.setJoinPhrase(
+						dbAlbum,
+						artistUuids[i],
+						artistEntries[i].joinPhrase ?? null,
+					);
+				}
+			}
+		}
+
+		const attributeSource = this.attributeSources.get(source.source) ?? null;
+		if (!attributeSource) {
+			this.logger.error(
+				`Won't Attribute new Album or Artists because Attribute Source is not loaded`,
+			);
+			return true;
+		}
+
+		const before =
+			await this.attributeSourcesService.getAlbumAttributeRows(albumUuid);
+		const albumAttributes =
+			await this.attributeSourcesService.createAlbumAttributes(
+				albumUuid,
+				album.attributes ?? [],
+				attributeSource,
+			);
+		await this.attributeSourcesService.replaceAllAlbumAttributes(
+			albumUuid,
+			albumAttributes,
+		);
+
+		const artistAttributes: DBArtistAttribute[] = [];
+		for (let i = 0; i < artistEntries.length; i++) {
+			const artist = artistEntries[i];
+			if (!artist.attributes?.length) {
+				continue;
+			}
+
+			artistAttributes.push(
+				...(await this.attributeSourcesService.createArtistAttributes(
+					artistUuids[i],
+					artist.attributes,
+					attributeSource,
+				)),
+			);
+		}
+		if (artistAttributes.length) {
+			await this.attributeSourcesService.upsertArtistAttributes(
+				artistAttributes,
+			);
+		}
+
+		const after =
+			await this.attributeSourcesService.getAlbumAttributeRows(albumUuid);
+		if (attributeSignature(before) !== attributeSignature(after)) {
+			const dbAlbum = await this.albumManagerService.findOne(albumUuid);
+			if (dbAlbum) {
+				emitServerEvent(this.emitter, "album.attributes.updated", dbAlbum);
+			}
+		}
+
+		return true;
 	}
 
 	async resolveEphemeralArtist(
