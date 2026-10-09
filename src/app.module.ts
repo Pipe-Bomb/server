@@ -42,6 +42,8 @@ import { SetupModule } from "./setup/setup.module";
 import { MarketplacesModule } from "./marketplace/marketplaces.module";
 import { PlaybackHistoryModule } from "./playback-history/playback-history.module";
 import { BookmarksModule } from "./bookmarks/bookmarks.module";
+import { EventEmitterModule } from "@nestjs/event-emitter";
+import { EventClientModule } from "./event-client/event-client.module";
 import { ResourcesModule } from "./resources/resources.module";
 
 @Module({
@@ -52,6 +54,9 @@ import { ResourcesModule } from "./resources/resources.module";
 			cache: true,
 		}),
 		TypeOrmModule.forRootAsync(databaseConfig.asProvider()),
+		EventEmitterModule.forRoot({
+			delimiter: ".",
+		}),
 		PluginsModule,
 		LibrariesModule,
 		IdentifiersModule,
@@ -88,6 +93,7 @@ import { ResourcesModule } from "./resources/resources.module";
 		MarketplacesModule,
 		PlaybackHistoryModule,
 		BookmarksModule,
+		EventClientModule,
 	],
 	controllers: [AppController],
 	providers: [

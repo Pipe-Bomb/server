@@ -10,6 +10,8 @@ import { DBUser } from "src/users/entity/user.entity";
 import { UserJwtPayload } from "src/users/interface/user-jwt-payload.interface";
 import { Like, Repository } from "typeorm";
 import * as crypto from "crypto";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { emitServerEvent } from "src/util/emitter.util";
 
 @Injectable()
 export class UserManagerService {
@@ -20,6 +22,7 @@ export class UserManagerService {
 		private readonly usersRepository: Repository<DBUser>,
 		private readonly secretsService: SecretsService,
 		private readonly jwtService: JwtService,
+		private readonly emitter: EventEmitter2,
 	) {
 		this.jwtSecret = this.secretsService.getOrCreate("user-jwt", () =>
 			this.secretsService.createAuthSecret(),
@@ -71,6 +74,9 @@ export class UserManagerService {
 		});
 
 		await this.usersRepository.insert(user);
+
+		emitServerEvent(this.emitter, "user.added", user);
+
 		return user;
 	}
 

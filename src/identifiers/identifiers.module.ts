@@ -7,12 +7,14 @@ import { DBDisabledIdentifier } from "./entities/disabled-identifier.entity";
 import { ArtistManagerModule } from "src/artist-manager/artist-manager.module";
 import { AlbumManagerModule } from "src/album-manager/album-manager.module";
 import { DisabledIdentifiersService } from "./disabled-identifiers.service";
+import { TrackManagerModule } from "src/track-manager/track-manager.module";
 
 @Module({
 	imports: [
 		TypeOrmModule.forFeature([DBIdentity, DBDisabledIdentifier]),
 		ArtistManagerModule,
 		AlbumManagerModule,
+		TrackManagerModule,
 	],
 	controllers: [IdentifiersController],
 	providers: [IdentifiersService, DisabledIdentifiersService],

@@ -1,7 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { TrackAttributionHelper } from "@sdk";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { DBTrack } from "src/tracks/entities/track.entity";
 import { DBTrackAttribute } from "./entities/track-attribute.entity";
+import { emitServerEvent } from "src/util/emitter.util";
+import { attributeSignature } from "./attribute-signature.util";
 import { TasksService } from "src/tasks/tasks.service";
 import { DBArtistAttribute } from "./entities/artist-attribute.entity";
 import { LoadedLibraryHandler } from "src/libraries/interface/loaded-library.interface";
@@ -23,6 +26,7 @@ export class AttributesService {
 		private readonly tasksService: TasksService,
 		private readonly artistManagerService: ArtistManagerService,
 		private readonly albumManagerService: AlbumManagerService,
+		private readonly emitter: EventEmitter2,
 	) {
 		this.tasksService.registerSystemTask<"all" | "new">({
 			id: "attribute-artists",
@@ -59,6 +63,10 @@ export class AttributesService {
 		const allArtistAttributes: DBArtistAttribute[] = [];
 
 		const completedAttributes = new Set<string>();
+
+		const before = await this.attributeSourcesService.getTrackAttributeRows(
+			track.uuid,
+		);
 
 		const sources = this.attributeSourcesService.getSources();
 
@@ -109,7 +117,7 @@ export class AttributesService {
 
 						if (artist.joinPhrase) {
 							await this.artistManagerService.setJoinPhrase(
-								track.uuid,
+								track,
 								artistUuid,
 								artist.joinPhrase,
 							);
@@ -130,11 +138,23 @@ export class AttributesService {
 		await this.attributeSourcesService.upsertArtistAttributes(
 			allArtistAttributes,
 		);
+
+		const after = await this.attributeSourcesService.getTrackAttributeRows(
+			track.uuid,
+		);
+		if (attributeSignature(before) !== attributeSignature(after)) {
+			emitServerEvent(this.emitter, "track.attributes.updated", track);
+		}
+
 		return allTrackAttributes;
 	}
 
 	async attributeArtist(artist: DBArtist) {
 		const allAttributes: DBArtistAttribute[] = [];
+
+		const before = await this.attributeSourcesService.getArtistAttributeRows(
+			artist.uuid,
+		);
 
 		const helper = await this.artistManagerService.getInformationHelper(artist);
 		const sources = this.attributeSourcesService.getSources();
@@ -161,6 +181,13 @@ export class AttributesService {
 			artist.uuid,
 			allAttributes,
 		);
+
+		const after = await this.attributeSourcesService.getArtistAttributeRows(
+			artist.uuid,
+		);
+		if (attributeSignature(before) !== attributeSignature(after)) {
+			emitServerEvent(this.emitter, "artist.attributes.updated", artist);
+		}
 	}
 
 	async attributeAllArtists(
@@ -309,6 +336,10 @@ export class AttributesService {
 		const allAlbumAttributes: DBAlbumAttribute[] = [];
 		const allArtistAttributes: DBArtistAttribute[] = [];
 
+		const before = await this.attributeSourcesService.getAlbumAttributeRows(
+			album.uuid,
+		);
+
 		const helper = await this.albumManagerService.getInformationHelper(album);
 		const sources = this.attributeSourcesService.getSources();
 
@@ -348,7 +379,7 @@ export class AttributesService {
 
 						if (artist.joinPhrase) {
 							await this.albumManagerService.setJoinPhrase(
-								album.uuid,
+								album,
 								artistUuid,
 								artist.joinPhrase,
 							);
@@ -370,6 +401,14 @@ export class AttributesService {
 		await this.attributeSourcesService.upsertArtistAttributes(
 			allArtistAttributes,
 		);
+
+		const after = await this.attributeSourcesService.getAlbumAttributeRows(
+			album.uuid,
+		);
+		if (attributeSignature(before) !== attributeSignature(after)) {
+			emitServerEvent(this.emitter, "album.attributes.updated", album);
+		}
+
 		return allAlbumAttributes;
 	}
 

@@ -1,5 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { emitServerEvent } from "src/util/emitter.util";
 import { DBAlbum } from "./entity/album.entity";
 import {
 	DataSource,
@@ -36,6 +38,7 @@ export class AlbumsService {
 		private readonly disabledIdentifiersService: DisabledIdentifiersService,
 		private readonly tasksService: TasksService,
 		private readonly dataSource: DataSource,
+		private readonly emitter: EventEmitter2,
 	) {
 		this.tasksService.registerSystemTask<"all" | "new">({
 			id: "identify-albums",
@@ -74,6 +77,7 @@ export class AlbumsService {
 
 		// Build newEntries in-memory first; artist links can be set immediately
 		let allIdentities = await this.albumManagerService.findIdentities(album);
+		const beforeSignature = this.albumIdentitySignature(allIdentities);
 		const newEntries: DBAlbumIdentity[] = [];
 		const matchEntries: DBAlbumIdentity[] = [];
 
@@ -217,6 +221,12 @@ export class AlbumsService {
 
 		if (!newEntries.length) {
 			await this.albumManagerService.setRunId(album, runId, "identity");
+
+			const after = await this.albumManagerService.findIdentities(album);
+			if (beforeSignature !== this.albumIdentitySignature(after)) {
+				emitServerEvent(this.emitter, "album.identities.updated", album);
+			}
+
 			return {
 				identities: [],
 				mergedAlbums: [album.uuid],
@@ -234,6 +244,12 @@ export class AlbumsService {
 				})),
 			);
 			await this.identitiesRepository.insert(newEntries);
+
+			const after = await this.albumManagerService.findIdentities(album);
+			if (beforeSignature !== this.albumIdentitySignature(after)) {
+				emitServerEvent(this.emitter, "album.identities.updated", album);
+			}
+
 			return {
 				identities: newEntries,
 				mergedAlbums: [album.uuid],
@@ -263,6 +279,46 @@ export class AlbumsService {
 
 		const existingAlbums = Array.from(existingAlbumMap.values());
 
+		// Snapshot the state of every album involved so we can emit precise
+		// identities/tracklist/artists updates (and removals) after the tx.
+		const involvedUuids = existingAlbums.map((existing) => existing.uuid);
+
+		const beforeIdentityRows = involvedUuids.length
+			? await this.identitiesRepository.findBy({
+					albumUuid: In(involvedUuids),
+				})
+			: [];
+		const beforeIdentitiesByAlbum = new Map<string, DBAlbumIdentity[]>();
+		for (const row of beforeIdentityRows) {
+			const list = beforeIdentitiesByAlbum.get(row.albumUuid) ?? [];
+			list.push(row);
+			beforeIdentitiesByAlbum.set(row.albumUuid, list);
+		}
+
+		const beforeTrackLinkRows = involvedUuids.length
+			? await this.dataSource
+					.getRepository(DBAlbumTrack)
+					.findBy({ albumUuid: In(involvedUuids) })
+			: [];
+		const beforeTrackLinksByAlbum = new Map<string, DBAlbumTrack[]>();
+		for (const row of beforeTrackLinkRows) {
+			const list = beforeTrackLinksByAlbum.get(row.albumUuid) ?? [];
+			list.push(row);
+			beforeTrackLinksByAlbum.set(row.albumUuid, list);
+		}
+
+		const beforeArtistLinkRows = involvedUuids.length
+			? await this.dataSource
+					.getRepository(DBAlbumArtist)
+					.findBy({ albumUuid: In(involvedUuids) })
+			: [];
+		const beforeArtistLinksByAlbum = new Map<string, DBAlbumArtist[]>();
+		for (const row of beforeArtistLinkRows) {
+			const list = beforeArtistLinksByAlbum.get(row.albumUuid) ?? [];
+			list.push(row);
+			beforeArtistLinksByAlbum.set(row.albumUuid, list);
+		}
+
 		const txResult = await this.dataSource.transaction<{
 			mergedAlbums: string[];
 			identities: DBAlbumIdentity[];
@@ -278,7 +334,7 @@ export class AlbumsService {
 				const albumDateMs = (album: DBAlbum): number => {
 					const v = album.dateAdded as unknown;
 					if (typeof v === "string") {
-						return new Date((v as string).replace(" ", "T")).getTime();
+						return new Date(v.replace(" ", "T")).getTime();
 					}
 					return album.dateAdded;
 				};
@@ -408,11 +464,95 @@ export class AlbumsService {
 			txResult.survivingAlbum,
 			currentIds,
 		);
+
+		const surviving = txResult.survivingAlbum;
+
+		// Albums that were merged away no longer exist.
+		const existingAlbumByUuid = new Map(
+			existingAlbums.map((existing) => [existing.uuid, existing]),
+		);
+		for (const mergedUuid of txResult.mergedAlbums) {
+			if (mergedUuid === surviving.uuid) {
+				continue;
+			}
+			const removed = existingAlbumByUuid.get(mergedUuid);
+			if (removed) {
+				emitServerEvent(this.emitter, "album.removed", removed);
+			}
+		}
+
+		// Surviving album identities may have changed via the merge/split.
+		const afterIdentities = await this.identitiesRepository.findBy({
+			albumUuid: surviving.uuid,
+		});
+		const beforeIdentities = beforeIdentitiesByAlbum.get(surviving.uuid) ?? [];
+		if (
+			this.albumIdentitySignature(beforeIdentities) !==
+			this.albumIdentitySignature(afterIdentities)
+		) {
+			emitServerEvent(this.emitter, "album.identities.updated", surviving);
+		}
+
+		// Surviving album tracklist may have changed via the merge/split.
+		const afterTrackLinks = await this.dataSource
+			.getRepository(DBAlbumTrack)
+			.findBy({ albumUuid: surviving.uuid });
+		const beforeTrackLinks = beforeTrackLinksByAlbum.get(surviving.uuid) ?? [];
+		if (
+			this.albumTrackLinkSignature(beforeTrackLinks) !==
+			this.albumTrackLinkSignature(afterTrackLinks)
+		) {
+			emitServerEvent(this.emitter, "album.tracklist.updated", surviving);
+		}
+
+		// Surviving album artists may have changed via the merge/split.
+		const afterArtistLinks = await this.dataSource
+			.getRepository(DBAlbumArtist)
+			.findBy({ albumUuid: surviving.uuid });
+		const beforeArtistLinks =
+			beforeArtistLinksByAlbum.get(surviving.uuid) ?? [];
+		if (
+			this.albumArtistLinkSignature(beforeArtistLinks) !==
+			this.albumArtistLinkSignature(afterArtistLinks)
+		) {
+			emitServerEvent(this.emitter, "album.artists.updated", surviving);
+		}
+
 		return {
 			mergedAlbums: txResult.mergedAlbums,
 			identities: txResult.identities,
 			splitCount: preSplitCount + postSplitCount,
 		};
+	}
+
+	private albumIdentitySignature(identities: DBAlbumIdentity[]): string {
+		return identities
+			.map(
+				(identity) =>
+					`${identity.pluginId}:${identity.identifierId}:${identity.ordinal}:${identity.identity}`,
+			)
+			.sort()
+			.join("|");
+	}
+
+	private albumTrackLinkSignature(links: DBAlbumTrack[]): string {
+		return links
+			.map(
+				(link) =>
+					`${link.trackUuid}:${link.pluginId}:${link.identifierId}:${link.discNumber}:${link.trackNumber}`,
+			)
+			.sort()
+			.join("|");
+	}
+
+	private albumArtistLinkSignature(links: DBAlbumArtist[]): string {
+		return links
+			.map(
+				(link) =>
+					`${link.artistUuid}:${link.pluginId}:${link.identifierId}:${link.ordinal}:${link.joinPhrase ?? ""}`,
+			)
+			.sort()
+			.join("|");
 	}
 
 	private async evaluateAlbumSplit(
@@ -542,6 +682,8 @@ export class AlbumsService {
 		let splitCount = 0;
 
 		for (const [, groupOriginalUuids] of splitGroups) {
+			const createdAlbums: DBAlbum[] = [];
+
 			await this.dataSource.transaction(async (tm) => {
 				const albumsRepo = tm.getRepository(DBAlbum);
 				const idRepo = tm.getRepository(DBAlbumIdentity);
@@ -626,6 +768,7 @@ export class AlbumsService {
 					dateAdded: Date.now(),
 				});
 				const savedAlbum = await albumsRepo.save(newAlbum);
+				createdAlbums.push(savedAlbum);
 
 				if (idsToMove.length) {
 					await idRepo.delete(
@@ -681,6 +824,10 @@ export class AlbumsService {
 					masterUuid: album.uuid,
 				});
 			});
+
+			for (const created of createdAlbums) {
+				emitServerEvent(this.emitter, "album.added", created);
+			}
 
 			splitCount++;
 		}

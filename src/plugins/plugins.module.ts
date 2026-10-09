@@ -23,6 +23,7 @@ import { PlaybackHistoryModule } from "src/playback-history/playback-history.mod
 import { AlbumsModule } from "src/albums/albums.module";
 import { ArtistsModule } from "src/artists/artists.module";
 import { TracksModule } from "src/tracks/tracks.module";
+import { EventClientModule } from "src/event-client/event-client.module";
 
 @Module({
 	imports: [
@@ -48,6 +49,7 @@ import { TracksModule } from "src/tracks/tracks.module";
 		AlbumsModule,
 		ArtistsModule,
 		TracksModule,
+		EventClientModule,
 	],
 	controllers: [PluginsController],
 	providers: [PluginsService],

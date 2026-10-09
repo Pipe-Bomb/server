@@ -579,6 +579,24 @@ export class AttributeSourcesService {
 		});
 	}
 
+	public getTrackAttributeRows(trackUuid: string) {
+		return this.trackAttributesRepository.findBy({ entityId: trackUuid });
+	}
+
+	public getArtistAttributeRows(artistUuid: string) {
+		return this.artistAttributesRepository.findBy({ entityId: artistUuid });
+	}
+
+	public getAlbumAttributeRows(albumUuid: string) {
+		return this.albumAttributesRepository.findBy({ entityId: albumUuid });
+	}
+
+	public getPlaylistAttributeRows(playlistUuid: string) {
+		return this.playlistAttributesRepository.findBy({
+			entityId: playlistUuid,
+		});
+	}
+
 	public async upsertArtistAttributes(attributes: DBArtistAttribute[]) {
 		await this.artistAttributesRepository.upsert(attributes, {
 			conflictPaths: ["pluginId", "entityId", "sourceId", "ordinal", "key"],

@@ -1,7 +1,12 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { InjectRepository } from "@nestjs/typeorm";
 import { LibraryHandler, Track } from "@sdk";
+import { randomUUID } from "crypto";
 import { DBAlbumTrack } from "src/albums/entity/album-track.entity";
+import { DBAlbum } from "src/albums/entity/album.entity";
+import { DBPlaylistTrack } from "src/playlists/entity/playlist-track.entity";
+import { DBPlaylist } from "src/playlists/entity/playlist.entity";
 import { DBTrackArtist } from "src/artist-manager/entity/track-artist.entity";
 import { AttributeEntity } from "src/attribute-sources/enum/attribute-entity.enum";
 import { DBAlbumAttribute } from "src/attributes/entities/album-attribute.entity";
@@ -11,6 +16,7 @@ import { AttributeType } from "src/attributes/enum/attribute-type.enum";
 import { DBSmartPlaylistFilterGroup } from "src/playlists/entity/smart-playlist-filter-group.entity";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { DBTrack } from "src/tracks/entities/track.entity";
+import { emitServerEvent } from "src/util/emitter.util";
 import { resolveRelationLoadStrategy } from "src/util/relation-load-strategy.util";
 import { WorkflowsService } from "src/workflows/workflows.service";
 import {
@@ -20,6 +26,7 @@ import {
 	FindOneOptions,
 	In,
 	QueryDeepPartialEntity,
+	InsertResult,
 } from "typeorm";
 
 @Injectable()
@@ -31,6 +38,7 @@ export class TrackManagerService {
 		@InjectRepository(DBTrack)
 		private readonly tracksRepository: Repository<DBTrack>,
 		private readonly workflowsService: WorkflowsService,
+		private readonly emitter: EventEmitter2,
 	) {
 		this.workflowsService.registerStep(
 			{
@@ -112,41 +120,86 @@ export class TrackManagerService {
 		);
 	}
 
+	private isUuidCollision(e: unknown): boolean {
+		const err = e as { driverError?: { code?: string }; code?: string };
+		const code = err?.driverError?.code ?? err?.code;
+		return (
+			code === "23505" || // Postgres unique_violation
+			code === "SQLITE_CONSTRAINT_PRIMARYKEY" || // better-sqlite3 PK
+			code === "SQLITE_CONSTRAINT_UNIQUE"
+		);
+	}
+
+	private async upsertTrack(
+		plugin: LoadedPlugin,
+		libraryHandler: LibraryHandler,
+		track: Track,
+		runId: string | null,
+	) {
+		for (let attempt = 0; ; attempt++) {
+			const uuid = randomUUID();
+
+			try {
+				await this.tracksRepository
+					.createQueryBuilder()
+					.insert()
+					.into(DBTrack)
+					.values({
+						uuid,
+						pluginId: plugin.package.name,
+						libraryId: libraryHandler.id,
+						trackId: track.id,
+						title: track.title,
+						lastScanRunId: runId,
+					})
+					.orUpdate(
+						["title", "lastScanRunId"],
+						["pluginId", "libraryId", "trackId"],
+					)
+					.updateEntity(false)
+					.execute();
+
+				const row = await this.tracksRepository.findOne({
+					where: {
+						pluginId: plugin.package.name,
+						libraryId: libraryHandler.id,
+						trackId: track.id,
+					},
+				});
+				if (!row) {
+					throw new Error("Failed to find newly created track");
+				}
+				return {
+					track: row,
+					created: row.uuid == uuid,
+				};
+			} catch (e) {
+				if (!this.isUuidCollision(e) || attempt + 1 >= 10) {
+					throw e;
+				}
+				// generated uuid collided with an existing PK — retry with a fresh uuid
+			}
+		}
+	}
+
 	async addTrack(
 		plugin: LoadedPlugin,
 		libraryHandler: LibraryHandler,
 		track: Track,
 		runId: string | null,
 	) {
-		if (runId) {
-			await this.tracksRepository.upsert(
-				{
-					pluginId: plugin.package.name,
-					libraryId: libraryHandler.id,
-					trackId: track.id,
-					title: track.title,
-					lastScanRunId: runId,
-				},
-				{
-					conflictPaths: ["pluginId", "libraryId", "trackId"],
-					skipUpdateIfNoValuesChanged: true,
-				},
-			);
-		} else {
-			await this.tracksRepository.upsert(
-				{
-					pluginId: plugin.package.name,
-					libraryId: libraryHandler.id,
-					trackId: track.id,
-					title: track.title,
-					lastScanRunId: null,
-				},
-				["pluginId", "libraryId", "trackId"],
-			);
-		}
+		const { created, track: dbTrack } = await this.upsertTrack(
+			plugin,
+			libraryHandler,
+			track,
+			runId,
+		);
 
-		for (const listener of this.addTrackListeners) {
-			listener();
+		if (created) {
+			for (const listener of this.addTrackListeners) {
+				listener();
+			}
+			emitServerEvent(this.emitter, "track.added", dbTrack);
 		}
 	}
 
@@ -161,11 +214,58 @@ export class TrackManagerService {
 		}
 
 		for (const chunk of chunks) {
+			const removed = await this.tracksRepository.find({
+				where: {
+					pluginId: plugin.package.name,
+					libraryId: libraryHandler.id,
+					trackId: In(chunk),
+				},
+			});
+
+			// Deleting a track cascades its album links, which changes the
+			// tracklists of the albums it belonged to.
+			const albumLinks = await this.tracksRepository.manager
+				.getRepository(DBAlbumTrack)
+				.findBy({ trackUuid: In(removed.map((track) => track.uuid)) });
+			const affectedAlbumUuids = Array.from(
+				new Set(albumLinks.map((link) => link.albumUuid)),
+			);
+
+			// It also cascades playlist links, changing playlist tracklists.
+			const playlistLinks = await this.tracksRepository.manager
+				.getRepository(DBPlaylistTrack)
+				.findBy({ trackUuid: In(removed.map((track) => track.uuid)) });
+			const affectedPlaylistUuids = Array.from(
+				new Set(playlistLinks.map((link) => link.playlistUuid)),
+			);
+
 			await this.tracksRepository.delete({
 				pluginId: plugin.package.name,
 				libraryId: libraryHandler.id,
 				trackId: In(chunk),
 			});
+
+			for (const track of removed) {
+				emitServerEvent(this.emitter, "track.removed", track);
+			}
+
+			if (affectedAlbumUuids.length) {
+				const albums = await this.tracksRepository.manager
+					.getRepository(DBAlbum)
+					.findBy({ uuid: In(affectedAlbumUuids) });
+				for (const album of albums) {
+					emitServerEvent(this.emitter, "album.tracklist.updated", album);
+				}
+			}
+
+			if (affectedPlaylistUuids.length) {
+				const playlists = await this.tracksRepository.manager
+					.getRepository(DBPlaylist)
+					.findBy({ uuid: In(affectedPlaylistUuids) });
+				for (const playlist of playlists) {
+					emitServerEvent(this.emitter, "playlist.tracklist.updated", playlist);
+				}
+			}
 		}
 	}
 
@@ -217,8 +317,20 @@ export class TrackManagerService {
 				`Added ${toInsert.length} new Tracks to Library "${libraryHandler.id}" for Plugin "${plugin.package.name}"`,
 			);
 
+			const insertedTracks = await this.tracksRepository.find({
+				where: {
+					pluginId: plugin.package.name,
+					libraryId: libraryHandler.id,
+					trackId: In(toInsert.map((track) => track.trackId)),
+				},
+			});
+
 			for (const listener of this.addTrackListeners) {
 				listener();
+			}
+
+			for (const track of insertedTracks) {
+				emitServerEvent(this.emitter, "track.added", track);
 			}
 		}
 

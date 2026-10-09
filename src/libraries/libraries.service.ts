@@ -23,6 +23,7 @@ import {
 } from "typeorm";
 import { AudioCacheService } from "src/audio-cache/audio-cache.service";
 import { TrackId } from "src/tracks/interface/track-id.interface";
+import { Emitter, Listener } from "src/util/emitter.util";
 
 interface PluginLibraries {
 	readonly plugin: LoadedPlugin;

@@ -44,6 +44,9 @@ import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { IdentifiersService } from "src/identifiers/identifiers.service";
 import { TrackCreationSession } from "./interface/track-creation-session.interface";
 import { CreationSessionResponse } from "./response/creation-session.response";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { emitServerEvent } from "src/util/emitter.util";
+import { attributeSignature } from "src/attributes/attribute-signature.util";
 
 @Injectable()
 export class EphemeralService {
@@ -71,6 +74,7 @@ export class EphemeralService {
 		private readonly albumManagerService: AlbumManagerService,
 		private readonly trackManagerService: TrackManagerService,
 		private readonly identifiersService: IdentifiersService,
+		private readonly emitter: EventEmitter2,
 	) {}
 
 	registerEphemeralSource(source: EphemeralSource, plugin: LoadedPlugin) {
@@ -1220,6 +1224,10 @@ export class EphemeralService {
 								);
 
 								if (ephemeralTrack.attributes?.length && attributeSource) {
+									const before =
+										await this.attributeSourcesService.getTrackAttributeRows(
+											dbTrack.uuid,
+										);
 									const attributes =
 										await this.attributeSourcesService.createTrackAttributes(
 											dbTrack.uuid,
@@ -1229,6 +1237,19 @@ export class EphemeralService {
 									await this.attributeSourcesService.upsertTrackAttributes(
 										attributes,
 									);
+									const after =
+										await this.attributeSourcesService.getTrackAttributeRows(
+											dbTrack.uuid,
+										);
+									if (
+										attributeSignature(before) !== attributeSignature(after)
+									) {
+										emitServerEvent(
+											this.emitter,
+											"track.attributes.updated",
+											dbTrack,
+										);
+									}
 								}
 							}
 

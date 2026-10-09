@@ -470,7 +470,7 @@ export class PlaylistsController {
 			throw new ForbiddenException();
 		}
 
-		await this.playlistsService.setVisibility(playlist.uuid, dto.visibility);
+		await this.playlistsService.setVisibility(playlist, dto.visibility);
 		return this.getPlaylist(playlist.uuid, 50, user);
 	}
 
@@ -593,7 +593,7 @@ export class PlaylistsController {
 
 		await this.smartPlaylistsService.updateFilterGroup(
 			filterGroupUuid,
-			playlist.uuid,
+			playlist,
 			dto.filters,
 		);
 	}
@@ -621,7 +621,7 @@ export class PlaylistsController {
 
 		await this.smartPlaylistsService.deleteFilterGroup(
 			filterGroupUuid,
-			playlist.uuid,
+			playlist,
 		);
 	}
 
@@ -645,7 +645,7 @@ export class PlaylistsController {
 			throw new ForbiddenException();
 		}
 
-		await this.smartPlaylistsService.runFilters(playlist.uuid);
+		await this.smartPlaylistsService.runFilters(playlist);
 	}
 
 	@Get(":uuid/members")
@@ -709,7 +709,7 @@ export class PlaylistsController {
 		}
 
 		const member = await this.playlistsService.upsertMember(
-			uuid,
+			playlist,
 			targetUserUuid,
 			dto.role,
 		);
@@ -738,6 +738,6 @@ export class PlaylistsController {
 			throw new ForbiddenException();
 		}
 
-		await this.playlistsService.removeMember(uuid, targetUserUuid);
+		await this.playlistsService.removeMember(playlist, targetUserUuid);
 	}
 }
