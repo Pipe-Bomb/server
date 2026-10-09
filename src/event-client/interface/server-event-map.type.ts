@@ -30,6 +30,7 @@ export type ServerEventMap = {
 	"playlist.tracklist.updated": DBPlaylist;
 	"playlist.visibility.updated": DBPlaylist;
 	"playlist.members.updated": DBPlaylist;
+	"playlist.filters.updated": DBPlaylist;
 
 	"user.added": DBUser;
 };

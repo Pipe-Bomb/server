@@ -48,6 +48,19 @@ describe("EventClientService", () => {
 		expect(received).toEqual(["saved-album"]);
 	});
 
+	it("forwards playlist.filters.updated to the SDK playlist-filters-updated event", () => {
+		const received: unknown[] = [];
+		service.addSdkListener("playlist-filters-updated", (playlist) =>
+			received.push(playlist),
+		);
+
+		listeners.get("playlist.filters.updated")!({
+			toSavedResponse: () => "saved-playlist",
+		});
+
+		expect(received).toEqual(["saved-playlist"]);
+	});
+
 	it("forwards track.artists.updated to the SDK track-artists-updated event", () => {
 		const received: unknown[] = [];
 		service.addSdkListener("track-artists-updated", (track) =>

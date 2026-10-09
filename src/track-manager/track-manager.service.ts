@@ -5,6 +5,8 @@ import { LibraryHandler, Track } from "@sdk";
 import { randomUUID } from "crypto";
 import { DBAlbumTrack } from "src/albums/entity/album-track.entity";
 import { DBAlbum } from "src/albums/entity/album.entity";
+import { DBPlaylistTrack } from "src/playlists/entity/playlist-track.entity";
+import { DBPlaylist } from "src/playlists/entity/playlist.entity";
 import { DBTrackArtist } from "src/artist-manager/entity/track-artist.entity";
 import { AttributeEntity } from "src/attribute-sources/enum/attribute-entity.enum";
 import { DBAlbumAttribute } from "src/attributes/entities/album-attribute.entity";
@@ -229,6 +231,14 @@ export class TrackManagerService {
 				new Set(albumLinks.map((link) => link.albumUuid)),
 			);
 
+			// It also cascades playlist links, changing playlist tracklists.
+			const playlistLinks = await this.tracksRepository.manager
+				.getRepository(DBPlaylistTrack)
+				.findBy({ trackUuid: In(removed.map((track) => track.uuid)) });
+			const affectedPlaylistUuids = Array.from(
+				new Set(playlistLinks.map((link) => link.playlistUuid)),
+			);
+
 			await this.tracksRepository.delete({
 				pluginId: plugin.package.name,
 				libraryId: libraryHandler.id,
@@ -245,6 +255,15 @@ export class TrackManagerService {
 					.findBy({ uuid: In(affectedAlbumUuids) });
 				for (const album of albums) {
 					emitServerEvent(this.emitter, "album.tracklist.updated", album);
+				}
+			}
+
+			if (affectedPlaylistUuids.length) {
+				const playlists = await this.tracksRepository.manager
+					.getRepository(DBPlaylist)
+					.findBy({ uuid: In(affectedPlaylistUuids) });
+				for (const playlist of playlists) {
+					emitServerEvent(this.emitter, "playlist.tracklist.updated", playlist);
 				}
 			}
 		}

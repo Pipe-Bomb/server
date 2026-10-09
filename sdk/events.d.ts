@@ -32,6 +32,7 @@ export type EventMap = {
 	"playlist-tracklist-updated": [SavedPlaylist];
 	"playlist-visibility-updated": [SavedPlaylist];
 	"playlist-members-updated": [SavedPlaylist];
+	"playlist-filters-updated": [SavedPlaylist];
 
 	"user-added": [SavedUser];
 };

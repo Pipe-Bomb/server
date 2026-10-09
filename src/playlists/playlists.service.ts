@@ -15,6 +15,9 @@ import { PlaylistVisibility } from "./enum/playlist-visibility.enum";
 import { PlaylistMemberRole } from "./enum/playlist-member-role.enum";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { LoadedAttributeSource } from "src/attributes/interface/loaded-attribute-source.interface";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { emitServerEvent } from "src/util/emitter.util";
+import { attributeSignature } from "src/attributes/attribute-signature.util";
 
 @Injectable()
 export class PlaylistsService {
@@ -30,6 +33,7 @@ export class PlaylistsService {
 		private readonly attributeSourcesService: AttributeSourcesService,
 		private readonly userManagerService: UserManagerService,
 		private readonly attributeUploadService: AttributeUploadService,
+		private readonly emitter: EventEmitter2,
 	) {
 		this.attributeSourcesService.registerPlaylistAttribute(null, {
 			key: "title",
@@ -78,6 +82,8 @@ export class PlaylistsService {
 			dbAttributes,
 		);
 
+		emitServerEvent(this.emitter, "playlist.added", playlist);
+
 		return playlist;
 	}
 
@@ -89,6 +95,10 @@ export class PlaylistsService {
 	) {
 		const bufferAttributes: AttributeValue<"buffer">[] = [];
 		const supportedAttributes: AttributeValue[] = [];
+
+		const before = await this.attributeSourcesService.getPlaylistAttributeRows(
+			playlist.uuid,
+		);
 
 		const playlistAttributes =
 			this.attributeSourcesService.getPlaylistAttributes();
@@ -139,6 +149,13 @@ export class PlaylistsService {
 			attributeSource,
 			dbAttributes,
 		);
+
+		const after = await this.attributeSourcesService.getPlaylistAttributeRows(
+			playlist.uuid,
+		);
+		if (attributeSignature(before) !== attributeSignature(after)) {
+			emitServerEvent(this.emitter, "playlist.attributes.updated", playlist);
+		}
 
 		if (bufferAttributes.length) {
 			if (!user) {
@@ -224,15 +241,22 @@ export class PlaylistsService {
 		);
 	}
 
-	async setVisibility(uuid: string, visibility: PlaylistVisibility) {
+	async setVisibility(playlist: DBPlaylist, visibility: PlaylistVisibility) {
+		if (playlist.visibility === visibility) {
+			return;
+		}
+
 		await this.playlistsRepository.update(
 			{
-				uuid,
+				uuid: playlist.uuid,
 			},
 			{
 				visibility,
 			},
 		);
+
+		playlist.visibility = visibility;
+		emitServerEvent(this.emitter, "playlist.visibility.updated", playlist);
 	}
 
 	async findForUser(
@@ -282,25 +306,42 @@ export class PlaylistsService {
 	}
 
 	async upsertMember(
-		playlistUuid: string,
+		playlist: DBPlaylist,
 		userUuid: string,
 		role: PlaylistMemberRole,
 	): Promise<DBPlaylistMember> {
+		const existing = await this.membersRepository.findOne({
+			where: { playlistUuid: playlist.uuid, userUuid },
+			select: ["role"],
+		});
+
 		await this.membersRepository.upsert(
-			{ playlistUuid, userUuid, role },
+			{ playlistUuid: playlist.uuid, userUuid, role },
 			{
 				conflictPaths: ["playlistUuid", "userUuid"],
 				skipUpdateIfNoValuesChanged: true,
 			},
 		);
+
+		if (existing?.role !== role) {
+			emitServerEvent(this.emitter, "playlist.members.updated", playlist);
+		}
+
 		return this.membersRepository.findOneOrFail({
-			where: { playlistUuid, userUuid },
+			where: { playlistUuid: playlist.uuid, userUuid },
 			relations: { user: true },
 		});
 	}
 
-	async removeMember(playlistUuid: string, userUuid: string): Promise<void> {
-		await this.membersRepository.delete({ playlistUuid, userUuid });
+	async removeMember(playlist: DBPlaylist, userUuid: string): Promise<void> {
+		const result = await this.membersRepository.delete({
+			playlistUuid: playlist.uuid,
+			userUuid,
+		});
+
+		if (result.affected) {
+			emitServerEvent(this.emitter, "playlist.members.updated", playlist);
+		}
 	}
 
 	async findByUuid(
@@ -436,14 +477,18 @@ export class PlaylistsService {
 	}
 
 	async addTracks(
-		playlist: DBPlaylist | string,
+		playlist: DBPlaylist,
 		tracks: DBTrack[] | string[],
 		user: DBUser | null,
 	) {
+		const before = await this.playlistTracksRepository.findBy({
+			playlistUuid: playlist.uuid,
+		});
+
 		await this.playlistTracksRepository.upsert(
 			tracks.map((track, ordinal) => ({
 				trackUuid: typeof track == "string" ? track : track.uuid,
-				playlistUuid: typeof playlist == "string" ? playlist : playlist.uuid,
+				playlistUuid: playlist.uuid,
 				addedByUuid: user?.uuid ?? null,
 				ordinal,
 			})),
@@ -454,23 +499,53 @@ export class PlaylistsService {
 		);
 
 		await this.updateDateModified(playlist);
+
+		const after = await this.playlistTracksRepository.findBy({
+			playlistUuid: playlist.uuid,
+		});
+		if (
+			this.playlistTrackSignature(before) !== this.playlistTrackSignature(after)
+		) {
+			emitServerEvent(this.emitter, "playlist.tracklist.updated", playlist);
+		}
 	}
 
-	async removeTracks(
-		playlist: DBPlaylist | string,
-		tracks: DBTrack[] | string[],
-	) {
+	async removeTracks(playlist: DBPlaylist, tracks: DBTrack[] | string[]) {
+		const before = await this.playlistTracksRepository.findBy({
+			playlistUuid: playlist.uuid,
+		});
+
 		await this.playlistTracksRepository.delete({
-			playlistUuid: typeof playlist == "string" ? playlist : playlist.uuid,
+			playlistUuid: playlist.uuid,
 			trackUuid: In(
 				tracks.map((track) => (typeof track == "string" ? track : track.uuid)),
 			),
 		});
 		await this.updateDateModified(playlist);
+
+		const after = await this.playlistTracksRepository.findBy({
+			playlistUuid: playlist.uuid,
+		});
+		if (
+			this.playlistTrackSignature(before) !== this.playlistTrackSignature(after)
+		) {
+			emitServerEvent(this.emitter, "playlist.tracklist.updated", playlist);
+		}
+	}
+
+	private playlistTrackSignature(tracks: DBPlaylistTrack[]): string {
+		return tracks
+			.map(
+				(track) =>
+					`${track.trackUuid}:${track.addedByUuid ?? ""}:${track.ordinal}`,
+			)
+			.sort()
+			.join("|");
 	}
 
 	async delete(playlist: DBPlaylist) {
 		await this.playlistsRepository.remove(playlist);
+		emitServerEvent(this.emitter, "playlist.removed", playlist);
 	}
 
 	createPlaylistClient(plugin: LoadedPlugin): PlaylistClient {
@@ -690,14 +765,22 @@ export class PlaylistsService {
 				);
 			},
 			addPlaylistMember: async (playlistUuid, userUuid, role) => {
-				await this.upsertMember(
-					playlistUuid,
-					userUuid,
-					role as PlaylistMemberRole,
-				);
+				const playlist = await this.playlistsRepository.findOneBy({
+					uuid: playlistUuid,
+				});
+				if (!playlist) {
+					throw new Error("Playlist doesn't exist");
+				}
+				await this.upsertMember(playlist, userUuid, role as PlaylistMemberRole);
 			},
 			removePlaylistMember: async (playlistUuid, userUuid) => {
-				await this.removeMember(playlistUuid, userUuid);
+				const playlist = await this.playlistsRepository.findOneBy({
+					uuid: playlistUuid,
+				});
+				if (!playlist) {
+					throw new Error("Playlist doesn't exist");
+				}
+				await this.removeMember(playlist, userUuid);
 			},
 			getPlaylistMembers: async (playlistUuid) => {
 				const members = await this.findMembers(playlistUuid);

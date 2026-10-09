@@ -87,6 +87,10 @@ const EVENT_BINDINGS: Record<keyof EventMap, ServerEventBinding> = {
 		"playlist.members.updated",
 		(playlist) => [playlist.toSavedResponse()],
 	),
+	"playlist-filters-updated": bindEvent(
+		"playlist.filters.updated",
+		(playlist) => [playlist.toSavedResponse()],
+	),
 
 	"user-added": bindEvent("user.added", (user) => [user.toSavedResponse()]),
 };
