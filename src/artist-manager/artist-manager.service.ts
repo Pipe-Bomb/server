@@ -38,6 +38,7 @@ import { DBAlbumIdentity } from "src/albums/entity/album-identity.entity";
 import { DBIdentity } from "src/identifiers/entities/identity.entity";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { emitServerEvent } from "src/util/emitter.util";
+import { attributeSignature } from "src/attributes/attribute-signature.util";
 
 @Injectable()
 export class ArtistManagerService {
@@ -123,7 +124,7 @@ export class ArtistManagerService {
 			return null;
 		}
 
-		return await this.dataSource.transaction(async (manager) => {
+		const savedArtist = await this.dataSource.transaction(async (manager) => {
 			const newArtist = manager.create(DBArtist);
 			const savedArtist = await manager.save(newArtist);
 
@@ -138,8 +139,12 @@ export class ArtistManagerService {
 			});
 			await manager.save(newIdentity);
 
-			return savedArtist.uuid;
+			return savedArtist;
 		});
+
+		emitServerEvent(this.emitter, "artist.added", savedArtist);
+
+		return savedArtist.uuid;
 	}
 
 	async clearTrackLinks(
@@ -207,6 +212,16 @@ export class ArtistManagerService {
 			.map(
 				(link) =>
 					`${link.artistUuid}:${link.pluginId}:${link.identifierId}:${link.ordinal}:${link.joinPhrase ?? ""}`,
+			)
+			.sort()
+			.join("|");
+	}
+
+	private artistIdentitySignature(identities: DBArtistIdentity[]): string {
+		return identities
+			.map(
+				(identity) =>
+					`${identity.pluginId}:${identity.identifierId}:${identity.target}:${identity.ordinal}:${identity.identity}`,
 			)
 			.sort()
 			.join("|");
@@ -540,6 +555,8 @@ export class ArtistManagerService {
 	): Promise<ArtistIdentificationResult> {
 		let allIdentities = await this.findIdentities(artist);
 
+		const beforeSignature = this.artistIdentitySignature(allIdentities);
+
 		const newEntries: DBArtistIdentity[] = [];
 
 		if (!this.orderedIdentifiers.length) {
@@ -661,6 +678,12 @@ export class ArtistManagerService {
 				{ uuid: artist.uuid },
 				{ lastIdentificationRunId: runId },
 			);
+
+			const after = await this.findIdentities(artist);
+			if (beforeSignature !== this.artistIdentitySignature(after)) {
+				emitServerEvent(this.emitter, "artist.identities.updated", artist);
+			}
+
 			return {
 				identities: [],
 				mergedArtists: [artist.uuid],
@@ -689,6 +712,37 @@ export class ArtistManagerService {
 		}
 
 		const existingArtists = Array.from(existingArtistMap.values());
+
+		// Snapshot the state of every artist involved in this identification so
+		// we can emit precise identities/attributes updates (and removals) once
+		// the merge/split transaction commits.
+		const involvedUuids = existingArtists.map((existing) => existing.uuid);
+
+		const beforeIdentityRows = involvedUuids.length
+			? await this.identitiesRepository.findBy({
+					artistUuid: In(involvedUuids),
+				})
+			: [];
+		const beforeIdentitiesByArtist = new Map<string, DBArtistIdentity[]>();
+		for (const row of beforeIdentityRows) {
+			const list = beforeIdentitiesByArtist.get(row.artistUuid) ?? [];
+			list.push(row);
+			beforeIdentitiesByArtist.set(row.artistUuid, list);
+		}
+
+		const isMerge = existingArtists.length > 1;
+
+		const beforeAttributeRows = isMerge
+			? await this.dataSource
+					.getRepository(DBArtistAttribute)
+					.findBy({ entityId: In(involvedUuids) })
+			: [];
+		const beforeAttributesByArtist = new Map<string, DBArtistAttribute[]>();
+		for (const row of beforeAttributeRows) {
+			const list = beforeAttributesByArtist.get(row.entityId) ?? [];
+			list.push(row);
+			beforeAttributesByArtist.set(row.entityId, list);
+		}
 
 		// 3. TRANSACTIONAL MERGE
 		const txResult = await this.dataSource.transaction<{
@@ -889,6 +943,50 @@ export class ArtistManagerService {
 			txResult.survivingArtist,
 			currentIds,
 		);
+
+		const surviving = txResult.survivingArtist;
+
+		// Artists that were merged away no longer exist.
+		const existingArtistByUuid = new Map(
+			existingArtists.map((existing) => [existing.uuid, existing]),
+		);
+		for (const mergedUuid of txResult.mergedArtists) {
+			if (mergedUuid === surviving.uuid) {
+				continue;
+			}
+			const removed = existingArtistByUuid.get(mergedUuid);
+			if (removed) {
+				emitServerEvent(this.emitter, "artist.removed", removed);
+			}
+		}
+
+		// Surviving artist identities may have changed via the merge/split.
+		const afterIdentities = await this.identitiesRepository.findBy({
+			artistUuid: surviving.uuid,
+		});
+		const beforeIdentities = beforeIdentitiesByArtist.get(surviving.uuid) ?? [];
+		if (
+			this.artistIdentitySignature(beforeIdentities) !==
+			this.artistIdentitySignature(afterIdentities)
+		) {
+			emitServerEvent(this.emitter, "artist.identities.updated", surviving);
+		}
+
+		// A merge consolidates the removed artists' attributes onto the master.
+		if (isMerge) {
+			const afterAttributes = await this.dataSource
+				.getRepository(DBArtistAttribute)
+				.findBy({ entityId: surviving.uuid });
+			const beforeAttributes =
+				beforeAttributesByArtist.get(surviving.uuid) ?? [];
+			if (
+				attributeSignature(beforeAttributes) !==
+				attributeSignature(afterAttributes)
+			) {
+				emitServerEvent(this.emitter, "artist.attributes.updated", surviving);
+			}
+		}
+
 		return {
 			mergedArtists: txResult.mergedArtists,
 			identities: txResult.identities,
@@ -1021,6 +1119,8 @@ export class ArtistManagerService {
 		let splitCount = 0;
 
 		for (const [, groupOriginalUuids] of splitGroups) {
+			const createdArtists: DBArtist[] = [];
+
 			await this.dataSource.transaction(async (tm) => {
 				const artistsRepo = tm.getRepository(DBArtist);
 				const idRepo = tm.getRepository(DBArtistIdentity);
@@ -1072,6 +1172,7 @@ export class ArtistManagerService {
 					dateAdded: Date.now(),
 				});
 				const savedArtist = await artistsRepo.save(newArtist);
+				createdArtists.push(savedArtist);
 
 				if (idsToMove.length) {
 					await idRepo.delete(
@@ -1161,6 +1262,10 @@ export class ArtistManagerService {
 				});
 			});
 
+			for (const created of createdArtists) {
+				emitServerEvent(this.emitter, "artist.added", created);
+			}
+
 			splitCount++;
 		}
 
@@ -1185,39 +1290,99 @@ export class ArtistManagerService {
 			}
 		}
 
+		let affectedArtistUuids: string[] = [];
+		let affectedTrackUuids: string[] = [];
+
 		if (!identifiers.length) {
+			const artistRows = await this.identitiesRepository
+				.createQueryBuilder()
+				.distinct(true)
+				.select("identity.artistUuid", "artistUuid")
+				.from(DBArtistIdentity, "identity")
+				.getRawMany<{ artistUuid: string }>();
+
+			affectedArtistUuids = artistRows.map((row) => row.artistUuid);
+
 			await this.identitiesRepository.deleteAll();
+		} else {
+			const conditionStrings: string[] = [];
+			const queryParameters: Record<string, string> = {};
+
+			for (const [index, { pluginId, identityId }] of identifiers.entries()) {
+				const pluginKey = `p_${index}`;
+				const identifierKey = `i_${index}`;
+
+				conditionStrings.push(
+					`(pluginId = :${pluginKey} AND identifierId = :${identifierKey})`,
+				);
+
+				queryParameters[pluginKey] = pluginId;
+				queryParameters[identifierKey] = identityId;
+			}
+
+			const condition = `NOT (${conditionStrings.join(" OR ")})`;
+
+			const artistRows = await this.identitiesRepository
+				.createQueryBuilder()
+				.distinct(true)
+				.select("identity.artistUuid", "artistUuid")
+				.from(DBArtistIdentity, "identity")
+				.where(condition, queryParameters)
+				.getRawMany<{ artistUuid: string }>();
+
+			affectedArtistUuids = artistRows.map((row) => row.artistUuid);
+
+			const trackRows = await this.trackArtistsRepository
+				.createQueryBuilder()
+				.distinct(true)
+				.select("link.trackUuid", "trackUuid")
+				.from(DBTrackArtist, "link")
+				.where(condition, queryParameters)
+				.getRawMany<{ trackUuid: string }>();
+
+			affectedTrackUuids = trackRows.map((row) => row.trackUuid);
+
+			await this.identitiesRepository
+				.createQueryBuilder()
+				.delete()
+				.from(DBArtistIdentity)
+				.where(condition, queryParameters)
+				.execute();
+
+			await this.trackArtistsRepository
+				.createQueryBuilder()
+				.delete()
+				.from(DBTrackArtist)
+				.where(condition, queryParameters)
+				.execute();
+		}
+
+		await this.emitArtistIdentitiesUpdatedForUuids(affectedArtistUuids);
+		await this.emitTrackArtistsUpdatedForUuids(affectedTrackUuids);
+	}
+
+	private async emitArtistIdentitiesUpdatedForUuids(uuids: string[]) {
+		if (!uuids.length) {
 			return;
 		}
 
-		const conditionStrings: string[] = [];
-		const queryParameters: Record<string, string> = {};
+		const artists = await this.artistsRepository.findBy({ uuid: In(uuids) });
+		for (const artist of artists) {
+			emitServerEvent(this.emitter, "artist.identities.updated", artist);
+		}
+	}
 
-		for (const [index, { pluginId, identityId }] of identifiers.entries()) {
-			const pluginKey = `p_${index}`;
-			const identifierKey = `i_${index}`;
-
-			conditionStrings.push(
-				`(pluginId = :${pluginKey} AND identifierId = :${identifierKey})`,
-			);
-
-			queryParameters[pluginKey] = pluginId;
-			queryParameters[identifierKey] = identityId;
+	private async emitTrackArtistsUpdatedForUuids(uuids: string[]) {
+		if (!uuids.length) {
+			return;
 		}
 
-		await this.identitiesRepository
-			.createQueryBuilder()
-			.delete()
-			.from(DBArtistIdentity)
-			.where(`NOT (${conditionStrings.join(" OR ")})`, queryParameters)
-			.execute();
-
-		await this.trackArtistsRepository
-			.createQueryBuilder()
-			.delete()
-			.from(DBTrackArtist)
-			.where(`NOT (${conditionStrings.join(" OR ")})`, queryParameters)
-			.execute();
+		const tracks = await this.trackManagerService.find({
+			where: { uuid: In(uuids) },
+		});
+		for (const track of tracks) {
+			emitServerEvent(this.emitter, "track.artists.updated", track);
+		}
 	}
 
 	async removeOrphanedArtists() {
@@ -1237,6 +1402,19 @@ export class ArtistManagerService {
 			.where('album."artistUuid" IS NOT NULL')
 			.getQuery();
 
+		const affected = await this.artistsRepository
+			.createQueryBuilder("artist")
+			.select("artist.uuid", "uuid")
+			.where(`artist.uuid NOT IN ${artistsWithTracks}`)
+			.andWhere(`artist.uuid NOT IN ${artistsWithAlbums}`)
+			.getRawMany<{ uuid: string }>();
+
+		const artists = affected.length
+			? await this.artistsRepository.findBy({
+					uuid: In(affected.map((row) => row.uuid)),
+				})
+			: [];
+
 		await this.artistsRepository
 			.createQueryBuilder()
 			.delete()
@@ -1244,6 +1422,10 @@ export class ArtistManagerService {
 			.where(`uuid NOT IN ${artistsWithTracks}`)
 			.andWhere(`uuid NOT IN ${artistsWithAlbums}`)
 			.execute();
+
+		for (const artist of artists) {
+			emitServerEvent(this.emitter, "artist.removed", artist);
+		}
 	}
 
 	public async forEachArtistId(

@@ -583,6 +583,10 @@ export class AttributeSourcesService {
 		return this.trackAttributesRepository.findBy({ entityId: trackUuid });
 	}
 
+	public getArtistAttributeRows(artistUuid: string) {
+		return this.artistAttributesRepository.findBy({ entityId: artistUuid });
+	}
+
 	public async upsertArtistAttributes(attributes: DBArtistAttribute[]) {
 		await this.artistAttributesRepository.upsert(attributes, {
 			conflictPaths: ["pluginId", "entityId", "sourceId", "ordinal", "key"],

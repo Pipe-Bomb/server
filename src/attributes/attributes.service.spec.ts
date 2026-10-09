@@ -5,6 +5,8 @@ jest.mock("@nestjs/event-emitter", () => ({
 import { Test, TestingModule } from "@nestjs/testing";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { AttributesService } from "./attributes.service";
+import { DBTrack } from "src/tracks/entities/track.entity";
+import { DBArtist } from "src/artist-manager/entity/artist.entity";
 import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
 import { TasksService } from "src/tasks/tasks.service";
 import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
@@ -15,12 +17,14 @@ describe("AttributesService", () => {
 	let attributeSourcesService: {
 		getSources: jest.Mock;
 		getTrackAttributeRows: jest.Mock;
+		getArtistAttributeRows: jest.Mock;
 		upsertTrackAttributes: jest.Mock;
 		upsertArtistAttributes: jest.Mock;
+		replaceAllArtistAttributes: jest.Mock;
 	};
 	let emitter: { emit: jest.Mock };
 
-	const track = { uuid: "track-1" } as any;
+	const track = { uuid: "track-1" } as unknown as DBTrack;
 
 	const row = (value: string) => ({
 		pluginId: "p",
@@ -38,8 +42,10 @@ describe("AttributesService", () => {
 		attributeSourcesService = {
 			getSources: jest.fn(() => []),
 			getTrackAttributeRows: jest.fn(),
+			getArtistAttributeRows: jest.fn(),
 			upsertTrackAttributes: jest.fn(),
 			upsertArtistAttributes: jest.fn(),
+			replaceAllArtistAttributes: jest.fn(),
 		};
 		emitter = { emit: jest.fn() };
 
@@ -48,7 +54,10 @@ describe("AttributesService", () => {
 				AttributesService,
 				{ provide: AttributeSourcesService, useValue: attributeSourcesService },
 				{ provide: TasksService, useValue: { registerSystemTask: jest.fn() } },
-				{ provide: ArtistManagerService, useValue: {} },
+				{
+					provide: ArtistManagerService,
+					useValue: { getInformationHelper: jest.fn() },
+				},
 				{ provide: AlbumManagerService, useValue: {} },
 				{ provide: EventEmitter2, useValue: emitter },
 			],
@@ -65,7 +74,10 @@ describe("AttributesService", () => {
 		await service.attributeTrack(track, {} as any);
 
 		expect(emitter.emit).toHaveBeenCalledTimes(1);
-		expect(emitter.emit).toHaveBeenCalledWith("track.attributes.updated", track);
+		expect(emitter.emit).toHaveBeenCalledWith(
+			"track.attributes.updated",
+			track,
+		);
 	});
 
 	it("does not emit track.attributes.updated when attributes are unchanged", async () => {
@@ -74,6 +86,31 @@ describe("AttributesService", () => {
 			.mockResolvedValueOnce([row("a")]);
 
 		await service.attributeTrack(track, {} as any);
+
+		expect(emitter.emit).not.toHaveBeenCalled();
+	});
+
+	it("emits artist.attributes.updated when attributes change", async () => {
+		const artist = { uuid: "artist-1" } as unknown as DBArtist;
+		attributeSourcesService.getArtistAttributeRows
+			.mockResolvedValueOnce([])
+			.mockResolvedValueOnce([row("a")]);
+
+		await service.attributeArtist(artist);
+
+		expect(emitter.emit).toHaveBeenCalledWith(
+			"artist.attributes.updated",
+			artist,
+		);
+	});
+
+	it("does not emit artist.attributes.updated when attributes are unchanged", async () => {
+		const artist = { uuid: "artist-1" } as unknown as DBArtist;
+		attributeSourcesService.getArtistAttributeRows
+			.mockResolvedValueOnce([row("a")])
+			.mockResolvedValueOnce([row("a")]);
+
+		await service.attributeArtist(artist);
 
 		expect(emitter.emit).not.toHaveBeenCalled();
 	});

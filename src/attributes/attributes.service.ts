@@ -152,6 +152,10 @@ export class AttributesService {
 	async attributeArtist(artist: DBArtist) {
 		const allAttributes: DBArtistAttribute[] = [];
 
+		const before = await this.attributeSourcesService.getArtistAttributeRows(
+			artist.uuid,
+		);
+
 		const helper = await this.artistManagerService.getInformationHelper(artist);
 		const sources = this.attributeSourcesService.getSources();
 
@@ -177,6 +181,13 @@ export class AttributesService {
 			artist.uuid,
 			allAttributes,
 		);
+
+		const after = await this.attributeSourcesService.getArtistAttributeRows(
+			artist.uuid,
+		);
+		if (attributeSignature(before) !== attributeSignature(after)) {
+			emitServerEvent(this.emitter, "artist.attributes.updated", artist);
+		}
 	}
 
 	async attributeAllArtists(
