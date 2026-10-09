@@ -336,6 +336,10 @@ export class AttributesService {
 		const allAlbumAttributes: DBAlbumAttribute[] = [];
 		const allArtistAttributes: DBArtistAttribute[] = [];
 
+		const before = await this.attributeSourcesService.getAlbumAttributeRows(
+			album.uuid,
+		);
+
 		const helper = await this.albumManagerService.getInformationHelper(album);
 		const sources = this.attributeSourcesService.getSources();
 
@@ -375,7 +379,7 @@ export class AttributesService {
 
 						if (artist.joinPhrase) {
 							await this.albumManagerService.setJoinPhrase(
-								album.uuid,
+								album,
 								artistUuid,
 								artist.joinPhrase,
 							);
@@ -397,6 +401,14 @@ export class AttributesService {
 		await this.attributeSourcesService.upsertArtistAttributes(
 			allArtistAttributes,
 		);
+
+		const after = await this.attributeSourcesService.getAlbumAttributeRows(
+			album.uuid,
+		);
+		if (attributeSignature(before) !== attributeSignature(after)) {
+			emitServerEvent(this.emitter, "album.attributes.updated", album);
+		}
+
 		return allAlbumAttributes;
 	}
 

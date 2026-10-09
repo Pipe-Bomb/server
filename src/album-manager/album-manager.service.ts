@@ -290,7 +290,7 @@ export class AlbumManagerService {
 
 		// 2. Create a "Headless" Album Stub
 		// No title, no artist yet. Just a UUID to anchor future metadata.
-		return await this.dataSource.transaction(async (tm) => {
+		const saved = await this.dataSource.transaction(async (tm) => {
 			const albRepo = tm.getRepository(DBAlbum);
 			const idRepo = tm.getRepository(DBAlbumIdentity);
 
@@ -310,8 +310,12 @@ export class AlbumManagerService {
 				originalAlbumUuid: saved.uuid,
 			});
 
-			return saved.uuid;
+			return saved;
 		});
+
+		emitServerEvent(this.emitter, "album.added", saved);
+
+		return saved.uuid;
 	}
 
 	public async setTrackLinks(
@@ -354,6 +358,10 @@ export class AlbumManagerService {
 		if (this.trackAlbumSignature(before) !== this.trackAlbumSignature(after)) {
 			emitServerEvent(this.emitter, "track.albums.updated", track);
 		}
+
+		await this.emitAlbumTracklistsUpdated(
+			this.changedAlbumUuids(before, albumUuids, pluginId, identifierId),
+		);
 	}
 
 	public async clearTrackLinks(
@@ -373,6 +381,51 @@ export class AlbumManagerService {
 		if (this.trackAlbumSignature(before) !== this.trackAlbumSignature(after)) {
 			emitServerEvent(this.emitter, "track.albums.updated", track);
 		}
+
+		await this.emitAlbumTracklistsUpdated(
+			this.changedAlbumUuids(before, [], pluginId, identifierId),
+		);
+	}
+
+	private changedAlbumUuids(
+		before: DBAlbumTrack[],
+		after: string[],
+		pluginId: string,
+		identifierId: string,
+	): string[] {
+		const beforeUuids = new Set(
+			before
+				.filter(
+					(link) =>
+						link.pluginId === pluginId && link.identifierId === identifierId,
+				)
+				.map((link) => link.albumUuid),
+		);
+		const afterUuids = new Set(after);
+
+		const changed = new Set<string>();
+		for (const uuid of beforeUuids) {
+			if (!afterUuids.has(uuid)) {
+				changed.add(uuid);
+			}
+		}
+		for (const uuid of afterUuids) {
+			if (!beforeUuids.has(uuid)) {
+				changed.add(uuid);
+			}
+		}
+		return Array.from(changed);
+	}
+
+	private async emitAlbumTracklistsUpdated(uuids: string[]) {
+		if (!uuids.length) {
+			return;
+		}
+
+		const albums = await this.albumsRepository.findBy({ uuid: In(uuids) });
+		for (const album of albums) {
+			emitServerEvent(this.emitter, "album.tracklist.updated", album);
+		}
 	}
 
 	private getTrackAlbumLinks(trackUuid: string) {
@@ -389,7 +442,21 @@ export class AlbumManagerService {
 			.join("|");
 	}
 
-	async clearArtistLinks(
+	private getAlbumArtistLinks(albumUuid: string) {
+		return this.albumArtistsRepository.findBy({ albumUuid });
+	}
+
+	private albumArtistSignature(links: DBAlbumArtist[]): string {
+		return links
+			.map(
+				(link) =>
+					`${link.artistUuid}:${link.pluginId}:${link.identifierId}:${link.ordinal}:${link.joinPhrase ?? ""}`,
+			)
+			.sort()
+			.join("|");
+	}
+
+	private async clearArtistLinksInternal(
 		album: DBAlbum,
 		pluginId: string,
 		identifierId: string,
@@ -401,13 +468,32 @@ export class AlbumManagerService {
 		});
 	}
 
+	async clearArtistLinks(
+		album: DBAlbum,
+		pluginId: string,
+		identifierId: string,
+	) {
+		const before = await this.getAlbumArtistLinks(album.uuid);
+
+		await this.clearArtistLinksInternal(album, pluginId, identifierId);
+
+		const after = await this.getAlbumArtistLinks(album.uuid);
+		if (
+			this.albumArtistSignature(before) !== this.albumArtistSignature(after)
+		) {
+			emitServerEvent(this.emitter, "album.artists.updated", album);
+		}
+	}
+
 	async setArtistLinks(
 		album: DBAlbum,
 		artistUuids: string[],
 		pluginId: string,
 		identifierId: string,
 	) {
-		await this.clearArtistLinks(album, pluginId, identifierId);
+		const before = await this.getAlbumArtistLinks(album.uuid);
+
+		await this.clearArtistLinksInternal(album, pluginId, identifierId);
 		await this.albumArtistsRepository.insert(
 			artistUuids.map((artistUuid, ordinal) => ({
 				albumUuid: album.uuid,
@@ -417,22 +503,38 @@ export class AlbumManagerService {
 				ordinal,
 			})),
 		);
+
+		const after = await this.getAlbumArtistLinks(album.uuid);
+		if (
+			this.albumArtistSignature(before) !== this.albumArtistSignature(after)
+		) {
+			emitServerEvent(this.emitter, "album.artists.updated", album);
+		}
 	}
 
 	async setJoinPhrase(
-		albumUuid: string,
+		album: DBAlbum,
 		artistUuid: string,
 		joinPhrase: string | null,
 	) {
+		const before = await this.getAlbumArtistLinks(album.uuid);
+
 		await this.albumArtistsRepository.update(
 			{
-				albumUuid,
+				albumUuid: album.uuid,
 				artistUuid,
 			},
 			{
 				joinPhrase,
 			},
 		);
+
+		const after = await this.getAlbumArtistLinks(album.uuid);
+		if (
+			this.albumArtistSignature(before) !== this.albumArtistSignature(after)
+		) {
+			emitServerEvent(this.emitter, "album.artists.updated", album);
+		}
 	}
 
 	public unregisterIdentifier(
@@ -619,39 +721,92 @@ export class AlbumManagerService {
 			}
 		}
 
+		let affectedIdentityAlbumUuids: string[] = [];
+		let affectedArtistLinkAlbumUuids: string[] = [];
+
 		if (!identifiers.length) {
+			const rows = await this.identitiesRepository
+				.createQueryBuilder()
+				.distinct(true)
+				.select("identity.albumUuid", "albumUuid")
+				.from(DBAlbumIdentity, "identity")
+				.getRawMany<{ albumUuid: string }>();
+
+			affectedIdentityAlbumUuids = rows.map((row) => row.albumUuid);
+
 			await this.identitiesRepository.deleteAll();
+		} else {
+			const conditionStrings: string[] = [];
+			const queryParameters: Record<string, string> = {};
+
+			for (const [index, { pluginId, identityId }] of identifiers.entries()) {
+				const pluginKey = `p_${index}`;
+				const identifierKey = `i_${index}`;
+
+				conditionStrings.push(
+					`(pluginId = :${pluginKey} AND identifierId = :${identifierKey})`,
+				);
+
+				queryParameters[pluginKey] = pluginId;
+				queryParameters[identifierKey] = identityId;
+			}
+
+			const condition = `NOT (${conditionStrings.join(" OR ")})`;
+
+			const identityRows = await this.identitiesRepository
+				.createQueryBuilder()
+				.distinct(true)
+				.select("identity.albumUuid", "albumUuid")
+				.from(DBAlbumIdentity, "identity")
+				.where(condition, queryParameters)
+				.getRawMany<{ albumUuid: string }>();
+
+			affectedIdentityAlbumUuids = identityRows.map((row) => row.albumUuid);
+
+			const artistRows = await this.albumArtistsRepository
+				.createQueryBuilder()
+				.distinct(true)
+				.select("link.albumUuid", "albumUuid")
+				.from(DBAlbumArtist, "link")
+				.where(condition, queryParameters)
+				.getRawMany<{ albumUuid: string }>();
+
+			affectedArtistLinkAlbumUuids = artistRows.map((row) => row.albumUuid);
+
+			await this.identitiesRepository
+				.createQueryBuilder()
+				.delete()
+				.from(DBAlbumIdentity)
+				.where(condition, queryParameters)
+				.execute();
+
+			await this.albumArtistsRepository
+				.createQueryBuilder()
+				.delete()
+				.from(DBAlbumArtist)
+				.where(condition, queryParameters)
+				.execute();
+		}
+
+		const allUuids = Array.from(
+			new Set([...affectedIdentityAlbumUuids, ...affectedArtistLinkAlbumUuids]),
+		);
+		if (!allUuids.length) {
 			return;
 		}
 
-		const conditionStrings: string[] = [];
-		const queryParameters: Record<string, string> = {};
+		const identitySet = new Set(affectedIdentityAlbumUuids);
+		const artistSet = new Set(affectedArtistLinkAlbumUuids);
+		const albums = await this.albumsRepository.findBy({ uuid: In(allUuids) });
 
-		for (const [index, { pluginId, identityId }] of identifiers.entries()) {
-			const pluginKey = `p_${index}`;
-			const identifierKey = `i_${index}`;
-
-			conditionStrings.push(
-				`(pluginId = :${pluginKey} AND identifierId = :${identifierKey})`,
-			);
-
-			queryParameters[pluginKey] = pluginId;
-			queryParameters[identifierKey] = identityId;
+		for (const album of albums) {
+			if (identitySet.has(album.uuid)) {
+				emitServerEvent(this.emitter, "album.identities.updated", album);
+			}
+			if (artistSet.has(album.uuid)) {
+				emitServerEvent(this.emitter, "album.artists.updated", album);
+			}
 		}
-
-		await this.identitiesRepository
-			.createQueryBuilder()
-			.delete()
-			.from(DBAlbumIdentity)
-			.where(`NOT (${conditionStrings.join(" OR ")})`, queryParameters)
-			.execute();
-
-		await this.albumArtistsRepository
-			.createQueryBuilder()
-			.delete()
-			.from(DBAlbumArtist)
-			.where(`NOT (${conditionStrings.join(" OR ")})`, queryParameters)
-			.execute();
 	}
 
 	async removeOrphanedAlbums() {
@@ -664,12 +819,28 @@ export class AlbumManagerService {
 			.where('track."albumUuid" IS NOT NULL')
 			.getQuery();
 
+		const affected = await this.albumsRepository
+			.createQueryBuilder("album")
+			.select("album.uuid", "uuid")
+			.where(`album.uuid NOT IN ${albumsWithTracks}`)
+			.getRawMany<{ uuid: string }>();
+
+		const albums = affected.length
+			? await this.albumsRepository.findBy({
+					uuid: In(affected.map((row) => row.uuid)),
+				})
+			: [];
+
 		await this.albumsRepository
 			.createQueryBuilder()
 			.delete()
 			.from(DBAlbum)
 			.where(`uuid NOT IN ${albumsWithTracks}`)
 			.execute();
+
+		for (const album of albums) {
+			emitServerEvent(this.emitter, "album.removed", album);
+		}
 	}
 
 	public async forEachAlbumId(

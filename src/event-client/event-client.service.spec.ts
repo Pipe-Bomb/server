@@ -29,6 +29,23 @@ describe("EventClientService", () => {
 			"track.albums.updated",
 			expect.any(Function),
 		);
+		expect(serverEmitter.on).toHaveBeenCalledWith(
+			"album.artists.updated",
+			expect.any(Function),
+		);
+	});
+
+	it("forwards album.artists.updated to the SDK album-artists-updated event", () => {
+		const received: unknown[] = [];
+		service.addSdkListener("album-artists-updated", (album) =>
+			received.push(album),
+		);
+
+		listeners.get("album.artists.updated")!({
+			toSavedResponse: () => "saved-album",
+		});
+
+		expect(received).toEqual(["saved-album"]);
 	});
 
 	it("forwards track.artists.updated to the SDK track-artists-updated event", () => {

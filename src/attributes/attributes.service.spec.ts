@@ -7,6 +7,7 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
 import { AttributesService } from "./attributes.service";
 import { DBTrack } from "src/tracks/entities/track.entity";
 import { DBArtist } from "src/artist-manager/entity/artist.entity";
+import { DBAlbum } from "src/albums/entity/album.entity";
 import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
 import { TasksService } from "src/tasks/tasks.service";
 import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
@@ -18,9 +19,11 @@ describe("AttributesService", () => {
 		getSources: jest.Mock;
 		getTrackAttributeRows: jest.Mock;
 		getArtistAttributeRows: jest.Mock;
+		getAlbumAttributeRows: jest.Mock;
 		upsertTrackAttributes: jest.Mock;
 		upsertArtistAttributes: jest.Mock;
 		replaceAllArtistAttributes: jest.Mock;
+		replaceAllAlbumAttributes: jest.Mock;
 	};
 	let emitter: { emit: jest.Mock };
 
@@ -43,9 +46,11 @@ describe("AttributesService", () => {
 			getSources: jest.fn(() => []),
 			getTrackAttributeRows: jest.fn(),
 			getArtistAttributeRows: jest.fn(),
+			getAlbumAttributeRows: jest.fn(),
 			upsertTrackAttributes: jest.fn(),
 			upsertArtistAttributes: jest.fn(),
 			replaceAllArtistAttributes: jest.fn(),
+			replaceAllAlbumAttributes: jest.fn(),
 		};
 		emitter = { emit: jest.fn() };
 
@@ -58,7 +63,10 @@ describe("AttributesService", () => {
 					provide: ArtistManagerService,
 					useValue: { getInformationHelper: jest.fn() },
 				},
-				{ provide: AlbumManagerService, useValue: {} },
+				{
+					provide: AlbumManagerService,
+					useValue: { getInformationHelper: jest.fn() },
+				},
 				{ provide: EventEmitter2, useValue: emitter },
 			],
 		}).compile();
@@ -111,6 +119,31 @@ describe("AttributesService", () => {
 			.mockResolvedValueOnce([row("a")]);
 
 		await service.attributeArtist(artist);
+
+		expect(emitter.emit).not.toHaveBeenCalled();
+	});
+
+	it("emits album.attributes.updated when attributes change", async () => {
+		const album = { uuid: "album-1" } as unknown as DBAlbum;
+		attributeSourcesService.getAlbumAttributeRows
+			.mockResolvedValueOnce([])
+			.mockResolvedValueOnce([row("a")]);
+
+		await service.attributeAlbum(album);
+
+		expect(emitter.emit).toHaveBeenCalledWith(
+			"album.attributes.updated",
+			album,
+		);
+	});
+
+	it("does not emit album.attributes.updated when attributes are unchanged", async () => {
+		const album = { uuid: "album-1" } as unknown as DBAlbum;
+		attributeSourcesService.getAlbumAttributeRows
+			.mockResolvedValueOnce([row("a")])
+			.mockResolvedValueOnce([row("a")]);
+
+		await service.attributeAlbum(album);
 
 		expect(emitter.emit).not.toHaveBeenCalled();
 	});

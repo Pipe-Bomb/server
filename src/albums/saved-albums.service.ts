@@ -201,7 +201,7 @@ export class SavedAlbumsService {
 						);
 						for (const [artistUuid, joinPhrase] of albumArtistJoinPhrases) {
 							await this.albumManagerService.setJoinPhrase(
-								albumUuid,
+								album,
 								artistUuid,
 								joinPhrase,
 							);

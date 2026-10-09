@@ -4,6 +4,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { LibraryHandler, Track } from "@sdk";
 import { randomUUID } from "crypto";
 import { DBAlbumTrack } from "src/albums/entity/album-track.entity";
+import { DBAlbum } from "src/albums/entity/album.entity";
 import { DBTrackArtist } from "src/artist-manager/entity/track-artist.entity";
 import { AttributeEntity } from "src/attribute-sources/enum/attribute-entity.enum";
 import { DBAlbumAttribute } from "src/attributes/entities/album-attribute.entity";
@@ -219,6 +220,15 @@ export class TrackManagerService {
 				},
 			});
 
+			// Deleting a track cascades its album links, which changes the
+			// tracklists of the albums it belonged to.
+			const albumLinks = await this.tracksRepository.manager
+				.getRepository(DBAlbumTrack)
+				.findBy({ trackUuid: In(removed.map((track) => track.uuid)) });
+			const affectedAlbumUuids = Array.from(
+				new Set(albumLinks.map((link) => link.albumUuid)),
+			);
+
 			await this.tracksRepository.delete({
 				pluginId: plugin.package.name,
 				libraryId: libraryHandler.id,
@@ -227,6 +237,15 @@ export class TrackManagerService {
 
 			for (const track of removed) {
 				emitServerEvent(this.emitter, "track.removed", track);
+			}
+
+			if (affectedAlbumUuids.length) {
+				const albums = await this.tracksRepository.manager
+					.getRepository(DBAlbum)
+					.findBy({ uuid: In(affectedAlbumUuids) });
+				for (const album of albums) {
+					emitServerEvent(this.emitter, "album.tracklist.updated", album);
+				}
 			}
 		}
 	}

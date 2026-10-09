@@ -17,6 +17,7 @@ export type ServerEventMap = {
 	"album.identities.updated": DBAlbum;
 	"album.attributes.updated": DBAlbum;
 	"album.tracklist.updated": DBAlbum;
+	"album.artists.updated": DBAlbum;
 
 	"artist.added": DBArtist;
 	"artist.removed": DBArtist;

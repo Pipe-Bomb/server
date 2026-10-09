@@ -19,6 +19,7 @@ export type EventMap = {
 	"album-identities-updated": [SavedAlbum];
 	"album-attributes-updated": [SavedAlbum];
 	"album-tracklist-updated": [SavedAlbum];
+	"album-artists-updated": [SavedAlbum];
 
 	"artist-added": [SavedArtist];
 	"artist-removed": [SavedArtist];
