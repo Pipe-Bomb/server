@@ -4,6 +4,7 @@ jest.mock("@nestjs/event-emitter", () => ({
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
+import { In, Not } from "typeorm";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { IdentifiersService } from "./identifiers.service";
 import { DBIdentity } from "./entities/identity.entity";
@@ -11,18 +12,21 @@ import { DisabledIdentifiersService } from "./disabled-identifiers.service";
 import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
 import { AlbumManagerService } from "src/album-manager/album-manager.service";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
+import { DBTrack } from "src/tracks/entities/track.entity";
 
 describe("IdentifiersService", () => {
 	let service: IdentifiersService;
 	let identitiesRepository: {
 		findBy: jest.Mock;
+		find: jest.Mock;
+		delete: jest.Mock;
 		createQueryBuilder: jest.Mock;
 		deleteAll: jest.Mock;
 	};
 	let trackManagerService: { find: jest.Mock };
 	let emitter: { emit: jest.Mock };
 
-	const track = { uuid: "track-1" } as any;
+	const track = { uuid: "track-1" } as unknown as DBTrack;
 
 	const identity = (value: string) => ({
 		pluginId: "p",
@@ -44,6 +48,8 @@ describe("IdentifiersService", () => {
 
 		identitiesRepository = {
 			findBy: jest.fn(),
+			find: jest.fn().mockResolvedValue([]),
+			delete: jest.fn(),
 			createQueryBuilder: jest.fn(() => queryBuilder),
 			deleteAll: jest.fn(),
 		};
@@ -53,7 +59,10 @@ describe("IdentifiersService", () => {
 		const module: TestingModule = await Test.createTestingModule({
 			providers: [
 				IdentifiersService,
-				{ provide: getRepositoryToken(DBIdentity), useValue: identitiesRepository },
+				{
+					provide: getRepositoryToken(DBIdentity),
+					useValue: identitiesRepository,
+				},
 				{ provide: DisabledIdentifiersService, useValue: {} },
 				{ provide: ArtistManagerService, useValue: {} },
 				{ provide: AlbumManagerService, useValue: {} },
@@ -90,17 +99,38 @@ describe("IdentifiersService", () => {
 	});
 
 	it("emits track.identities.updated for tracks affected by clean()", async () => {
-		identitiesRepository.createQueryBuilder().getRawMany.mockResolvedValue([
-			{ trackUuid: "track-1" },
-		]);
+		identitiesRepository.find.mockResolvedValue([{ trackUuid: "track-1" }]);
 		trackManagerService.find.mockResolvedValue([track]);
 
 		await service.clean();
 
+		expect(identitiesRepository.deleteAll).toHaveBeenCalled();
 		expect(trackManagerService.find).toHaveBeenCalled();
 		expect(emitter.emit).toHaveBeenCalledWith(
 			"track.identities.updated",
 			track,
 		);
+	});
+
+	it("clean() deletes only stale identities for registered plugins", async () => {
+		service.register(
+			{
+				id: "i",
+				getDependencies: () => [],
+				getSoftDependencies: () => [],
+			} as never,
+			{ package: { name: "p" } } as never,
+		);
+
+		await service.clean();
+
+		expect(identitiesRepository.deleteAll).not.toHaveBeenCalled();
+		expect(identitiesRepository.delete).toHaveBeenCalledWith({
+			pluginId: Not(In(["p"])),
+		});
+		expect(identitiesRepository.delete).toHaveBeenCalledWith({
+			pluginId: "p",
+			identifierId: Not(In(["i"])),
+		});
 	});
 });

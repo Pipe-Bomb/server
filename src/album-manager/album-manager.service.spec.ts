@@ -42,6 +42,7 @@ describe("AlbumManagerService", () => {
 	};
 	let albumArtistsRepository: {
 		findBy: jest.Mock;
+		find: jest.Mock;
 		delete: jest.Mock;
 		insert: jest.Mock;
 		update: jest.Mock;
@@ -49,7 +50,9 @@ describe("AlbumManagerService", () => {
 	};
 	let albumIdentitiesRepository: {
 		findOne: jest.Mock;
+		find: jest.Mock;
 		create: jest.Mock;
+		delete: jest.Mock;
 		createQueryBuilder: jest.Mock;
 		deleteAll: jest.Mock;
 	};
@@ -95,6 +98,7 @@ describe("AlbumManagerService", () => {
 		};
 		albumArtistsRepository = {
 			findBy: jest.fn().mockResolvedValue([]),
+			find: jest.fn().mockResolvedValue([]),
 			delete: jest.fn(),
 			insert: jest.fn(),
 			update: jest.fn(),
@@ -102,7 +106,9 @@ describe("AlbumManagerService", () => {
 		};
 		albumIdentitiesRepository = {
 			findOne: jest.fn(),
+			find: jest.fn().mockResolvedValue([]),
 			create: jest.fn((value: unknown) => value),
+			delete: jest.fn(),
 			createQueryBuilder: jest.fn(() => queryBuilder),
 			deleteAll: jest.fn(),
 		};
@@ -218,9 +224,8 @@ describe("AlbumManagerService", () => {
 			{ package: { name: "p" } } as any,
 		);
 
-		queryBuilder.getRawMany
-			.mockResolvedValueOnce([{ albumUuid: "al1" }])
-			.mockResolvedValueOnce([{ albumUuid: "al1" }]);
+		albumIdentitiesRepository.find.mockResolvedValue([{ albumUuid: "al1" }]);
+		albumArtistsRepository.find.mockResolvedValue([{ albumUuid: "al1" }]);
 		albumsRepository.findBy.mockResolvedValue([album]);
 
 		await service.cleanIdentities();

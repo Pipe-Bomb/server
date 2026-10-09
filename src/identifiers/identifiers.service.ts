@@ -4,7 +4,7 @@ import { Identifier, TrackIdentifier } from "sdk/identifier";
 import { LoadedPlugin } from "src/plugins/interface/loaded-plugin.interface";
 import { DeregistrationBlockedError } from "src/util/deregistration-blocked.error";
 import { DBIdentity } from "./entities/identity.entity";
-import { In, Repository } from "typeorm";
+import { FindOptionsWhere, In, Not, Repository } from "typeorm";
 import { DBTrack } from "src/tracks/entities/track.entity";
 import { LoadedLibraryHandler } from "src/libraries/interface/loaded-library.interface";
 import { IdentifierResponse } from "./response/identifier.response";
@@ -329,61 +329,48 @@ export class IdentifiersService {
 	}
 
 	async clean() {
-		const identifiers: { pluginId: string; identityId: string }[] = [];
+		const registeredByPlugin = new Map<string, Set<string>>();
 		for (const [pluginId, entry] of this.identifiers) {
 			for (const identityId of entry.keys()) {
-				identifiers.push({ pluginId, identityId });
+				const set = registeredByPlugin.get(pluginId) ?? new Set<string>();
+				set.add(identityId);
+				registeredByPlugin.set(pluginId, set);
 			}
 		}
 
-		let affected: { trackUuid: string }[];
+		const affected = new Set<string>();
 
-		if (!identifiers.length) {
-			affected = await this.identitiesRepository
-				.createQueryBuilder()
-				.distinct(true)
-				.select("identity.trackUuid", "trackUuid")
-				.from(DBIdentity, "identity")
-				.getRawMany<{ trackUuid: string }>();
+		const collect = async (where?: FindOptionsWhere<DBIdentity>) => {
+			const rows = await this.identitiesRepository.find({
+				...(where ? { where } : {}),
+				select: ["trackUuid"],
+			});
+			for (const row of rows) {
+				affected.add(row.trackUuid);
+			}
+		};
 
+		if (!registeredByPlugin.size) {
+			await collect();
 			await this.identitiesRepository.deleteAll();
 		} else {
-			const conditionStrings: string[] = [];
-			const queryParameters: Record<string, string> = {};
+			const registeredPlugins = Array.from(registeredByPlugin.keys());
 
-			for (const [index, { pluginId, identityId }] of identifiers.entries()) {
-				const pluginKey = `p_${index}`;
-				const identifierKey = `i_${index}`;
+			const unregisteredPlugin = { pluginId: Not(In(registeredPlugins)) };
+			await collect(unregisteredPlugin);
+			await this.identitiesRepository.delete(unregisteredPlugin);
 
-				conditionStrings.push(
-					`(pluginId = :${pluginKey} AND identifierId = :${identifierKey})`,
-				);
-
-				queryParameters[pluginKey] = pluginId;
-				queryParameters[identifierKey] = identityId;
+			for (const [pluginId, identityIds] of registeredByPlugin) {
+				const staleIdentifier = {
+					pluginId,
+					identifierId: Not(In(Array.from(identityIds))),
+				};
+				await collect(staleIdentifier);
+				await this.identitiesRepository.delete(staleIdentifier);
 			}
-
-			const condition = `NOT (${conditionStrings.join(" OR ")})`;
-
-			affected = await this.identitiesRepository
-				.createQueryBuilder()
-				.distinct(true)
-				.select("identity.trackUuid", "trackUuid")
-				.from(DBIdentity, "identity")
-				.where(condition, queryParameters)
-				.getRawMany<{ trackUuid: string }>();
-
-			await this.identitiesRepository
-				.createQueryBuilder()
-				.delete()
-				.from(DBIdentity)
-				.where(condition, queryParameters)
-				.execute();
 		}
 
-		await this.emitIdentitiesUpdatedForUuids(
-			affected.map((row) => row.trackUuid),
-		);
+		await this.emitIdentitiesUpdatedForUuids(Array.from(affected));
 	}
 
 	private async emitIdentitiesUpdatedForUuids(uuids: string[]) {

@@ -110,16 +110,6 @@ export class SavedAlbumsService {
 			throw new NotFoundException("Source does not exist");
 		}
 
-		const ephemeralAlbum = await this.ephemeralService.resolveEphemeralAlbum(
-			pluginId,
-			identifierId,
-			identity,
-		);
-
-		if (!ephemeralAlbum) {
-			throw new NotFoundException("Album not found");
-		}
-
 		const content = await this.ephemeralService.getEphemeralAlbumContent(
 			source,
 			identifierId,
@@ -137,6 +127,17 @@ export class SavedAlbumsService {
 			true,
 		);
 
+		const found = await this.ephemeralService.createAlbumArtistsAndAttributes(
+			pluginId,
+			identifierId,
+			identity,
+			albumUuid,
+		);
+
+		if (!found) {
+			throw new NotFoundException("Album not found");
+		}
+
 		const trackIds: TrackId[] = content.tracks.map((track) => ({
 			pluginId: track.pluginId,
 			libraryId: track.libraryId,
@@ -148,19 +149,6 @@ export class SavedAlbumsService {
 			.map((track, index) => ({ track, index }))
 			.filter(({ index }) => !resolved[index]);
 		const missingTracks = missingIndexes.map(({ track }) => track);
-
-		const albumArtistEntries = (ephemeralAlbum.artists ?? []).filter(
-			(artist) => artist.artistUuid != null,
-		);
-		const albumArtistUuids = albumArtistEntries.map(
-			(artist) => artist.artistUuid!,
-		);
-		const albumArtistJoinPhrases = new Map(
-			albumArtistEntries.map((artist) => [
-				artist.artistUuid!,
-				artist.joinPhrase,
-			]),
-		);
 
 		const session = await this.ephemeralService.createTracks(missingTracks, {
 			userUuid: user.uuid,
@@ -187,25 +175,6 @@ export class SavedAlbumsService {
 							pluginId,
 							identifierId,
 						);
-					}
-				}
-
-				if (albumArtistUuids.length) {
-					const album = await this.albumManagerService.findOne(albumUuid);
-					if (album) {
-						await this.albumManagerService.setArtistLinks(
-							album,
-							albumArtistUuids,
-							pluginId,
-							identifierId,
-						);
-						for (const [artistUuid, joinPhrase] of albumArtistJoinPhrases) {
-							await this.albumManagerService.setJoinPhrase(
-								album,
-								artistUuid,
-								joinPhrase,
-							);
-						}
 					}
 				}
 

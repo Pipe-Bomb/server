@@ -22,6 +22,7 @@ describe("PlaylistsService", () => {
 		insert: jest.Mock;
 		update: jest.Mock;
 		remove: jest.Mock;
+		findOne: jest.Mock;
 	};
 	let playlistTracksRepository: {
 		findBy: jest.Mock;
@@ -65,6 +66,7 @@ describe("PlaylistsService", () => {
 			insert: jest.fn(),
 			update: jest.fn(),
 			remove: jest.fn(),
+			findOne: jest.fn(),
 		};
 		playlistTracksRepository = {
 			findBy: jest.fn().mockResolvedValue([]),
@@ -215,5 +217,26 @@ describe("PlaylistsService", () => {
 		await service.updateAttributes(playlist, [], null);
 
 		expect(emitter.emit).not.toHaveBeenCalled();
+	});
+
+	it("orders playlist tracks in code instead of via a relation order clause", async () => {
+		const tracks = [
+			{ trackUuid: "b", dateAdded: 2, ordinal: 0 },
+			{ trackUuid: "a", dateAdded: 1, ordinal: 5 },
+			{ trackUuid: "c", dateAdded: 1, ordinal: 1 },
+		];
+		let findOptions: { order?: unknown } | undefined;
+		playlistsRepository.findOne.mockImplementation(
+			(options: { order?: unknown }) => {
+				findOptions = options;
+				return Promise.resolve({ tracks, toSavedResponse: () => ({ tracks }) });
+			},
+		);
+
+		const client = service.createPlaylistClient({} as never);
+		await client.getPlaylist("pl1", { relations: { tracks: true } });
+
+		expect(findOptions?.order).toBeUndefined();
+		expect(tracks.map((track) => track.trackUuid)).toEqual(["c", "a", "b"]);
 	});
 });

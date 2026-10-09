@@ -12,9 +12,7 @@ const makeUser = (overrides: Record<string, unknown> = {}) => ({
 	...overrides,
 });
 
-const makeEphemeralTrack = (
-	overrides: Record<string, unknown> = {},
-) => ({
+const makeEphemeralTrack = (overrides: Record<string, unknown> = {}) => ({
 	pluginId: "plug",
 	libraryId: "lib",
 	trackId: "track-1",
@@ -42,7 +40,7 @@ describe("SavedAlbumsService", () => {
 		};
 		mockEphemeralService = {
 			getEphemeralSourceByAlbumIdentity: jest.fn(),
-			resolveEphemeralAlbum: jest.fn(),
+			createAlbumArtistsAndAttributes: jest.fn(async () => true),
 			getEphemeralAlbumContent: jest.fn(),
 			createTracks: jest.fn(),
 		};
@@ -87,9 +85,9 @@ describe("SavedAlbumsService", () => {
 			const album = { uuid: "album-1" } as any;
 			const user = makeUser();
 
-			await expect(
-				service.unsaveAlbum(album, user),
-			).rejects.toThrow(BadRequestException);
+			await expect(service.unsaveAlbum(album, user)).rejects.toThrow(
+				BadRequestException,
+			);
 		});
 
 		it("should delete a saved album", async () => {
@@ -109,9 +107,7 @@ describe("SavedAlbumsService", () => {
 	describe("getSavedAlbums", () => {
 		it("should return paginated saved albums", async () => {
 			const user = makeUser();
-			const albums = [
-				{ albumUuid: "album-1", album: { uuid: "album-1" } },
-			];
+			const albums = [{ albumUuid: "album-1", album: { uuid: "album-1" } }];
 
 			mockRepository.findAndCount.mockResolvedValue([albums, 1]);
 
@@ -144,8 +140,16 @@ describe("SavedAlbumsService", () => {
 		});
 
 		it("should throw if album not found", async () => {
-			mockEphemeralService.getEphemeralSourceByAlbumIdentity.mockReturnValue({});
-			mockEphemeralService.resolveEphemeralAlbum.mockResolvedValue(null);
+			mockEphemeralService.getEphemeralSourceByAlbumIdentity.mockReturnValue(
+				{},
+			);
+			mockEphemeralService.getEphemeralAlbumContent.mockResolvedValue({
+				tracks: [makeEphemeralTrack()],
+			});
+			mockAlbumManagerService.resolveAlbum.mockResolvedValue("album-1");
+			mockEphemeralService.createAlbumArtistsAndAttributes.mockResolvedValue(
+				false,
+			);
 
 			await expect(
 				service.saveEphemeralAlbum("plug", "id1", "album-id", makeUser()),
@@ -153,10 +157,9 @@ describe("SavedAlbumsService", () => {
 		});
 
 		it("should throw if album has no tracks", async () => {
-			mockEphemeralService.getEphemeralSourceByAlbumIdentity.mockReturnValue({});
-			mockEphemeralService.resolveEphemeralAlbum.mockResolvedValue({
-				artists: [],
-			});
+			mockEphemeralService.getEphemeralSourceByAlbumIdentity.mockReturnValue(
+				{},
+			);
 			mockEphemeralService.getEphemeralAlbumContent.mockResolvedValue(null);
 
 			await expect(
@@ -164,12 +167,11 @@ describe("SavedAlbumsService", () => {
 			).rejects.toThrow(BadRequestException);
 		});
 
-		it("should create tracks and return session uuid", async () => {
+		it("should create artists, attribute the album and create tracks", async () => {
 			const sessionUuid = "session-1";
-			mockEphemeralService.getEphemeralSourceByAlbumIdentity.mockReturnValue({});
-			mockEphemeralService.resolveEphemeralAlbum.mockResolvedValue({
-				artists: [],
-			});
+			mockEphemeralService.getEphemeralSourceByAlbumIdentity.mockReturnValue(
+				{},
+			);
 			mockEphemeralService.getEphemeralAlbumContent.mockResolvedValue({
 				tracks: [makeEphemeralTrack()],
 			});
@@ -187,7 +189,10 @@ describe("SavedAlbumsService", () => {
 				makeUser(),
 			);
 
-			expect(result).toBe(sessionUuid);
+			expect(
+				mockEphemeralService.createAlbumArtistsAndAttributes,
+			).toHaveBeenCalledWith("plug", "id1", "album-id", "album-1");
+			expect(result.uuid).toBe(sessionUuid);
 			expect(mockEphemeralService.createTracks).toHaveBeenCalledWith(
 				[
 					{

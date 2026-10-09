@@ -3,6 +3,7 @@ import { AttributeSourcesService } from "src/attribute-sources/attribute-sources
 import { LoadedAttributeSource } from "src/attributes/interface/loaded-attribute-source.interface";
 import { LoadedAttribute } from "src/attributes/interface/loaded-attribute.interface";
 import { ResourceResponse } from "src/resource-manager/response/resource.response";
+import { ArtistIdentityTarget } from "src/artist-manager/enum/artist-identity-target.enum";
 
 function makeSource(name: string, id: string): LoadedAttributeSource {
 	return {
@@ -26,6 +27,7 @@ describe("EphemeralService.createEphemeralAttributes", () => {
 		);
 		service = new EphemeralService(
 			attributeSourcesService,
+			{} as any,
 			{} as any,
 			{} as any,
 			{} as any,
@@ -197,5 +199,159 @@ describe("EphemeralService.createEphemeralAttributes", () => {
 		} finally {
 			jest.useRealTimers();
 		}
+	});
+});
+
+describe("EphemeralService.createAlbumArtistsAndAttributes", () => {
+	let service: EphemeralService;
+	let attributeSourcesService: {
+		getAlbumAttributeRows: jest.Mock;
+		createAlbumAttributes: jest.Mock;
+		replaceAllAlbumAttributes: jest.Mock;
+		createArtistAttributes: jest.Mock;
+		upsertArtistAttributes: jest.Mock;
+	};
+	let artistManagerService: { resolveArtist: jest.Mock };
+	let albumManagerService: {
+		findOne: jest.Mock;
+		setArtistLinks: jest.Mock;
+		setJoinPhrase: jest.Mock;
+	};
+	let emitter: { emit: jest.Mock };
+	let attributeSource: LoadedAttributeSource;
+	let albumSource: {
+		source: { id: string; resolveAlbum: jest.Mock };
+		plugin: { package: { name: string } };
+	};
+
+	beforeEach(() => {
+		attributeSourcesService = {
+			getAlbumAttributeRows: jest.fn(),
+			createAlbumAttributes: jest.fn(),
+			replaceAllAlbumAttributes: jest.fn(),
+			createArtistAttributes: jest.fn(),
+			upsertArtistAttributes: jest.fn(),
+		};
+		artistManagerService = {
+			resolveArtist: jest.fn().mockResolvedValue("artist-uuid"),
+		};
+		albumManagerService = {
+			findOne: jest.fn().mockResolvedValue({ uuid: "album-1" }),
+			setArtistLinks: jest.fn().mockResolvedValue(undefined),
+			setJoinPhrase: jest.fn().mockResolvedValue(undefined),
+		};
+		emitter = { emit: jest.fn() };
+		attributeSource = makeSource("plug", "src-a");
+
+		service = new EphemeralService(
+			attributeSourcesService as unknown as AttributeSourcesService,
+			artistManagerService as any,
+			albumManagerService as any,
+			{} as any,
+			{} as any,
+			emitter as any,
+		);
+
+		albumSource = {
+			source: {
+				id: "src-a",
+				resolveAlbum: jest.fn().mockResolvedValue({
+					attributes: [{ key: "title", value: "Hello" }],
+					artists: [
+						{
+							pluginId: "plug",
+							identityId: "artist-id",
+							identity: "artist-1",
+							joinPhrase: " & ",
+							attributes: [{ key: "name", value: "Artist" }],
+						},
+					],
+				}),
+			},
+			plugin: { package: { name: "plug" } },
+		};
+		(
+			service as unknown as { albumIdentifiers: Map<string, unknown> }
+		).albumIdentifiers.set("plug:id1", albumSource);
+		(
+			service as unknown as {
+				attributeSources: Map<unknown, LoadedAttributeSource>;
+			}
+		).attributeSources.set(albumSource.source, attributeSource);
+	});
+
+	it("creates and links album artists, then attributes the album and artists", async () => {
+		attributeSourcesService.getAlbumAttributeRows
+			.mockResolvedValueOnce([])
+			.mockResolvedValueOnce([{ key: "title" }]);
+		attributeSourcesService.createAlbumAttributes.mockResolvedValue([
+			{ key: "title" },
+		]);
+		attributeSourcesService.createArtistAttributes.mockResolvedValue([
+			{ key: "name" },
+		]);
+
+		const result = await service.createAlbumArtistsAndAttributes(
+			"plug",
+			"id1",
+			"album-id",
+			"album-1",
+		);
+
+		expect(result).toBe(true);
+		expect(artistManagerService.resolveArtist).toHaveBeenCalledWith(
+			"plug",
+			"artist-id",
+			"artist-1",
+			ArtistIdentityTarget.ALBUM,
+			true,
+		);
+		expect(albumManagerService.setArtistLinks).toHaveBeenCalledWith(
+			{ uuid: "album-1" },
+			["artist-uuid"],
+			"plug",
+			"id1",
+		);
+		expect(albumManagerService.setJoinPhrase).toHaveBeenCalledWith(
+			{ uuid: "album-1" },
+			"artist-uuid",
+			" & ",
+		);
+		expect(attributeSourcesService.createAlbumAttributes).toHaveBeenCalledWith(
+			"album-1",
+			[{ key: "title", value: "Hello" }],
+			attributeSource,
+		);
+		expect(
+			attributeSourcesService.replaceAllAlbumAttributes,
+		).toHaveBeenCalledWith("album-1", [{ key: "title" }]);
+		expect(attributeSourcesService.createArtistAttributes).toHaveBeenCalledWith(
+			"artist-uuid",
+			[{ key: "name", value: "Artist" }],
+			attributeSource,
+		);
+		expect(attributeSourcesService.upsertArtistAttributes).toHaveBeenCalledWith(
+			[{ key: "name" }],
+		);
+		expect(emitter.emit).toHaveBeenCalledWith("album.attributes.updated", {
+			uuid: "album-1",
+		});
+	});
+
+	it("returns false when the source cannot resolve the album", async () => {
+		albumSource.source.resolveAlbum.mockResolvedValue(null);
+
+		const result = await service.createAlbumArtistsAndAttributes(
+			"plug",
+			"id1",
+			"album-id",
+			"album-1",
+		);
+
+		expect(result).toBe(false);
+		expect(artistManagerService.resolveArtist).not.toHaveBeenCalled();
+		expect(
+			attributeSourcesService.createAlbumAttributes,
+		).not.toHaveBeenCalled();
 	});
 });
