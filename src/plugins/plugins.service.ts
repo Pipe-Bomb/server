@@ -543,10 +543,10 @@ export class PluginsService {
 				try {
 					return await readFile(filePath);
 				} catch (e) {
-					// this.logger.warn(
-					// 	`Failed to read resource "${resourceUuid}" (${resourceExtension})`,
-					// 	e,
-					// );
+					this.logger.warn(
+						`Failed to read resource "${resourceUuid}" (${resourceExtension})`,
+						e,
+					);
 					return null;
 				}
 			},
