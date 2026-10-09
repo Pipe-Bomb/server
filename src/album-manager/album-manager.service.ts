@@ -30,6 +30,7 @@ import {
 	FindManyOptions,
 	FindOptionsWhere,
 	In,
+	Not,
 	Repository,
 } from "typeorm";
 
@@ -710,100 +711,84 @@ export class AlbumManagerService {
 	}
 
 	async cleanIdentities() {
-		const identifiers: { pluginId: string; identityId: string }[] =
-			this.trackIdentifiers.map((identifier) => ({
-				pluginId: identifier.pluginId,
-				identityId: identifier.sourceId,
-			}));
+		const registeredByPlugin = new Map<string, Set<string>>();
+		const register = (pluginId: string, identityId: string) => {
+			const set = registeredByPlugin.get(pluginId) ?? new Set<string>();
+			set.add(identityId);
+			registeredByPlugin.set(pluginId, set);
+		};
+		for (const identifier of this.trackIdentifiers) {
+			register(identifier.pluginId, identifier.sourceId);
+		}
 		for (const [pluginId, entry] of this.identifiers) {
 			for (const identityId of entry.keys()) {
-				identifiers.push({ pluginId, identityId });
+				register(pluginId, identityId);
 			}
 		}
 
-		let affectedIdentityAlbumUuids: string[] = [];
-		let affectedArtistLinkAlbumUuids: string[] = [];
+		const affectedIdentityAlbumUuids = new Set<string>();
+		const affectedArtistLinkAlbumUuids = new Set<string>();
 
-		if (!identifiers.length) {
-			const rows = await this.identitiesRepository
-				.createQueryBuilder()
-				.distinct(true)
-				.select("identity.albumUuid", "albumUuid")
-				.from(DBAlbumIdentity, "identity")
-				.getRawMany<{ albumUuid: string }>();
-
-			affectedIdentityAlbumUuids = rows.map((row) => row.albumUuid);
+		if (!registeredByPlugin.size) {
+			const rows = await this.identitiesRepository.find({
+				select: ["albumUuid"],
+			});
+			for (const row of rows) {
+				affectedIdentityAlbumUuids.add(row.albumUuid);
+			}
 
 			await this.identitiesRepository.deleteAll();
 		} else {
-			const conditionStrings: string[] = [];
-			const queryParameters: Record<string, string> = {};
-
-			for (const [index, { pluginId, identityId }] of identifiers.entries()) {
-				const pluginKey = `p_${index}`;
-				const identifierKey = `i_${index}`;
-
-				conditionStrings.push(
-					`(pluginId = :${pluginKey} AND identifierId = :${identifierKey})`,
-				);
-
-				queryParameters[pluginKey] = pluginId;
-				queryParameters[identifierKey] = identityId;
+			const registeredPlugins = Array.from(registeredByPlugin.keys());
+			const wheres: FindOptionsWhere<DBAlbumIdentity>[] = [
+				{ pluginId: Not(In(registeredPlugins)) },
+			];
+			for (const [pluginId, identityIds] of registeredByPlugin) {
+				wheres.push({
+					pluginId,
+					identifierId: Not(In(Array.from(identityIds))),
+				});
 			}
 
-			const condition = `NOT (${conditionStrings.join(" OR ")})`;
+			for (const where of wheres) {
+				const identityRows = await this.identitiesRepository.find({
+					where,
+					select: ["albumUuid"],
+				});
+				for (const row of identityRows) {
+					affectedIdentityAlbumUuids.add(row.albumUuid);
+				}
 
-			const identityRows = await this.identitiesRepository
-				.createQueryBuilder()
-				.distinct(true)
-				.select("identity.albumUuid", "albumUuid")
-				.from(DBAlbumIdentity, "identity")
-				.where(condition, queryParameters)
-				.getRawMany<{ albumUuid: string }>();
+				const artistRows = await this.albumArtistsRepository.find({
+					where,
+					select: ["albumUuid"],
+				});
+				for (const row of artistRows) {
+					affectedArtistLinkAlbumUuids.add(row.albumUuid);
+				}
 
-			affectedIdentityAlbumUuids = identityRows.map((row) => row.albumUuid);
-
-			const artistRows = await this.albumArtistsRepository
-				.createQueryBuilder()
-				.distinct(true)
-				.select("link.albumUuid", "albumUuid")
-				.from(DBAlbumArtist, "link")
-				.where(condition, queryParameters)
-				.getRawMany<{ albumUuid: string }>();
-
-			affectedArtistLinkAlbumUuids = artistRows.map((row) => row.albumUuid);
-
-			await this.identitiesRepository
-				.createQueryBuilder()
-				.delete()
-				.from(DBAlbumIdentity)
-				.where(condition, queryParameters)
-				.execute();
-
-			await this.albumArtistsRepository
-				.createQueryBuilder()
-				.delete()
-				.from(DBAlbumArtist)
-				.where(condition, queryParameters)
-				.execute();
+				await this.identitiesRepository.delete(where);
+				await this.albumArtistsRepository.delete(where);
+			}
 		}
 
-		const allUuids = Array.from(
-			new Set([...affectedIdentityAlbumUuids, ...affectedArtistLinkAlbumUuids]),
-		);
-		if (!allUuids.length) {
+		const allUuids = new Set([
+			...affectedIdentityAlbumUuids,
+			...affectedArtistLinkAlbumUuids,
+		]);
+		if (!allUuids.size) {
 			return;
 		}
 
-		const identitySet = new Set(affectedIdentityAlbumUuids);
-		const artistSet = new Set(affectedArtistLinkAlbumUuids);
-		const albums = await this.albumsRepository.findBy({ uuid: In(allUuids) });
+		const albums = await this.albumsRepository.findBy({
+			uuid: In(Array.from(allUuids)),
+		});
 
 		for (const album of albums) {
-			if (identitySet.has(album.uuid)) {
+			if (affectedIdentityAlbumUuids.has(album.uuid)) {
 				emitServerEvent(this.emitter, "album.identities.updated", album);
 			}
-			if (artistSet.has(album.uuid)) {
+			if (affectedArtistLinkAlbumUuids.has(album.uuid)) {
 				emitServerEvent(this.emitter, "album.artists.updated", album);
 			}
 		}

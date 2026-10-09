@@ -45,13 +45,16 @@ describe("ArtistManagerService", () => {
 	};
 	let identitiesRepository: {
 		findBy: jest.Mock;
+		find: jest.Mock;
 		findOne: jest.Mock;
 		create: jest.Mock;
+		delete: jest.Mock;
 		createQueryBuilder: jest.Mock;
 		deleteAll: jest.Mock;
 	};
 	let trackArtistsRepository: {
 		findBy: jest.Mock;
+		find: jest.Mock;
 		delete: jest.Mock;
 		insert: jest.Mock;
 		update: jest.Mock;
@@ -79,13 +82,16 @@ describe("ArtistManagerService", () => {
 		};
 		identitiesRepository = {
 			findBy: jest.fn(),
+			find: jest.fn().mockResolvedValue([]),
 			findOne: jest.fn(),
 			create: jest.fn((value: unknown) => value),
+			delete: jest.fn(),
 			createQueryBuilder: jest.fn(() => queryBuilder),
 			deleteAll: jest.fn(),
 		};
 		trackArtistsRepository = {
 			findBy: jest.fn(),
+			find: jest.fn().mockResolvedValue([]),
 			delete: jest.fn(),
 			insert: jest.fn(),
 			update: jest.fn(),
@@ -209,9 +215,8 @@ describe("ArtistManagerService", () => {
 			{ package: { name: "p" } } as any,
 		);
 
-		queryBuilder.getRawMany
-			.mockResolvedValueOnce([{ artistUuid: "artist-1" }])
-			.mockResolvedValueOnce([{ trackUuid: "track-1" }]);
+		identitiesRepository.find.mockResolvedValue([{ artistUuid: "artist-1" }]);
+		trackArtistsRepository.find.mockResolvedValue([{ trackUuid: "track-1" }]);
 		artistsRepository.findBy.mockResolvedValue([{ uuid: "artist-1" }]);
 		trackManagerService.find.mockResolvedValue([track]);
 

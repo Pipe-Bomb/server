@@ -23,6 +23,7 @@ import {
 	Repository,
 	DataSource,
 	In,
+	Not,
 	FindOptionsWhere,
 	FindOptionsRelations,
 	FindOptionsSelect,
@@ -1279,86 +1280,71 @@ export class ArtistManagerService {
 	}
 
 	async cleanIdentities() {
-		const identifiers: { pluginId: string; identityId: string }[] =
-			this.trackIdentifiers.map((identifier) => ({
-				pluginId: identifier.pluginId,
-				identityId: identifier.sourceId,
-			}));
+		const registeredByPlugin = new Map<string, Set<string>>();
+		const register = (pluginId: string, identityId: string) => {
+			const set = registeredByPlugin.get(pluginId) ?? new Set<string>();
+			set.add(identityId);
+			registeredByPlugin.set(pluginId, set);
+		};
+		for (const identifier of this.trackIdentifiers) {
+			register(identifier.pluginId, identifier.sourceId);
+		}
 		for (const [pluginId, entry] of this.identifiers) {
 			for (const identityId of entry.keys()) {
-				identifiers.push({ pluginId, identityId });
+				register(pluginId, identityId);
 			}
 		}
 
-		let affectedArtistUuids: string[] = [];
-		let affectedTrackUuids: string[] = [];
+		const affectedArtistUuids = new Set<string>();
+		const affectedTrackUuids = new Set<string>();
 
-		if (!identifiers.length) {
-			const artistRows = await this.identitiesRepository
-				.createQueryBuilder()
-				.distinct(true)
-				.select("identity.artistUuid", "artistUuid")
-				.from(DBArtistIdentity, "identity")
-				.getRawMany<{ artistUuid: string }>();
-
-			affectedArtistUuids = artistRows.map((row) => row.artistUuid);
+		if (!registeredByPlugin.size) {
+			const artistRows = await this.identitiesRepository.find({
+				select: ["artistUuid"],
+			});
+			for (const row of artistRows) {
+				affectedArtistUuids.add(row.artistUuid);
+			}
 
 			await this.identitiesRepository.deleteAll();
 		} else {
-			const conditionStrings: string[] = [];
-			const queryParameters: Record<string, string> = {};
-
-			for (const [index, { pluginId, identityId }] of identifiers.entries()) {
-				const pluginKey = `p_${index}`;
-				const identifierKey = `i_${index}`;
-
-				conditionStrings.push(
-					`(pluginId = :${pluginKey} AND identifierId = :${identifierKey})`,
-				);
-
-				queryParameters[pluginKey] = pluginId;
-				queryParameters[identifierKey] = identityId;
+			const registeredPlugins = Array.from(registeredByPlugin.keys());
+			const wheres: FindOptionsWhere<DBArtistIdentity>[] = [
+				{ pluginId: Not(In(registeredPlugins)) },
+			];
+			for (const [pluginId, identityIds] of registeredByPlugin) {
+				wheres.push({
+					pluginId,
+					identifierId: Not(In(Array.from(identityIds))),
+				});
 			}
 
-			const condition = `NOT (${conditionStrings.join(" OR ")})`;
+			for (const where of wheres) {
+				const artistRows = await this.identitiesRepository.find({
+					where,
+					select: ["artistUuid"],
+				});
+				for (const row of artistRows) {
+					affectedArtistUuids.add(row.artistUuid);
+				}
 
-			const artistRows = await this.identitiesRepository
-				.createQueryBuilder()
-				.distinct(true)
-				.select("identity.artistUuid", "artistUuid")
-				.from(DBArtistIdentity, "identity")
-				.where(condition, queryParameters)
-				.getRawMany<{ artistUuid: string }>();
+				const trackRows = await this.trackArtistsRepository.find({
+					where,
+					select: ["trackUuid"],
+				});
+				for (const row of trackRows) {
+					affectedTrackUuids.add(row.trackUuid);
+				}
 
-			affectedArtistUuids = artistRows.map((row) => row.artistUuid);
-
-			const trackRows = await this.trackArtistsRepository
-				.createQueryBuilder()
-				.distinct(true)
-				.select("link.trackUuid", "trackUuid")
-				.from(DBTrackArtist, "link")
-				.where(condition, queryParameters)
-				.getRawMany<{ trackUuid: string }>();
-
-			affectedTrackUuids = trackRows.map((row) => row.trackUuid);
-
-			await this.identitiesRepository
-				.createQueryBuilder()
-				.delete()
-				.from(DBArtistIdentity)
-				.where(condition, queryParameters)
-				.execute();
-
-			await this.trackArtistsRepository
-				.createQueryBuilder()
-				.delete()
-				.from(DBTrackArtist)
-				.where(condition, queryParameters)
-				.execute();
+				await this.identitiesRepository.delete(where);
+				await this.trackArtistsRepository.delete(where);
+			}
 		}
 
-		await this.emitArtistIdentitiesUpdatedForUuids(affectedArtistUuids);
-		await this.emitTrackArtistsUpdatedForUuids(affectedTrackUuids);
+		await this.emitArtistIdentitiesUpdatedForUuids(
+			Array.from(affectedArtistUuids),
+		);
+		await this.emitTrackArtistsUpdatedForUuids(Array.from(affectedTrackUuids));
 	}
 
 	private async emitArtistIdentitiesUpdatedForUuids(uuids: string[]) {
