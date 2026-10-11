@@ -92,7 +92,11 @@ export class DBPlaylist {
 		};
 	}
 
-	toSavedResponse(): SavedPlaylist {
+	toSavedResponse(
+		options: {
+			noRelations?: boolean;
+		} = {},
+	): SavedPlaylist {
 		return {
 			uuid: this.uuid,
 			ownerUuid: this.ownerUuid,
@@ -101,11 +105,17 @@ export class DBPlaylist {
 			dateModified: new Date(this.dateModified),
 			visibility: this.visibility,
 			attributes:
-				this.attributes?.map((attribute) => attribute.toSavedAttribute()) ??
+				(!options.noRelations &&
+					this.attributes?.map((attribute) => attribute.toSavedAttribute())) ||
 				null,
 			filters:
-				this.filterGroups?.map((group) => group.toSavedResponse()) ?? null,
-			tracks: this.tracks?.map((track) => track.toSavedResponse()) ?? null,
+				(!options.noRelations &&
+					this.filterGroups?.map((group) => group.toSavedResponse())) ||
+				null,
+			tracks:
+				(!options.noRelations &&
+					this.tracks?.map((track) => track.toSavedResponse())) ||
+				null,
 		};
 	}
 }

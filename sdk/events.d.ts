@@ -35,4 +35,10 @@ export type EventMap = {
 	"playlist-filters-updated": [SavedPlaylist];
 
 	"user-added": [SavedUser];
+	"user-saved-track": [SavedUser, SavedTrack];
+	"user-unsaved-track": [SavedUser, SavedTrack];
+	"user-saved-artist": [SavedUser, SavedArtist];
+	"user-unsaved-artist": [SavedUser, SavedArtist];
+	"user-saved-album": [SavedUser, SavedAlbum];
+	"user-unsaved-album": [SavedUser, SavedAlbum];
 };

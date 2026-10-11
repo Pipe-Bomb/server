@@ -79,17 +79,30 @@ export class DBArtist {
 		};
 	}
 
-	toSavedResponse(): SavedArtist {
+	toSavedResponse(
+		options: {
+			noRelations?: boolean;
+		} = {},
+	): SavedArtist {
 		return {
 			uuid: this.uuid,
 			dateAdded: new Date(this.dateAdded),
 			identities:
-				this.identities?.map((identity) => identity.toIdentity()) ?? null,
-			attributes:
-				this.attributes?.map((attribute) => attribute.toSavedAttribute()) ??
+				(!options.noRelations &&
+					this.identities?.map((identity) => identity.toIdentity())) ||
 				null,
-			tracks: this.tracks?.map((track) => track.toSavedResponse()) ?? null,
-			albums: this.albums?.map((album) => album.toSavedResponse()) ?? null,
+			attributes:
+				(!options.noRelations &&
+					this.attributes?.map((attribute) => attribute.toSavedAttribute())) ||
+				null,
+			tracks:
+				(!options.noRelations &&
+					this.tracks?.map((track) => track.toSavedResponse())) ||
+				null,
+			albums:
+				(!options.noRelations &&
+					this.albums?.map((album) => album.toSavedResponse())) ||
+				null,
 			bookmarks: null,
 		};
 	}

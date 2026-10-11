@@ -14,6 +14,11 @@ export interface ListenerHandler {
 	end: () => void;
 }
 
+export interface SavedEntity {
+	uuid: string;
+	dateSaved: Date;
+}
+
 export interface DataClient {
 	getPlugin(pluginId: string): Plugin | null;
 	getPluginId(plugin: Plugin): string | null;
@@ -271,19 +276,19 @@ export interface DataClient {
 		userUuid: string,
 		amount: number,
 		offset?: number,
-	): Promise<string[]>;
+	): Promise<SavedEntity[]>;
 
 	getSavedArtistUuids(
 		userUuid: string,
 		amount: number,
 		offset?: number,
-	): Promise<string[]>;
+	): Promise<SavedEntity[]>;
 
 	getSavedTrackUuids(
 		userUuid: string,
 		amount: number,
 		offset?: number,
-	): Promise<string[]>;
+	): Promise<SavedEntity[]>;
 
 	saveAlbum(album: string | Identity, userUuid: string): Promise<string | null>;
 

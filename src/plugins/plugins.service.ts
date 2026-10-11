@@ -905,10 +905,14 @@ export class PluginsService {
 					where: { userUuid },
 					take: amount,
 					skip: offset,
-					select: ["albumUuid"],
+					select: ["albumUuid", "dateAdded"],
 					order: { dateAdded: "DESC" },
 				});
-				return albums.map(({ albumUuid }) => albumUuid);
+
+				return albums.map(({ albumUuid, dateAdded }) => ({
+					uuid: albumUuid,
+					dateSaved: new Date(dateAdded),
+				}));
 			},
 			getSavedArtistUuids: async (userUuid, amount, offset = 0) => {
 				const artists = await this.dataSource
@@ -917,20 +921,26 @@ export class PluginsService {
 						where: { userUuid },
 						take: amount,
 						skip: offset,
-						select: ["artistUuid"],
+						select: ["artistUuid", "dateAdded"],
 						order: { dateAdded: "DESC" },
 					});
-				return artists.map(({ artistUuid }) => artistUuid);
+				return artists.map(({ artistUuid, dateAdded }) => ({
+					uuid: artistUuid,
+					dateSaved: new Date(dateAdded),
+				}));
 			},
 			getSavedTrackUuids: async (userUuid, amount, offset = 0) => {
 				const tracks = await this.dataSource.getRepository(DBSavedTrack).find({
 					where: { userUuid },
 					take: amount,
 					skip: offset,
-					select: ["trackUuid"],
+					select: ["trackUuid", "dateAdded"],
 					order: { dateAdded: "DESC" },
 				});
-				return tracks.map(({ trackUuid }) => trackUuid);
+				return tracks.map(({ trackUuid, dateAdded }) => ({
+					uuid: trackUuid,
+					dateSaved: new Date(dateAdded),
+				}));
 			},
 			saveAlbum: async (album, userUuid) => {
 				const user = await this.userManagerService.findOne(userUuid);

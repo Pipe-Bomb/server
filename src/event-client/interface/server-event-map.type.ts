@@ -33,4 +33,10 @@ export type ServerEventMap = {
 	"playlist.filters.updated": DBPlaylist;
 
 	"user.added": DBUser;
+	"user.track.saved": [DBUser, DBTrack];
+	"user.track.unsaved": [DBUser, DBTrack];
+	"user.artist.saved": [DBUser, DBArtist];
+	"user.artist.unsaved": [DBUser, DBArtist];
+	"user.album.saved": [DBUser, DBAlbum];
+	"user.album.unsaved": [DBUser, DBAlbum];
 };
