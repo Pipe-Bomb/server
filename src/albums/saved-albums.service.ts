@@ -15,6 +15,8 @@ import { AlbumManagerService } from "src/album-manager/album-manager.service";
 import { AlbumsService } from "./albums.service";
 import { TrackId } from "src/tracks/interface/track-id.interface";
 import { DBTrack } from "src/tracks/entities/track.entity";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { emitServerEvent } from "src/util/emitter.util";
 
 @Injectable()
 export class SavedAlbumsService {
@@ -27,6 +29,7 @@ export class SavedAlbumsService {
 		private readonly librariesService: LibrariesService,
 		private readonly albumManagerService: AlbumManagerService,
 		private readonly albumsService: AlbumsService,
+		private readonly eventEmitter: EventEmitter2,
 	) {}
 
 	async saveAlbum(album: DBAlbum, user: DBUser) {
@@ -37,6 +40,7 @@ export class SavedAlbumsService {
 			},
 			["albumUuid", "userUuid"],
 		);
+		emitServerEvent(this.eventEmitter, "user.album.saved", [user, album]);
 	}
 
 	async unsaveAlbum(album: DBAlbum, user: DBUser) {
@@ -51,6 +55,7 @@ export class SavedAlbumsService {
 			albumUuid: album.uuid,
 			userUuid: user.uuid,
 		});
+		emitServerEvent(this.eventEmitter, "user.album.unsaved", [user, album]);
 	}
 
 	async getSavedAlbums(

@@ -16,90 +16,124 @@ function bindEvent<S extends keyof ServerEventMap, V extends unknown[]>(
 	return [serverEvent, convert] as const;
 }
 
+const NO_RELATIONS = {
+	noRelations: true,
+} as const;
+
 const EVENT_BINDINGS: Record<keyof EventMap, ServerEventBinding> = {
-	"track-added": bindEvent("track.added", (track) => [track.toSavedResponse()]),
+	"track-added": bindEvent("track.added", (track) => [
+		track.toSavedResponse(NO_RELATIONS),
+	]),
 	"track-removed": bindEvent("track.removed", (track) => [
-		track.toSavedResponse(),
+		track.toSavedResponse(NO_RELATIONS),
 	]),
 	"track-identities-updated": bindEvent("track.identities.updated", (track) => [
-		track.toSavedResponse(),
+		track.toSavedResponse(NO_RELATIONS),
 	]),
 	"track-attributes-updated": bindEvent("track.attributes.updated", (track) => [
-		track.toSavedResponse(),
+		track.toSavedResponse(NO_RELATIONS),
 	]),
 	"track-artists-updated": bindEvent("track.artists.updated", (track) => [
-		track.toSavedResponse(),
+		track.toSavedResponse(NO_RELATIONS),
 	]),
 	"track-albums-updated": bindEvent("track.albums.updated", (track) => [
-		track.toSavedResponse(),
+		track.toSavedResponse(NO_RELATIONS),
 	]),
-	"album-added": bindEvent("album.added", (album) => [album.toSavedResponse()]),
+	"album-added": bindEvent("album.added", (album) => [
+		album.toSavedResponse(NO_RELATIONS),
+	]),
 	"album-removed": bindEvent("album.removed", (album) => [
-		album.toSavedResponse(),
+		album.toSavedResponse(NO_RELATIONS),
 	]),
 	"album-identities-updated": bindEvent("album.identities.updated", (album) => [
-		album.toSavedResponse(),
+		album.toSavedResponse(NO_RELATIONS),
 	]),
 	"album-attributes-updated": bindEvent("album.attributes.updated", (album) => [
-		album.toSavedResponse(),
+		album.toSavedResponse(NO_RELATIONS),
 	]),
 	"album-tracklist-updated": bindEvent("album.tracklist.updated", (album) => [
-		album.toSavedResponse(),
+		album.toSavedResponse(NO_RELATIONS),
 	]),
 	"album-artists-updated": bindEvent("album.artists.updated", (album) => [
-		album.toSavedResponse(),
+		album.toSavedResponse(NO_RELATIONS),
 	]),
 
 	"artist-added": bindEvent("artist.added", (artist) => [
-		artist.toSavedResponse(),
+		artist.toSavedResponse(NO_RELATIONS),
 	]),
 	"artist-removed": bindEvent("artist.removed", (artist) => [
-		artist.toSavedResponse(),
+		artist.toSavedResponse(NO_RELATIONS),
 	]),
 	"artist-identities-updated": bindEvent(
 		"artist.identities.updated",
-		(artist) => [artist.toSavedResponse()],
+		(artist) => [artist.toSavedResponse(NO_RELATIONS)],
 	),
 	"artist-attributes-updated": bindEvent(
 		"artist.attributes.updated",
-		(artist) => [artist.toSavedResponse()],
+		(artist) => [artist.toSavedResponse(NO_RELATIONS)],
 	),
 
 	"playlist-added": bindEvent("playlist.added", (playlist) => [
-		playlist.toSavedResponse(),
+		playlist.toSavedResponse(NO_RELATIONS),
 	]),
 	"playlist-removed": bindEvent("playlist.removed", (playlist) => [
-		playlist.toSavedResponse(),
+		playlist.toSavedResponse(NO_RELATIONS),
 	]),
 	"playlist-attributes-updated": bindEvent(
 		"playlist.attributes.updated",
-		(playlist) => [playlist.toSavedResponse()],
+		(playlist) => [playlist.toSavedResponse(NO_RELATIONS)],
 	),
 	"playlist-tracklist-updated": bindEvent(
 		"playlist.tracklist.updated",
-		(playlist) => [playlist.toSavedResponse()],
+		(playlist) => [playlist.toSavedResponse(NO_RELATIONS)],
 	),
 	"playlist-visibility-updated": bindEvent(
 		"playlist.visibility.updated",
-		(playlist) => [playlist.toSavedResponse()],
+		(playlist) => [playlist.toSavedResponse(NO_RELATIONS)],
 	),
 	"playlist-members-updated": bindEvent(
 		"playlist.members.updated",
-		(playlist) => [playlist.toSavedResponse()],
+		(playlist) => [playlist.toSavedResponse(NO_RELATIONS)],
 	),
 	"playlist-filters-updated": bindEvent(
 		"playlist.filters.updated",
-		(playlist) => [playlist.toSavedResponse()],
+		(playlist) => [playlist.toSavedResponse(NO_RELATIONS)],
 	),
 
-	"user-added": bindEvent("user.added", (user) => [user.toSavedResponse()]),
+	"user-added": bindEvent("user.added", (user) => [
+		user.toSavedResponse(NO_RELATIONS),
+	]),
+	"user-saved-track": bindEvent("user.track.saved", ([user, track]) => [
+		user.toSavedResponse(NO_RELATIONS),
+		track.toSavedResponse(NO_RELATIONS),
+	]),
+	"user-unsaved-track": bindEvent("user.track.unsaved", ([user, track]) => [
+		user.toSavedResponse(NO_RELATIONS),
+		track.toSavedResponse(NO_RELATIONS),
+	]),
+	"user-saved-artist": bindEvent("user.artist.saved", ([user, artist]) => [
+		user.toSavedResponse(NO_RELATIONS),
+		artist.toSavedResponse(NO_RELATIONS),
+	]),
+	"user-unsaved-artist": bindEvent("user.artist.unsaved", ([user, artist]) => [
+		user.toSavedResponse(NO_RELATIONS),
+		artist.toSavedResponse(NO_RELATIONS),
+	]),
+	"user-saved-album": bindEvent("user.album.saved", ([user, album]) => [
+		user.toSavedResponse(NO_RELATIONS),
+		album.toSavedResponse(NO_RELATIONS),
+	]),
+	"user-unsaved-album": bindEvent("user.album.unsaved", ([user, album]) => [
+		user.toSavedResponse(NO_RELATIONS),
+		album.toSavedResponse(NO_RELATIONS),
+	]),
 };
 
 @Injectable()
 export class EventClientService {
 	private readonly sdkEmitter = new Emitter<EventMap>();
 
-	constructor(private readonly serverEmitter: EventEmitter2) {
+	constructor(serverEmitter: EventEmitter2) {
 		for (const [sdkEventId, [serverEventId, convert]] of Object.entries(
 			EVENT_BINDINGS,
 		)) {

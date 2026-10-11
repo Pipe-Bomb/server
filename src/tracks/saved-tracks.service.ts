@@ -11,6 +11,8 @@ import { DBTrack } from "./entities/track.entity";
 import { DBUser } from "src/users/entity/user.entity";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { EphemeralService } from "src/ephemeral/ephemeral.service";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { emitServerEvent } from "src/util/emitter.util";
 
 @Injectable()
 export class SavedTracksService {
@@ -21,6 +23,7 @@ export class SavedTracksService {
 		private readonly savedTracksRepository: Repository<DBSavedTrack>,
 		private readonly trackManagerService: TrackManagerService,
 		private readonly ephemeralService: EphemeralService,
+		private readonly eventEmitter: EventEmitter2,
 	) {}
 
 	async saveTrack(track: DBTrack, user: DBUser) {
@@ -31,6 +34,7 @@ export class SavedTracksService {
 			},
 			["trackUuid", "userUuid"],
 		);
+		emitServerEvent(this.eventEmitter, "user.track.saved", [user, track]);
 	}
 
 	async unsaveTrack(track: DBTrack, user: DBUser) {
@@ -45,6 +49,7 @@ export class SavedTracksService {
 			trackUuid: track.uuid,
 			userUuid: user.uuid,
 		});
+		emitServerEvent(this.eventEmitter, "user.track.unsaved", [user, track]);
 	}
 
 	async getSavedTracks(

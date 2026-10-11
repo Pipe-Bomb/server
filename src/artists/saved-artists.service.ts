@@ -11,6 +11,8 @@ import { DBArtist } from "src/artist-manager/entity/artist.entity";
 import { DBUser } from "src/users/entity/user.entity";
 import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
 import { ArtistIdentityTarget } from "src/artist-manager/enum/artist-identity-target.enum";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { emitServerEvent } from "src/util/emitter.util";
 
 @Injectable()
 export class SavedArtistsService {
@@ -20,6 +22,7 @@ export class SavedArtistsService {
 		@InjectRepository(DBSavedArtist)
 		private readonly savedArtistsRepository: Repository<DBSavedArtist>,
 		private readonly artistManagerService: ArtistManagerService,
+		private readonly eventEmitter: EventEmitter2,
 	) {}
 
 	async saveArtist(artist: DBArtist, user: DBUser) {
@@ -30,6 +33,7 @@ export class SavedArtistsService {
 			},
 			["artistUuid", "userUuid"],
 		);
+		emitServerEvent(this.eventEmitter, "user.artist.saved", [user, artist]);
 	}
 
 	async unsaveArtist(artist: DBArtist, user: DBUser) {
@@ -44,6 +48,7 @@ export class SavedArtistsService {
 			artistUuid: artist.uuid,
 			userUuid: user.uuid,
 		});
+		emitServerEvent(this.eventEmitter, "user.artist.unsaved", [user, artist]);
 	}
 
 	async getSavedArtists(

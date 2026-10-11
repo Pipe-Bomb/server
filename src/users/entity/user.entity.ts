@@ -56,12 +56,18 @@ export class DBUser {
 		};
 	}
 
-	toSavedResponse(): SavedUser {
+	toSavedResponse(
+		options: {
+			noRelations?: boolean;
+		} = {},
+	): SavedUser {
 		return {
 			uuid: this.uuid,
 			username: this.username,
 			playlists:
-				this.playlists?.map((playlist) => playlist.toSavedResponse()) ?? null,
+				(!options.noRelations &&
+					this.playlists?.map((playlist) => playlist.toSavedResponse())) ||
+				null,
 		};
 	}
 }

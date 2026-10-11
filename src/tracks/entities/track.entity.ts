@@ -148,7 +148,11 @@ export class DBTrack {
 		};
 	}
 
-	toSavedResponse(): SavedTrack {
+	toSavedResponse(
+		options: {
+			noRelations?: boolean;
+		} = {},
+	): SavedTrack {
 		return {
 			uuid: this.uuid,
 			pluginId: this.pluginId,
@@ -157,12 +161,21 @@ export class DBTrack {
 			title: this.title,
 			dateAdded: new Date(this.dateAdded),
 			identities:
-				this.identities?.map((identity) => identity.toIdentity()) ?? null,
-			attributes:
-				this.attributes?.map((attribute) => attribute.toSavedAttribute()) ??
+				(!options.noRelations &&
+					this.identities?.map((identity) => identity.toIdentity())) ||
 				null,
-			artists: this.artists?.map((artist) => artist.toSavedResponse()) ?? null,
-			albums: this.albums?.map((album) => album.toSavedResponse()) ?? null,
+			attributes:
+				(!options.noRelations &&
+					this.attributes?.map((attribute) => attribute.toSavedAttribute())) ||
+				null,
+			artists:
+				(!options.noRelations &&
+					this.artists?.map((artist) => artist.toSavedResponse())) ||
+				null,
+			albums:
+				(!options.noRelations &&
+					this.albums?.map((album) => album.toSavedResponse())) ||
+				null,
 			bookmarks: null,
 		};
 	}
