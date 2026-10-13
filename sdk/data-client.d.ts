@@ -180,7 +180,7 @@ export interface DataClient {
 	): Promise<SavedArtist | null>;
 
 	getTracks(
-		ids: { pluginId: string; libraryId: string; trackId: string }[],
+		ids: ({ pluginId: string; libraryId: string; trackId: string } | string)[],
 		options?: {
 			relations?: {
 				identities?: boolean;

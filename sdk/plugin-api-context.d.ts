@@ -3,7 +3,7 @@ import { SearchSource, SearchSourceInfo } from "./search-source";
 import { AuthClient } from "./auth-client";
 import { ConfigManager, UserConfigManager } from "./config-manager";
 import { DataClient } from "./data-client";
-import { EphemeralSource } from "./ephemeral-source";
+import { EphemeralSource, EphemeralSourceInfo } from "./ephemeral-source";
 import { ExternalUrlSource } from "./external-url-source";
 import {
 	AlbumIdentifier,
@@ -42,6 +42,11 @@ export interface PluginApiContext {
 		userConfigManager: UserConfigManager,
 	): void;
 	registerEphemeralSource(ephemeralSource: EphemeralSource): void;
+	getEphemeralSources(): EphemeralSourceInfo[];
+	getEphemeralSource(
+		pluginId: string,
+		sourceId: string,
+	): EphemeralSource | null;
 	registerSearchSource(searchSource: SearchSource): void;
 	unregisterLibraryHandler(libraryHandler: LibraryHandler): void;
 	unregisterTrackIdentifier(identifier: TrackIdentifier): void;

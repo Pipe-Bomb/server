@@ -435,6 +435,14 @@ export class PluginsService {
 				),
 			registerEphemeralSource: (source) =>
 				this.ephemeralService.registerEphemeralSource(source, plugin),
+			getEphemeralSources: () =>
+				this.ephemeralService.allFlat().map(({ plugin, source }) => ({
+					pluginId: plugin.package.name,
+					sourceId: source.id,
+					source,
+				})),
+			getEphemeralSource: (pluginId, sourceId) =>
+				this.ephemeralService.find(pluginId, sourceId)?.source ?? null,
 			registerSearchSource: (source) =>
 				this.SearchSourcesService.register(source, plugin),
 			getSearchSources: () => this.SearchSourcesService.getAllSources(),
@@ -745,11 +753,17 @@ export class PluginsService {
 					return [];
 				}
 				const tracks = await this.trackManagerService.find({
-					where: ids.map(({ pluginId, libraryId, trackId }) => ({
-						pluginId,
-						libraryId,
-						trackId,
-					})),
+					where: ids.map((id) =>
+						typeof id == "string"
+							? {
+									uuid: id,
+								}
+							: {
+									pluginId: id.pluginId,
+									libraryId: id.libraryId,
+									trackId: id.trackId,
+								},
+					),
 					relations: {
 						identities: relations?.identities,
 						attributes: relations?.attributes,
