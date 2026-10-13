@@ -86,7 +86,7 @@ export class SavedArtistsService {
 		pluginId: string,
 		identifierId: string,
 		identity: string,
-		user: DBUser,
+		user: DBUser | null,
 	) {
 		const artistUuid = await this.artistManagerService.resolveArtist(
 			pluginId,
@@ -101,6 +101,10 @@ export class SavedArtistsService {
 			throw new NotFoundException("Artist not found");
 		}
 
-		await this.saveArtist(artist, user);
+		if (user) {
+			await this.saveArtist(artist, user);
+		}
+
+		return artistUuid;
 	}
 }

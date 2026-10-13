@@ -99,14 +99,16 @@ export class SavedTracksService {
 		pluginId: string,
 		libraryId: string,
 		trackId: string,
-		user: DBUser,
+		user: DBUser | null,
 	) {
 		const existing = await this.trackManagerService.findOne({
 			where: { pluginId, libraryId, trackId },
 		});
 
 		if (existing) {
-			await this.saveTrack(existing, user);
+			if (user) {
+				await this.saveTrack(existing, user);
+			}
 			return null;
 		}
 
@@ -117,13 +119,13 @@ export class SavedTracksService {
 
 		const session = await this.ephemeralService.createTracks(
 			[{ pluginId, libraryId, trackId }],
-			{ userUuid: user.uuid },
+			{ userUuid: user?.uuid },
 		);
 
 		session.promise
 			.then(async (tracks: (DBTrack | null)[]) => {
 				const track = tracks[0];
-				if (track) {
+				if (track && user) {
 					await this.saveTrack(track, user);
 				}
 			})

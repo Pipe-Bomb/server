@@ -408,7 +408,7 @@ export class AlbumsController {
 			return;
 		}
 
-		const session = await this.savedAlbumsService.saveEphemeralAlbum(
+		const { session } = await this.savedAlbumsService.saveEphemeralAlbum(
 			pluginId,
 			identifierId,
 			identity,

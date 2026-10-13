@@ -51,6 +51,12 @@ export interface EphemeralAlbumContent {
 	tracks: EphemeralTrack[] | null;
 }
 
+export interface EphemeralSourceInfo {
+	pluginId: string;
+	sourceId: string;
+	source: EphemeralSource;
+}
+
 export interface EphemeralSource {
 	readonly id: string;
 
