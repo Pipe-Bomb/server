@@ -104,7 +104,7 @@ export class SavedAlbumsService {
 		pluginId: string,
 		identifierId: string,
 		identity: string,
-		user: DBUser,
+		user: DBUser | null,
 	) {
 		const source = this.ephemeralService.getEphemeralSourceByAlbumIdentity(
 			pluginId,
@@ -156,7 +156,7 @@ export class SavedAlbumsService {
 		const missingTracks = missingIndexes.map(({ track }) => track);
 
 		const session = await this.ephemeralService.createTracks(missingTracks, {
-			userUuid: user.uuid,
+			userUuid: user?.uuid,
 		});
 
 		session.promise
@@ -183,15 +183,17 @@ export class SavedAlbumsService {
 					}
 				}
 
-				await this.savedAlbumsRepository.upsert(
-					{ albumUuid, userUuid: user.uuid },
-					["albumUuid", "userUuid"],
-				);
+				if (user) {
+					await this.savedAlbumsRepository.upsert(
+						{ albumUuid, userUuid: user.uuid },
+						["albumUuid", "userUuid"],
+					);
+				}
 			})
 			.catch((e: unknown) => {
 				this.logger.error("Failed to save ephemeral album", e);
 			});
 
-		return session;
+		return { session, albumUuid };
 	}
 }

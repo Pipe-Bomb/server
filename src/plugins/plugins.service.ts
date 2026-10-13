@@ -957,15 +957,21 @@ export class PluginsService {
 				}));
 			},
 			saveAlbum: async (album, userUuid) => {
-				const user = await this.userManagerService.findOne(userUuid);
-				if (!user) {
-					throw new Error("User does not exist");
+				let user: DBUser | null = null;
+				if (userUuid) {
+					user = await this.userManagerService.findOne(userUuid);
+					if (!user) {
+						throw new Error("User does not exist");
+					}
 				}
 
 				if (typeof album == "string") {
 					const found = await this.albumManagerService.findOne(album);
 					if (!found) {
 						throw new Error("Album does not exist");
+					}
+					if (!user) {
+						return found.uuid;
 					}
 					await this.savedAlbumsService.saveAlbum(found, user);
 					return null;
@@ -981,17 +987,24 @@ export class PluginsService {
 					if (!found) {
 						throw new Error("Album does not exist");
 					}
+					if (!user) {
+						return existingUuid;
+					}
 					await this.savedAlbumsService.saveAlbum(found, user);
 					return null;
 				}
 
-				const session = await this.savedAlbumsService.saveEphemeralAlbum(
-					album.pluginId,
-					album.identityId,
-					album.identity,
-					user,
-				);
-				return session.uuid;
+				const { session, albumUuid } =
+					await this.savedAlbumsService.saveEphemeralAlbum(
+						album.pluginId,
+						album.identityId,
+						album.identity,
+						user,
+					);
+				if (session) {
+					await session.promise;
+				}
+				return albumUuid;
 			},
 			unsaveAlbum: async (albumUuid, userUuid) => {
 				const user = await this.userManagerService.findOne(userUuid);
@@ -1005,9 +1018,12 @@ export class PluginsService {
 				await this.savedAlbumsService.unsaveAlbum(found, user);
 			},
 			saveArtist: async (artist, userUuid) => {
-				const user = await this.userManagerService.findOne(userUuid);
-				if (!user) {
-					throw new Error("User does not exist");
+				let user: DBUser | null = null;
+				if (userUuid) {
+					user = await this.userManagerService.findOne(userUuid);
+					if (!user) {
+						throw new Error("User does not exist");
+					}
 				}
 
 				if (typeof artist == "string") {
@@ -1015,8 +1031,11 @@ export class PluginsService {
 					if (!found) {
 						throw new Error("Artist does not exist");
 					}
+					if (!user) {
+						return found.uuid;
+					}
 					await this.savedArtistsService.saveArtist(found, user);
-					return;
+					return found.uuid;
 				}
 
 				const existingUuid = await this.artistManagerService.resolveArtist(
@@ -1030,11 +1049,13 @@ export class PluginsService {
 					if (!found) {
 						throw new Error("Artist does not exist");
 					}
-					await this.savedArtistsService.saveArtist(found, user);
-					return;
+					if (user) {
+						await this.savedArtistsService.saveArtist(found, user);
+					}
+					return found.uuid;
 				}
 
-				await this.savedArtistsService.saveEphemeralArtist(
+				return await this.savedArtistsService.saveEphemeralArtist(
 					artist.pluginId,
 					artist.identityId,
 					artist.identity,
@@ -1053,9 +1074,12 @@ export class PluginsService {
 				await this.savedArtistsService.unsaveArtist(found, user);
 			},
 			saveTrack: async (track, userUuid) => {
-				const user = await this.userManagerService.findOne(userUuid);
-				if (!user) {
-					throw new Error("User does not exist");
+				let user: DBUser | null = null;
+				if (userUuid) {
+					user = await this.userManagerService.findOne(userUuid);
+					if (!user) {
+						throw new Error("User does not exist");
+					}
 				}
 
 				if (typeof track == "string") {
@@ -1064,6 +1088,9 @@ export class PluginsService {
 					});
 					if (!found) {
 						throw new Error("Track does not exist");
+					}
+					if (!user) {
+						return found.uuid;
 					}
 					await this.savedTracksService.saveTrack(found, user);
 					return null;
@@ -1077,6 +1104,9 @@ export class PluginsService {
 					},
 				});
 				if (existing) {
+					if (!user) {
+						return existing.uuid;
+					}
 					await this.savedTracksService.saveTrack(existing, user);
 					return null;
 				}
@@ -1087,7 +1117,13 @@ export class PluginsService {
 					track.trackId,
 					user,
 				);
-				return session?.uuid ?? null;
+				if (session) {
+					const tracks = await session.promise;
+					if (tracks.length) {
+						return tracks[0]!.uuid;
+					}
+				}
+				return null;
 			},
 			unsaveTrack: async (trackUuid, userUuid) => {
 				const user = await this.userManagerService.findOne(userUuid);

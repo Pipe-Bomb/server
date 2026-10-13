@@ -290,17 +290,23 @@ export interface DataClient {
 		offset?: number,
 	): Promise<SavedEntity[]>;
 
-	saveAlbum(album: string | Identity, userUuid: string): Promise<string | null>;
+	saveAlbum(
+		album: string | Identity,
+		userUuid: string | null,
+	): Promise<string | null>;
 
 	unsaveAlbum(albumUuid: string, userUuid: string): Promise<void>;
 
-	saveArtist(artist: string | Identity, userUuid: string): Promise<void>;
+	saveArtist(
+		artist: string | Identity,
+		userUuid: string | null,
+	): Promise<string>; // response is artist uuid
 
 	unsaveArtist(artistUuid: string, userUuid: string): Promise<void>;
 
 	saveTrack(
 		track: string | { pluginId: string; libraryId: string; trackId: string },
-		userUuid: string,
+		userUuid: string | null,
 	): Promise<string | null>;
 
 	unsaveTrack(trackUuid: string, userUuid: string): Promise<void>;
