@@ -1,8 +1,24 @@
-import { ApiProperty, ApiSchema } from "@nestjs/swagger";
+import {
+	ApiExtraModels,
+	ApiProperty,
+	ApiSchema,
+	getSchemaPath,
+} from "@nestjs/swagger";
 import { TrackResponse } from "src/tracks/response/track.response";
-import { UserResponse } from "src/users/response/user.response";
+import {
+	PlaylistBotCreatorResponse,
+	PlaylistSystemCreatorResponse,
+	PlaylistUserCreatorResponse,
+} from "./playlist-creator.response";
+import type { PlaylistCreatorResponse } from "./playlist-creator.response";
+import { PlaylistCreatorTypeEnum } from "../enum/playlist-creator-type.enum";
 
 @ApiSchema({ name: "PlaylistTrack" })
+@ApiExtraModels(
+	PlaylistUserCreatorResponse,
+	PlaylistBotCreatorResponse,
+	PlaylistSystemCreatorResponse,
+)
 export class PlaylistTrackResponse {
 	@ApiProperty({
 		type: TrackResponse,
@@ -15,13 +31,25 @@ export class PlaylistTrackResponse {
 	dateAdded: Date;
 
 	@ApiProperty({
-		type: "boolean",
+		oneOf: [
+			{ $ref: getSchemaPath(PlaylistUserCreatorResponse) },
+			{ $ref: getSchemaPath(PlaylistBotCreatorResponse) },
+			{ $ref: getSchemaPath(PlaylistSystemCreatorResponse) },
+		],
+		discriminator: {
+			propertyName: "type",
+			mapping: {
+				[PlaylistCreatorTypeEnum.USER]: getSchemaPath(
+					PlaylistUserCreatorResponse,
+				),
+				[PlaylistCreatorTypeEnum.BOT]: getSchemaPath(
+					PlaylistBotCreatorResponse,
+				),
+				[PlaylistCreatorTypeEnum.SYSTEM]: getSchemaPath(
+					PlaylistSystemCreatorResponse,
+				),
+			},
+		},
 	})
-	addedBySystem: boolean;
-
-	@ApiProperty({
-		type: () => UserResponse,
-		nullable: true,
-	})
-	addedBy: UserResponse | null;
+	addedBy: PlaylistCreatorResponse;
 }

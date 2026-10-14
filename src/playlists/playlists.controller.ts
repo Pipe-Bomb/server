@@ -17,13 +17,10 @@ import {
 	Post,
 	Put,
 	Query,
-	Req,
-	UseGuards,
 } from "@nestjs/common";
 import { PlaylistsService } from "./playlists.service";
 import { CreatePlaylistDto } from "./dto/create-playlist.dto";
 import { UpsertPlaylistMemberDto } from "./dto/upsert-playlist-member.dto";
-import { AuthGuard } from "src/user-manager/auth.guard";
 import { ReqUser } from "src/users/user.decorator";
 import { FetchUserPipe } from "src/users/user.pipe";
 import { DBUser } from "src/users/entity/user.entity";
@@ -91,8 +88,15 @@ export class PlaylistsController {
 			dto.attributes,
 		);
 
-		const playlist = await this.playlistsService.create(user, null, attributes);
-		return playlist.toResponse();
+		const playlist = await this.playlistsService.create(
+			{ type: "user", user },
+			null,
+			attributes,
+			PlaylistVisibility.PUBLIC,
+		);
+		return playlist.toResponse(0, (p, i) =>
+			this.playlistsService.getBotInfo(p, i),
+		);
 	}
 
 	@Get()
@@ -108,7 +112,29 @@ export class PlaylistsController {
 			withAttributes: true,
 		});
 
-		return playlists.map((playlist) => playlist.toResponse());
+		return playlists.map((playlist) =>
+			playlist.toResponse(null, (p, i) =>
+				this.playlistsService.getBotInfo(p, i),
+			),
+		);
+	}
+
+	@Get("public")
+	@ApiOkResponse({
+		type: [PlaylistResponse],
+	})
+	@ApiUnauthorizedResponse()
+	@ApiOperation({ operationId: "getPublicPlaylists" })
+	async getPublicPlaylists() {
+		const playlists = await this.playlistsService.findPublic({
+			withAttributes: true,
+		});
+
+		return playlists.map((playlist) =>
+			playlist.toResponse(null, (p, i) =>
+				this.playlistsService.getBotInfo(p, i),
+			),
+		);
 	}
 
 	@Get(":uuid")
@@ -166,6 +192,7 @@ export class PlaylistsController {
 		const members = await this.playlistsService.findMembers(playlist.uuid);
 		return playlist.toResponse(
 			trackCount,
+			(p, i) => this.playlistsService.getBotInfo(p, i),
 			members.map((m) => m.toResponse()),
 		);
 	}
@@ -201,7 +228,9 @@ export class PlaylistsController {
 		}
 
 		const tracks = await this.playlistsService.findAllTracks(playlist);
-		return tracks.map((track) => track.toResponse());
+		return tracks.map((track) =>
+			track.toResponse((p, i) => this.playlistsService.getBotInfo(p, i)),
+		);
 	}
 
 	@Post(":uuid")
@@ -245,7 +274,11 @@ export class PlaylistsController {
 			withTrackAlbums: true,
 		});
 
-		return tracks.map((track) => track.toResponse()).filter((track) => !!track);
+		return tracks
+			.map((track) =>
+				track.toResponse((p, i) => this.playlistsService.getBotInfo(p, i)),
+			)
+			.filter((track) => !!track);
 	}
 
 	@Patch(":uuid/tracks")
@@ -390,7 +423,10 @@ export class PlaylistsController {
 
 				if (foundTracks.length) {
 					try {
-						await this.playlistsService.addTracks(playlist, foundTracks, user);
+						await this.playlistsService.addTracks(playlist, foundTracks, {
+							type: "user",
+							user,
+						});
 						this.logger.debug(
 							`Added ${foundTracks.length} Tracks to Playlist "${playlist.uuid}"`,
 						);

@@ -12,11 +12,15 @@ import {
 } from "./identifier";
 import { LibraryHandler } from "./library-handler";
 import { Logger } from "./logger";
-import { PlaylistClient } from "./playlist-client";
 import { Plugin, PluginPackage } from "./plugin";
 import { SimpleTask, SubTask } from "./task";
 import { WorkflowClient } from "./workflow-client";
 import { PlaybackHistoryClient } from "./playback-history";
+import {
+	PlaylistBotInfo,
+	ReadOnlyPlaylistClient,
+	WritablePlaylistClient,
+} from "./playlist-client";
 
 export interface PluginApiContext {
 	getServerVersion(): string;
@@ -61,6 +65,7 @@ export interface PluginApiContext {
 	getDataClient(): DataClient;
 	getPlaybackHistoryClient(): PlaybackHistoryClient;
 	requestAuthClient(): AuthClient | null;
-	getPlaylistClient(): PlaylistClient;
+	getPlaylistClient(): ReadOnlyPlaylistClient;
+	getPlaylistClient(info: PlaylistBotInfo): WritablePlaylistClient;
 	getWorkflowClient(): WorkflowClient;
 }

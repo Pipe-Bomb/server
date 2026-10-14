@@ -51,7 +51,9 @@ export class DBUser {
 			uuid: this.uuid,
 			username: this.username,
 			playlists:
-				this.playlists?.map((playlist) => playlist.toResponse()) ?? null,
+				this.playlists?.map((playlist) =>
+					playlist.toResponse(null, () => null),
+				) ?? null,
 			privileges: privileges ?? null,
 		};
 	}

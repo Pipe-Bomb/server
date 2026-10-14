@@ -28,7 +28,14 @@ import { PluginConfigService } from "src/plugin-config/plugin-config.service";
 import { EphemeralService } from "src/ephemeral/ephemeral.service";
 import { ArtistManagerService } from "src/artist-manager/artist-manager.service";
 import { AlbumManagerService } from "src/album-manager/album-manager.service";
-import { DataClient, Plugin, Task, SavedBookmark } from "@sdk";
+import {
+	DataClient,
+	Plugin,
+	Task,
+	SavedBookmark,
+	WritablePlaylistClient,
+	PlaylistBotInfo,
+} from "@sdk";
 import { TrackManagerService } from "src/track-manager/track-manager.service";
 import { AudioSessionsService } from "src/audio-sessions/audio-sessions.service";
 import { UserManagerService } from "src/user-manager/user-manager.service";
@@ -475,8 +482,9 @@ export class PluginsService {
 					},
 				};
 			},
-			getPlaylistClient: () =>
-				this.playlistsService.createPlaylistClient(plugin),
+			getPlaylistClient: (info?: PlaylistBotInfo) =>
+				this.playlistsService.createPlaylistClient(plugin, info!),
+
 			getWorkflowClient: () => this.workflowsService.createClient(plugin),
 			getPlaybackHistoryClient: () =>
 				this.playbackHistoryService.createClient(plugin),

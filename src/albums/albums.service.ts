@@ -846,7 +846,6 @@ export class AlbumsService {
 		let pool: DBAlbum[] = [];
 		let activeThreads = 0;
 		let isFinding = false;
-		let chunksLoaded = 0;
 		let allChunksLoaded = false;
 		let completed = 0;
 		const failedUuids: string[] = [];
@@ -872,6 +871,8 @@ export class AlbumsService {
 		if (!count) {
 			return;
 		}
+
+		onProgress?.(0, count);
 
 		const disabledSet = await this.disabledIdentifiersService.getDisabledSet();
 
@@ -933,9 +934,6 @@ export class AlbumsService {
 						if (albums.length) {
 							pool.push(...albums);
 							isFinding = false;
-							if (chunksLoaded == 1) {
-								onProgress?.(0, count);
-							}
 							for (let i = activeThreads; i < MAX_THREADS; i++) {
 								handle();
 							}

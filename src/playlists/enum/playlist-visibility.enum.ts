@@ -1,5 +1,5 @@
 export enum PlaylistVisibility {
 	PUBLIC = "public",
-	UNLISED = "unlisted",
+	UNLISTED = "unlisted",
 	PRIVATE = "private",
 }
