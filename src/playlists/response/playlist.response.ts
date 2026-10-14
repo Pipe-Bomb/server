@@ -13,11 +13,17 @@ import {
 	PersistentIntegerAttributeResponse,
 	PersistentBufferAttributeResponse,
 } from "src/attributes/response/persistent-attribute.response";
-import { UserResponse } from "src/users/response/user.response";
 import { PlaylistTrackResponse } from "./playlist-track.response";
 import { PlaylistMemberResponse } from "./playlist-member.response";
 import { SmartPlaylistFilterGroupResponse } from "./smart-playlist-filter-group.reponse";
 import { PlaylistVisibility } from "../enum/playlist-visibility.enum";
+import {
+	PlaylistBotCreatorResponse,
+	PlaylistSystemCreatorResponse,
+	PlaylistUserCreatorResponse,
+} from "./playlist-creator.response";
+import type { PlaylistCreatorResponse } from "./playlist-creator.response";
+import { PlaylistCreatorTypeEnum } from "../enum/playlist-creator-type.enum";
 
 @ApiSchema({ name: "Playlist" })
 @ApiExtraModels(
@@ -31,14 +37,28 @@ export class PlaylistResponse {
 	@ApiProperty()
 	uuid: string;
 
-	@ApiProperty({ nullable: true, type: String })
-	ownerUuid: string | null;
-
 	@ApiProperty({
-		type: () => UserResponse,
-		nullable: true,
+		oneOf: [
+			{ $ref: getSchemaPath(PlaylistUserCreatorResponse) },
+			{ $ref: getSchemaPath(PlaylistBotCreatorResponse) },
+			{ $ref: getSchemaPath(PlaylistSystemCreatorResponse) },
+		],
+		discriminator: {
+			propertyName: "type",
+			mapping: {
+				[PlaylistCreatorTypeEnum.USER]: getSchemaPath(
+					PlaylistUserCreatorResponse,
+				),
+				[PlaylistCreatorTypeEnum.BOT]: getSchemaPath(
+					PlaylistBotCreatorResponse,
+				),
+				[PlaylistCreatorTypeEnum.SYSTEM]: getSchemaPath(
+					PlaylistSystemCreatorResponse,
+				),
+			},
+		},
 	})
-	owner: UserResponse | null;
+	owner: PlaylistCreatorResponse;
 
 	@ApiProperty({
 		type: Date,

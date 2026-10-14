@@ -1,9 +1,18 @@
 import { AttributeValue } from "./attribute";
 import { SavedPlaylist, SavedPlaylistMember } from "./database";
 
-export interface PlaylistClient {
+export interface PlaylistBotInfo {
+	id: string;
+	name: string;
+}
+
+export interface ReadOnlyPlaylistClient {
 	getUserPlaylistUuids(uuid: string): Promise<string[]>;
 	getMemberPlaylistUuids(userUuid: string): Promise<string[]>;
+	getBotPlaylistUuids(
+		pluginId: string,
+		botId: string | null,
+	): Promise<string[]>;
 
 	getPlaylist(
 		uuid: string,
@@ -31,6 +40,10 @@ export interface PlaylistClient {
 		},
 	): Promise<SavedPlaylist | null>;
 
+	getPlaylistMembers(playlistUuid: string): Promise<SavedPlaylistMember[]>;
+}
+
+export interface WritablePlaylistClient extends ReadOnlyPlaylistClient {
 	addToPlaylist(
 		uuid: string,
 		trackUuids: string[],
@@ -53,7 +66,13 @@ export interface PlaylistClient {
 			sourceId: string | null;
 			attributes: AttributeValue[];
 		};
+		visibility?: "private" | "unlisted" | "public";
 	}): Promise<string>;
+
+	updatePlaylistVisibility(
+		uuid: string,
+		visibility: "private" | "unlisted" | "public",
+	): Promise<void>;
 
 	deletePlaylist(
 		uuid: string,
@@ -78,6 +97,4 @@ export interface PlaylistClient {
 	): Promise<void>;
 
 	removePlaylistMember(playlistUuid: string, userUuid: string): Promise<void>;
-
-	getPlaylistMembers(playlistUuid: string): Promise<SavedPlaylistMember[]>;
 }

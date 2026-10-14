@@ -16,8 +16,10 @@ import { DBPlaylistMember } from "./playlist-member.entity";
 import { PlaylistResponse } from "../response/playlist.response";
 import { PlaylistMemberResponse } from "../response/playlist-member.response";
 import { DBSmartPlaylistFilterGroup } from "./smart-playlist-filter-group.entity";
-import { SavedPlaylist } from "@sdk";
+import { PlaylistBotInfo, SavedPlaylist, SavedPlaylistCreator } from "@sdk";
 import { PlaylistVisibility } from "../enum/playlist-visibility.enum";
+import { PlaylistCreatorResponse } from "../response/playlist-creator.response";
+import { PlaylistCreatorTypeEnum } from "../enum/playlist-creator-type.enum";
 
 @Entity("playlists")
 export class DBPlaylist {
@@ -29,6 +31,24 @@ export class DBPlaylist {
 		nullable: true,
 	})
 	ownerUuid: string | null;
+
+	@Column({
+		type: "text",
+		nullable: true,
+	})
+	ownerPluginId: string | null;
+
+	@Column({
+		type: "text",
+		nullable: true,
+	})
+	ownerBotId: string | null;
+
+	@Column({
+		type: "boolean",
+		default: false,
+	})
+	public: boolean;
 
 	@ManyToOne(() => DBUser, { onDelete: "CASCADE", nullable: true })
 	@JoinColumn({ name: "ownerUuid" })
@@ -46,7 +66,7 @@ export class DBPlaylist {
 
 	@Column({
 		enum: PlaylistVisibility,
-		default: PlaylistVisibility.PUBLIC,
+		default: PlaylistVisibility.UNLISTED,
 	})
 	visibility: PlaylistVisibility;
 
@@ -70,13 +90,34 @@ export class DBPlaylist {
 	members?: DBPlaylistMember[];
 
 	toResponse(
-		trackCount?: number | null,
+		trackCount: number | null,
+		getBotInfo: (pluginId: string, botId: string) => PlaylistBotInfo | null,
 		members?: PlaylistMemberResponse[],
 	): PlaylistResponse {
+		let owner: PlaylistCreatorResponse;
+
+		if (this.ownerUuid) {
+			owner = {
+				type: PlaylistCreatorTypeEnum.USER,
+				userUuid: this.ownerUuid,
+				user: this.owner?.toResponse() ?? null,
+			};
+		} else if (this.ownerPluginId && this.ownerBotId) {
+			owner = {
+				type: PlaylistCreatorTypeEnum.BOT,
+				pluginId: this.ownerPluginId,
+				botId: this.ownerBotId,
+				botName: getBotInfo(this.ownerPluginId, this.ownerBotId)?.name ?? null,
+			};
+		} else {
+			owner = {
+				type: PlaylistCreatorTypeEnum.SYSTEM,
+			};
+		}
+
 		return {
 			uuid: this.uuid,
-			ownerUuid: this.ownerUuid,
-			owner: this.owner?.toResponse() ?? null,
+			owner,
 			dateCreated: new Date(this.dateCreated),
 			dateModified: new Date(this.dateModified),
 			visibility: this.visibility,
@@ -85,7 +126,7 @@ export class DBPlaylist {
 				this.filterGroups?.map((group) => group.toResponse()) ?? null,
 			tracks:
 				this.tracks
-					?.map((track) => track.toResponse())
+					?.map((track) => track.toResponse(getBotInfo))
 					.filter((track) => !!track) ?? null,
 			trackCount: trackCount ?? null,
 			members: members ?? null,
@@ -97,10 +138,31 @@ export class DBPlaylist {
 			noRelations?: boolean;
 		} = {},
 	): SavedPlaylist {
+		let owner: SavedPlaylistCreator;
+
+		if (this.ownerUuid) {
+			owner = {
+				isUser: true,
+				userUuid: this.ownerUuid,
+				user: this.owner?.toSavedResponse() ?? null,
+			};
+		} else if (this.ownerPluginId && this.ownerBotId) {
+			owner = {
+				isUser: false,
+				addedByPluginId: this.ownerPluginId,
+				addedByBotId: this.ownerBotId,
+			};
+		} else {
+			owner = {
+				isUser: false,
+				addedByPluginId: null,
+				addedByBotId: null,
+			};
+		}
+
 		return {
 			uuid: this.uuid,
-			ownerUuid: this.ownerUuid,
-			owner: this.owner?.toSavedResponse() ?? null,
+			owner,
 			dateCreated: new Date(this.dateCreated),
 			dateModified: new Date(this.dateModified),
 			visibility: this.visibility,

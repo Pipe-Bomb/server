@@ -123,16 +123,34 @@ export interface SavedSmartFilterGroup {
 	filters: SavedSmartFilter[] | null;
 }
 
-export interface SavedPlaylistTrack {
+export type SavedPlaylistCreator =
+	| {
+			isUser: true;
+			userUuid: string;
+			user: SavedUser | null;
+	  }
+	| ({
+			isUser: false;
+	  } & (
+			| {
+					addedByPluginId: string;
+					addedByBotId: string;
+			  }
+			| {
+					addedByPluginId: null;
+					addedByBotId: null;
+			  }
+	  ));
+
+export type SavedPlaylistTrack = {
 	playlistUuid: string;
 	trackUuid: string;
 	dateAdded: Date;
 	ordinal: number;
-	addedByUuid: string | null;
-	addedBy: SavedUser | null;
 	playlist: SavedPlaylist | null;
 	track: SavedTrack | null;
-}
+	addedBy: SavedPlaylistCreator;
+};
 
 export interface SavedPlaylistMember {
 	playlistUuid: string;
@@ -144,8 +162,7 @@ export interface SavedPlaylistMember {
 
 export interface SavedPlaylist {
 	uuid: string;
-	ownerUuid: string | null;
-	owner: SavedUser | null;
+	owner: SavedPlaylistCreator;
 	dateCreated: Date;
 	dateModified: Date;
 	visibility: "public" | "unlisted" | "private";

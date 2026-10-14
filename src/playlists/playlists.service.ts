@@ -2,13 +2,18 @@ import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DBPlaylist } from "./entity/playlist.entity";
 import { DBPlaylistMember } from "./entity/playlist-member.entity";
-import { In, Repository } from "typeorm";
+import { FindOptionsWhere, In, IsNull, Repository } from "typeorm";
 import { DBPlaylistTrack } from "./entity/playlist-track.entity";
 import { DBUser } from "src/users/entity/user.entity";
 import { DBPlaylistAttribute } from "src/attributes/entities/playlist-attribute.entity";
 import { AttributeSourcesService } from "src/attribute-sources/attribute-sources.service";
 import { DBTrack } from "src/tracks/entities/track.entity";
-import { AttributeValue, PlaylistClient } from "@sdk";
+import {
+	AttributeValue,
+	PlaylistBotInfo,
+	ReadOnlyPlaylistClient,
+	WritablePlaylistClient,
+} from "@sdk";
 import { UserManagerService } from "src/user-manager/user-manager.service";
 import { AttributeUploadService } from "src/attributes/attribute-upload.service";
 import { PlaylistVisibility } from "./enum/playlist-visibility.enum";
@@ -22,6 +27,7 @@ import { attributeSignature } from "src/attributes/attribute-signature.util";
 @Injectable()
 export class PlaylistsService {
 	private readonly logger = new Logger("Playlists Service");
+	private readonly clientBots = new Map<string, Map<string, PlaylistBotInfo>>();
 
 	constructor(
 		@InjectRepository(DBPlaylist)
@@ -47,13 +53,30 @@ export class PlaylistsService {
 		});
 	}
 
+	getBotInfo(pluginId: string, botId: string) {
+		return this.clientBots.get(pluginId)?.get(botId) ?? null;
+	}
+
 	async create(
-		owner: DBUser | null,
+		owner:
+			| {
+					type: "user";
+					user: DBUser;
+			  }
+			| {
+					type: "bot";
+					pluginId: string;
+					botId: string;
+			  },
 		attributeSource: LoadedAttributeSource | null,
 		attributes: AttributeValue[],
+		visibility: PlaylistVisibility,
 	) {
 		const playlist = this.playlistsRepository.create({
-			owner: owner ?? undefined,
+			ownerUuid: (owner.type == "user" && owner.user.uuid) || undefined,
+			ownerPluginId: (owner.type == "bot" && owner.pluginId) || undefined,
+			ownerBotId: (owner.type == "bot" && owner.botId) || undefined,
+			visibility,
 		});
 		await this.playlistsRepository.insert(playlist);
 
@@ -63,7 +86,7 @@ export class PlaylistsService {
 				await this.attributeSourcesService.createPlaylistAttributes(
 					playlist.uuid,
 					attributes,
-					null,
+					attributeSource,
 				);
 
 			dbAttributes.push(...newAttributes);
@@ -479,7 +502,19 @@ export class PlaylistsService {
 	async addTracks(
 		playlist: DBPlaylist,
 		tracks: DBTrack[] | string[],
-		user: DBUser | null,
+		actioner:
+			| {
+					type: "user";
+					user: DBUser;
+			  }
+			| {
+					type: "bot";
+					pluginId: string;
+					botId: string;
+			  }
+			| {
+					type: "system";
+			  },
 	) {
 		const before = await this.playlistTracksRepository.findBy({
 			playlistUuid: playlist.uuid,
@@ -489,7 +524,9 @@ export class PlaylistsService {
 			tracks.map((track, ordinal) => ({
 				trackUuid: typeof track == "string" ? track : track.uuid,
 				playlistUuid: playlist.uuid,
-				addedByUuid: user?.uuid ?? null,
+				addedByUuid: (actioner.type == "user" && actioner.user?.uuid) || null,
+				addedByPluginId: (actioner.type == "bot" && actioner.pluginId) || null,
+				addedByBotId: (actioner.type == "bot" && actioner.pluginId) || null,
 				ordinal,
 			})),
 			{
@@ -548,8 +585,16 @@ export class PlaylistsService {
 		emitServerEvent(this.emitter, "playlist.removed", playlist);
 	}
 
-	createPlaylistClient(plugin: LoadedPlugin): PlaylistClient {
-		return {
+	createPlaylistClient(plugin: LoadedPlugin): ReadOnlyPlaylistClient;
+	createPlaylistClient(
+		plugin: LoadedPlugin,
+		botInfo: PlaylistBotInfo,
+	): WritablePlaylistClient;
+	createPlaylistClient(
+		plugin: LoadedPlugin,
+		botInfo?: PlaylistBotInfo,
+	): ReadOnlyPlaylistClient | WritablePlaylistClient {
+		const readOnlyClient: ReadOnlyPlaylistClient = {
 			getUserPlaylistUuids: async (uuid) => {
 				const playlists = await this.playlistsRepository.find({
 					where: {
@@ -565,6 +610,20 @@ export class PlaylistsService {
 					select: ["playlistUuid"],
 				});
 				return memberships.map(({ playlistUuid }) => playlistUuid);
+			},
+			getBotPlaylistUuids: async (pluginId, botId) => {
+				const where: FindOptionsWhere<DBPlaylist> = {
+					ownerPluginId: pluginId,
+				};
+				if (botId) {
+					where.ownerBotId = botId;
+				}
+
+				const playlists = await this.playlistsRepository.find({
+					where,
+					select: ["uuid"],
+				});
+				return playlists.map(({ uuid }) => uuid);
 			},
 			getPlaylist: async (uuid, { relations } = {}) => {
 				const playlist = await this.playlistsRepository.findOne({
@@ -614,6 +673,39 @@ export class PlaylistsService {
 
 				return playlist?.toSavedResponse() ?? null;
 			},
+			getPlaylistMembers: async (playlistUuid) => {
+				const members = await this.findMembers(playlistUuid);
+				return members.map((m) => ({
+					playlistUuid: m.playlistUuid,
+					userUuid: m.userUuid,
+					role: m.role as "collaborator" | "viewer",
+					dateAdded: new Date(m.dateAdded),
+					user: m.user?.toSavedResponse() ?? null,
+				}));
+			},
+		};
+
+		if (!botInfo) {
+			return readOnlyClient;
+		}
+
+		const registeredBots = this.clientBots.get(plugin.package.name);
+		if (registeredBots) {
+			if (registeredBots.has(botInfo.id)) {
+				throw new Error(
+					`Client with ID "${botInfo.id}" has already been registered`,
+				);
+			}
+			registeredBots.set(botInfo.id, { ...botInfo });
+		} else {
+			this.clientBots.set(
+				plugin.package.name,
+				new Map([[botInfo.id, { ...botInfo }]]),
+			);
+		}
+
+		const writableClient: WritablePlaylistClient = {
+			...readOnlyClient,
 			addToPlaylist: async (uuid, trackUuids, options = {}) => {
 				const playlist = await this.findByUuid(uuid);
 
@@ -640,7 +732,20 @@ export class PlaylistsService {
 					}
 				}
 
-				await this.addTracks(playlist.playlist, trackUuids, user);
+				await this.addTracks(
+					playlist.playlist,
+					trackUuids,
+					user
+						? {
+								type: "user",
+								user,
+							}
+						: {
+								type: "bot",
+								pluginId: plugin.package.name,
+								botId: botInfo.id,
+							},
+				);
 			},
 			removeFromPlaylist: async (uuid, trackUuids, options = {}) => {
 				const playlist = await this.findByUuid(uuid);
@@ -670,7 +775,7 @@ export class PlaylistsService {
 
 				await this.removeTracks(playlist.playlist, trackUuids);
 			},
-			createPlaylist: async ({ ownerUuid, attributes } = {}) => {
+			createPlaylist: async ({ ownerUuid, attributes, visibility } = {}) => {
 				let owner: DBUser | null = null;
 				if (ownerUuid) {
 					owner = await this.userManagerService.findOne(ownerUuid);
@@ -691,9 +796,21 @@ export class PlaylistsService {
 				}
 
 				const playlist = await this.create(
-					owner,
+					owner
+						? {
+								type: "user",
+								user: owner,
+							}
+						: {
+								type: "bot",
+								pluginId: plugin.package.name,
+								botId: botInfo.id,
+							},
 					attributeSource,
 					attributes?.attributes ?? [],
+					(visibility ?? owner)
+						? PlaylistVisibility.PUBLIC
+						: PlaylistVisibility.UNLISTED,
 				);
 				return playlist.uuid;
 			},
@@ -779,16 +896,46 @@ export class PlaylistsService {
 				}
 				await this.removeMember(playlist, userUuid);
 			},
-			getPlaylistMembers: async (playlistUuid) => {
-				const members = await this.findMembers(playlistUuid);
-				return members.map((m) => ({
-					playlistUuid: m.playlistUuid,
-					userUuid: m.userUuid,
-					role: m.role as "collaborator" | "viewer",
-					dateAdded: new Date(m.dateAdded),
-					user: m.user?.toSavedResponse() ?? null,
-				}));
+			updatePlaylistVisibility: async (playlistUuid, visibility) => {
+				const playlist = await this.playlistsRepository.findOneBy({
+					uuid: playlistUuid,
+				});
+				if (!playlist) {
+					throw new Error("Playlist doesn't exist");
+				}
+				switch (visibility) {
+					case "private":
+						await this.setVisibility(playlist, PlaylistVisibility.PRIVATE);
+						break;
+					case "public":
+						await this.setVisibility(playlist, PlaylistVisibility.PUBLIC);
+						break;
+					case "unlisted":
+						await this.setVisibility(playlist, PlaylistVisibility.UNLISTED);
+						break;
+				}
 			},
 		};
+
+		return writableClient;
+	}
+
+	findPublic(
+		options: {
+			withAttributes?: boolean;
+		} = {},
+	) {
+		return this.playlistsRepository.find({
+			where: {
+				visibility: PlaylistVisibility.PUBLIC,
+				ownerUuid: IsNull(),
+			},
+			order: {
+				dateModified: "desc",
+			},
+			relations: {
+				attributes: options.withAttributes,
+			},
+		});
 	}
 }

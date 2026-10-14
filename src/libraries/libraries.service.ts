@@ -481,10 +481,11 @@ export class LibrariesService {
 			return;
 		}
 
+		onProgress?.(0, count);
+
 		const trackPool: DBTrack[] = [];
 		let activeThreads = 0;
 		let isFindingTracks = false;
-		let chunksLoaded = 0;
 		let allChunksLoaded = false;
 		let completedTracks = 0;
 		const toSetRunId: DBTrack[] = [];
@@ -582,9 +583,6 @@ export class LibrariesService {
 						if (tracks.length) {
 							trackPool.push(...tracks);
 							isFindingTracks = false;
-							if (chunksLoaded == 1) {
-								onProgress?.(0, count);
-							}
 							for (let i = activeThreads; i < MAX_THREADS; i++) {
 								handle();
 							}

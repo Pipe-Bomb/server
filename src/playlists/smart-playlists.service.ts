@@ -218,11 +218,9 @@ export class SmartPlaylistsService {
 
 		this.logger.log(`Adding ${toAdd.length} tracks from "${playlist.uuid}"...`);
 		for (let i = 0; i < toAdd.length; i += 500) {
-			await this.playlistsService.addTracks(
-				playlist,
-				toAdd.slice(i, i + 500),
-				null,
-			);
+			await this.playlistsService.addTracks(playlist, toAdd.slice(i, i + 500), {
+				type: "system",
+			});
 		}
 	}
 

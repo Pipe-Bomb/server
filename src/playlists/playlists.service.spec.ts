@@ -118,9 +118,33 @@ describe("PlaylistsService", () => {
 	});
 
 	it("emits playlist.added on create", async () => {
-		const created = await service.create(null, null, []);
+		const created = await service.create(
+			{ type: "bot", pluginId: "beatport", botId: "chart" },
+			null,
+			[],
+			PlaylistVisibility.PUBLIC,
+		);
 
 		expect(emitter.emit).toHaveBeenCalledWith("playlist.added", created);
+	});
+
+	it("forwards the Attribute Source when creating attributes", async () => {
+		const attributeSource = { source: { id: "beatport" } } as never;
+
+		await service.create(
+			{ type: "bot", pluginId: "beatport", botId: "chart" },
+			attributeSource,
+			[{ key: "beatport_genre_id", value: 1 }],
+			PlaylistVisibility.PUBLIC,
+		);
+
+		expect(
+			attributeSourcesService.createPlaylistAttributes,
+		).toHaveBeenCalledWith(
+			"pl1",
+			[{ key: "beatport_genre_id", value: 1 }],
+			attributeSource,
+		);
 	});
 
 	it("emits playlist.removed on delete", async () => {
@@ -188,7 +212,7 @@ describe("PlaylistsService", () => {
 				{ trackUuid: "t1", addedByUuid: null, ordinal: 0 },
 			]);
 
-		await service.addTracks(playlist, ["t1"], null);
+		await service.addTracks(playlist, ["t1"], { type: "system" });
 
 		expect(emitter.emit).toHaveBeenCalledWith(
 			"playlist.tracklist.updated",
