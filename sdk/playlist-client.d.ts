@@ -6,6 +6,12 @@ export interface PlaylistBotInfo {
 	name: string;
 }
 
+export interface PlaylistPluginBot {
+	pluginId: string;
+	botId: string;
+	botName: string;
+}
+
 export interface ReadOnlyPlaylistClient {
 	getUserPlaylistUuids(uuid: string): Promise<string[]>;
 	getMemberPlaylistUuids(userUuid: string): Promise<string[]>;
@@ -13,6 +19,8 @@ export interface ReadOnlyPlaylistClient {
 		pluginId: string,
 		botId: string | null,
 	): Promise<string[]>;
+	getPublicPlaylistUuids(): Promise<string[]>;
+	getPlaylistBots(): PlaylistPluginBot[];
 
 	getPlaylist(
 		uuid: string,
