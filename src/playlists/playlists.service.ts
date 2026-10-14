@@ -11,6 +11,7 @@ import { DBTrack } from "src/tracks/entities/track.entity";
 import {
 	AttributeValue,
 	PlaylistBotInfo,
+	PlaylistPluginBot,
 	ReadOnlyPlaylistClient,
 	WritablePlaylistClient,
 } from "@sdk";
@@ -624,6 +625,29 @@ export class PlaylistsService {
 					select: ["uuid"],
 				});
 				return playlists.map(({ uuid }) => uuid);
+			},
+			getPublicPlaylistUuids: async () => {
+				const playlists = await this.playlistsRepository.find({
+					where: {
+						visibility: PlaylistVisibility.PUBLIC,
+						ownerUuid: IsNull(),
+					},
+					select: ["uuid"],
+				});
+				return playlists.map(({ uuid }) => uuid);
+			},
+			getPlaylistBots: () => {
+				const bots: PlaylistPluginBot[] = [];
+				for (const [key, map] of this.clientBots) {
+					for (const info of map.values()) {
+						bots.push({
+							pluginId: key,
+							botId: info.id,
+							botName: info.name,
+						});
+					}
+				}
+				return bots;
 			},
 			getPlaylist: async (uuid, { relations } = {}) => {
 				const playlist = await this.playlistsRepository.findOne({
