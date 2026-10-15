@@ -697,6 +697,56 @@ export class PlaylistsService {
 
 				return playlist?.toSavedResponse() ?? null;
 			},
+			getPlaylists: async (uuids, { relations } = {}) => {
+				const playlists = await this.playlistsRepository.find({
+					where: {
+						uuid: In(uuids),
+					},
+					relationLoadStrategy: "query",
+					relations: {
+						attributes: relations?.attributes,
+						filterGroups: relations?.filterGroups && {
+							filters: true,
+						},
+						owner: relations?.owner,
+						tracks:
+							typeof relations?.tracks == "object"
+								? {
+										addedBy: relations.tracks.addedBy,
+										track:
+											typeof relations.tracks.track == "object"
+												? {
+														identities: relations.tracks.track.identities,
+														attributes: relations.tracks.track.attributes,
+														artists: relations.tracks.track.artists && {
+															artist:
+																typeof relations.tracks.track.artists ==
+																"object"
+																	? {
+																			identities:
+																				relations.tracks.track.artists
+																					.identities,
+																			attributes:
+																				relations.tracks.track.artists
+																					.attributes,
+																		}
+																	: true,
+														},
+													}
+												: relations.tracks.track,
+									}
+								: relations?.tracks,
+					},
+				});
+
+				for (const playlist of playlists) {
+					playlist?.tracks?.sort(
+						(a, b) => a.dateAdded - b.dateAdded || a.ordinal - b.ordinal,
+					);
+				}
+
+				return playlists.map((p) => p.toSavedResponse());
+			},
 			getPlaylistMembers: async (playlistUuid) => {
 				const members = await this.findMembers(playlistUuid);
 				return members.map((m) => ({
