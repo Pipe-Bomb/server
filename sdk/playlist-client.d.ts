@@ -48,6 +48,32 @@ export interface ReadOnlyPlaylistClient {
 		},
 	): Promise<SavedPlaylist | null>;
 
+	getPlaylists(
+		uuids: string[],
+		options?: {
+			relations?: {
+				attributes?: boolean;
+				filterGroups?: boolean;
+				owner?: boolean;
+				tracks?:
+					| {
+							addedBy?: boolean;
+							track?:
+								| {
+										identities?: boolean;
+										attributes?: boolean;
+										artists?: {
+											identities?: boolean;
+											attributes?: boolean;
+										};
+								  }
+								| boolean;
+					  }
+					| boolean;
+			};
+		},
+	): Promise<SavedPlaylist[]>;
+
 	getPlaylistMembers(playlistUuid: string): Promise<SavedPlaylistMember[]>;
 }
 
