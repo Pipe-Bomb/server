@@ -220,8 +220,8 @@ export class EphemeralService {
 
 	getSourcesUsingHandler(handler: LibraryHandler): string[] {
 		const results: string[] = [];
-		for (const [, pluginSources] of this.sources) {
-			for (const [, loaded] of pluginSources) {
+		for (const pluginSources of this.sources.values()) {
+			for (const loaded of pluginSources.values()) {
 				if (loaded.source.getLibraryHandler() === handler) {
 					results.push(
 						`EphemeralSource:${loaded.plugin.package.name}:${loaded.source.id}`,

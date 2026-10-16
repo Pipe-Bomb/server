@@ -51,6 +51,14 @@ export interface PluginApiContext {
 		pluginId: string,
 		sourceId: string,
 	): EphemeralSource | null;
+	getEphemeralSourceByArtistIdentity(
+		pluginId: string,
+		sourceId: string,
+	): EphemeralSourceInfo | null;
+	getEphemeralSourceByAlbumIdentity(
+		pluginId: string,
+		sourceId: string,
+	): EphemeralSourceInfo | null;
 	registerSearchSource(searchSource: SearchSource): void;
 	unregisterLibraryHandler(libraryHandler: LibraryHandler): void;
 	unregisterTrackIdentifier(identifier: TrackIdentifier): void;

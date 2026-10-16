@@ -450,6 +450,34 @@ export class PluginsService {
 				})),
 			getEphemeralSource: (pluginId, sourceId) =>
 				this.ephemeralService.find(pluginId, sourceId)?.source ?? null,
+			getEphemeralSourceByAlbumIdentity: (pluginId, identityId) => {
+				const source = this.ephemeralService.getEphemeralSourceByAlbumIdentity(
+					pluginId,
+					identityId,
+				);
+				if (source) {
+					return {
+						pluginId: source.plugin.package.name,
+						sourceId: source.source.id,
+						source: source.source,
+					};
+				}
+				return null;
+			},
+			getEphemeralSourceByArtistIdentity: (pluginId, identityId) => {
+				const source = this.ephemeralService.getEphemeralSourceByArtistIdentity(
+					pluginId,
+					identityId,
+				);
+				if (source) {
+					return {
+						pluginId: source.plugin.package.name,
+						sourceId: source.source.id,
+						source: source.source,
+					};
+				}
+				return null;
+			},
 			registerSearchSource: (source) =>
 				this.SearchSourcesService.register(source, plugin),
 			getSearchSources: () => this.SearchSourcesService.getAllSources(),
@@ -484,7 +512,6 @@ export class PluginsService {
 			},
 			getPlaylistClient: (info?: PlaylistBotInfo) =>
 				this.playlistsService.createPlaylistClient(plugin, info!),
-
 			getWorkflowClient: () => this.workflowsService.createClient(plugin),
 			getPlaybackHistoryClient: () =>
 				this.playbackHistoryService.createClient(plugin),
@@ -1002,16 +1029,14 @@ export class PluginsService {
 					return null;
 				}
 
-				const { session, albumUuid } =
+				const { creation, albumUuid } =
 					await this.savedAlbumsService.saveEphemeralAlbum(
 						album.pluginId,
 						album.identityId,
 						album.identity,
 						user,
 					);
-				if (session) {
-					await session.promise;
-				}
+				await creation;
 				return albumUuid;
 			},
 			unsaveAlbum: async (albumUuid, userUuid) => {

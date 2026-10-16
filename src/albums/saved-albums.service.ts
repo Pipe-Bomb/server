@@ -159,8 +159,8 @@ export class SavedAlbumsService {
 			userUuid: user?.uuid,
 		});
 
-		session.promise
-			.then(async (createdTracks: (DBTrack | null)[]) => {
+		const creation = session.promise.then(
+			async (createdTracks: (DBTrack | null)[]) => {
 				const allTracks: (DBTrack | null)[] = Array(trackIds.length).fill(null);
 
 				for (let i = 0; i < resolved.length; i++) {
@@ -189,11 +189,13 @@ export class SavedAlbumsService {
 						["albumUuid", "userUuid"],
 					);
 				}
-			})
-			.catch((e: unknown) => {
-				this.logger.error("Failed to save ephemeral album", e);
-			});
+			},
+		);
 
-		return { session, albumUuid };
+		creation.catch((e: unknown) => {
+			this.logger.error("Failed to save ephemeral album", e);
+		});
+
+		return { session, albumUuid, creation };
 	}
 }
