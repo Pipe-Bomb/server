@@ -73,6 +73,8 @@
 
 	"contextmenu.top.view-profile": "View profile",
 	"contextmenu.top.logout": "Log out",
+	"contextmenu.top.user-settings": "User settings",
+	"context.menu.top.user-settings": "Server settings",
 
 	"login.title.login": "Log In",
 	"login.title.signup": "Create Account",
