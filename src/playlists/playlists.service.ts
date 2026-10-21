@@ -521,20 +521,23 @@ export class PlaylistsService {
 			playlistUuid: playlist.uuid,
 		});
 
-		await this.playlistTracksRepository.upsert(
-			tracks.map((track, ordinal) => ({
-				trackUuid: typeof track == "string" ? track : track.uuid,
-				playlistUuid: playlist.uuid,
-				addedByUuid: (actioner.type == "user" && actioner.user?.uuid) || null,
-				addedByPluginId: (actioner.type == "bot" && actioner.pluginId) || null,
-				addedByBotId: (actioner.type == "bot" && actioner.pluginId) || null,
-				ordinal,
-			})),
-			{
-				conflictPaths: ["trackUuid", "playlistUuid"],
-				skipUpdateIfNoValuesChanged: true,
-			},
-		);
+		for (let i = 0; i < tracks.length; i += 500) {
+			await this.playlistTracksRepository.upsert(
+				tracks.slice(i, i + 500).map((track, ordinal) => ({
+					trackUuid: typeof track == "string" ? track : track.uuid,
+					playlistUuid: playlist.uuid,
+					addedByUuid: (actioner.type == "user" && actioner.user?.uuid) || null,
+					addedByPluginId:
+						(actioner.type == "bot" && actioner.pluginId) || null,
+					addedByBotId: (actioner.type == "bot" && actioner.pluginId) || null,
+					ordinal: i + ordinal,
+				})),
+				{
+					conflictPaths: ["trackUuid", "playlistUuid"],
+					skipUpdateIfNoValuesChanged: true,
+				},
+			);
+		}
 
 		await this.updateDateModified(playlist);
 
