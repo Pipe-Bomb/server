@@ -62,6 +62,10 @@
 
 	"contextmenu.marketplace.delete": "Remove marketplace",
 
+	"contextmenu.bulk.add-to-playlist": "Add to Playlist",
+	"contextmenu.bulk.remove-from-queue": "Remove from queue",
+	"contextmenu.bulk.remove-from-playlist": "Remove from playlist",
+
 	"modal.playlist-collaborators.title": "Collaborators",
 	"modal.playlist-collaborators.empty": "No members yet",
 	"modal.playlist-collaborators.add-section": "Add member",
