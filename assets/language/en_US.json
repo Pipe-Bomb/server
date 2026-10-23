@@ -64,6 +64,7 @@
 
 	"contextmenu.bulk.add-to-playlist": "Add to Playlist",
 	"contextmenu.bulk.remove-from-queue": "Remove from queue",
+	"contextmenu.bulk.add-to-queue": "Add to queue",
 	"contextmenu.bulk.remove-from-playlist": "Remove from playlist",
 
 	"modal.playlist-collaborators.title": "Collaborators",
@@ -79,6 +80,8 @@
 	"contextmenu.top.logout": "Log out",
 	"contextmenu.top.user-settings": "User settings",
 	"contextmenu.top.server-settings": "Server settings",
+
+	"contextmenu.queue.remove": "Remove from queue",
 
 	"login.title.login": "Log In",
 	"login.title.signup": "Create Account",
