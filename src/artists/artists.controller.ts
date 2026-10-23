@@ -320,6 +320,7 @@ export class ArtistsController {
 	@ApiOkResponse({
 		type: ArtistsSearchResponse,
 	})
+	@HttpCode(HttpStatus.OK)
 	@Post()
 	async search(@Body() dto: ArtistsSearchDto): Promise<ArtistsSearchResponse> {
 		if (this.SearchSourcesService.hasSource()) {

@@ -288,6 +288,7 @@ export class AlbumsController {
 	@ApiOkResponse({
 		type: AlbumsSearchResponse,
 	})
+	@HttpCode(HttpStatus.OK)
 	@Post()
 	async search(@Body() dto: AlbumsSearchDto): Promise<AlbumsSearchResponse> {
 		if (this.SearchSourcesService.hasSource()) {
