@@ -18,7 +18,6 @@ import {
 	ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
 import { AllTasksResponse } from "./response/all-tasks.response";
-import { LoadedTask } from "./interface/loaded-task.interface";
 import { StartTaskDto } from "./dto/start-task.dto";
 import { Privileges } from "src/privileges/privileges.decorator";
 import { PrivilegesService } from "src/privileges/privileges.service";
@@ -42,26 +41,12 @@ export class TasksController {
 	@ApiUnauthorizedResponse()
 	@ApiForbiddenResponse()
 	async all() {
-		const pluginTasks = this.tasksService.allPluginTasks();
-		const systemTasks = this.tasksService.allSystemTasks();
-		const progresses = await this.tasksService.allResumableProgresses();
-
-		const getProgress = (task: LoadedTask) =>
-			progresses.find(
-				(progress) =>
-					progress.taskId == task.task.id &&
-					(task.plugin
-						? task.plugin.package.name == progress.pluginId
-						: !progress.pluginId),
-			) ?? null;
+		const tasks = this.tasksService.allTasks();
+		const responses = await this.tasksService.toResponse(tasks);
 
 		return {
-			pluginTasks: pluginTasks.map((task) =>
-				this.tasksService.toResponse(task, getProgress(task)),
-			),
-			systemTasks: systemTasks.map((task) =>
-				this.tasksService.toResponse(task, getProgress(task)),
-			),
+			pluginTasks: responses.filter((_, index) => tasks[index].plugin),
+			systemTasks: responses.filter((_, index) => !tasks[index].plugin),
 		};
 	}
 

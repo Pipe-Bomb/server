@@ -27,6 +27,7 @@ export class SystemTasksService {
 					() => this.artistManagerService.removeOrphanedArtists(),
 				];
 
+				ctx.update(0);
 				for (const [index, callback] of tasks.entries()) {
 					await callback();
 					ctx.update(index / tasks.length);
