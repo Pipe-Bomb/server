@@ -17,9 +17,11 @@ import { TaskResponse, TaskStatusResponse } from "./response/task.response";
 import { randomUUID } from "crypto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DBResumableTaskProgress } from "./entity/resumable-task-progress.entity";
-import { FindOptionsWhere, Repository } from "typeorm";
+import { Brackets, QueryDeepPartialEntity, Repository } from "typeorm";
 import { LoadedTask } from "./interface/loaded-task.interface";
 import { WorkflowsService } from "src/workflows/workflows.service";
+import { DBTaskHistory } from "./entity/task-history.entity";
+import { TaskHistoryResult } from "./enum/task-history-result.enum";
 
 interface ActiveTask extends LoadedTask {
 	percent: number | null;
@@ -37,6 +39,8 @@ export class TasksService {
 	constructor(
 		@InjectRepository(DBResumableTaskProgress)
 		private readonly resumableTaskProgressRepository: Repository<DBResumableTaskProgress>,
+		@InjectRepository(DBTaskHistory)
+		private readonly taskHistoryRepository: Repository<DBTaskHistory>,
 		private readonly workflowsService: WorkflowsService,
 	) {
 		const getTaskEnums: () => EnumWorkflowOptionItem<string>[] = () => {
@@ -146,9 +150,10 @@ export class TasksService {
 			runId = randomUUID();
 		} while (
 			this.activePluginTasks.some((active) => active.runId == runId) ||
-			(await this.resumableTaskProgressRepository.countBy({
+			(await this.resumableTaskProgressRepository.existsBy({
 				runId,
-			}))
+			})) ||
+			(await this.taskHistoryRepository.existsBy({ runId }))
 		);
 		return runId;
 	}
@@ -207,56 +212,138 @@ export class TasksService {
 		return this.allTasks().filter((task) => task.plugin);
 	}
 
-	allResumableProgresses() {
-		const conditions: FindOptionsWhere<DBResumableTaskProgress>[] =
-			this.allTasks()
-				.filter((task) => task.task.resumable)
-				.map((task) => ({
-					pluginId: task.plugin?.package.name ?? "",
-					taskId: task.task.id,
-				}));
-
-		return this.resumableTaskProgressRepository.findBy(conditions);
-	}
-
 	allSystemTasks() {
 		return this.allTasks().filter((task) => !task.plugin);
 	}
 
-	toResponse(
-		{ plugin, task, uuid }: LoadedTask,
-		resumableProgress: DBResumableTaskProgress | null,
-	): TaskResponse {
-		const activeTask = this.activePluginTasks.find((task) => task.uuid == uuid);
-
-		let subTasks: string[] | null = null;
-
-		if ("getSubTasks" in task) {
-			subTasks = [...task.getSubTasks()];
+	async toResponse(tasks: LoadedTask[]): Promise<TaskResponse[]> {
+		if (!tasks.length) {
+			return [];
 		}
 
-		if (subTasks && !subTasks.length) {
-			subTasks = null;
+		const getKey = (pluginId: string, taskId: string) =>
+			`${pluginId}\u0000${taskId}`;
+
+		const progressConditions = tasks
+			.filter(({ task }) => task.resumable)
+			.map(({ plugin, task }) => ({
+				pluginId: plugin?.package.name ?? "",
+				taskId: task.id,
+			}));
+
+		const [progresses, histories] = await Promise.all([
+			progressConditions.length
+				? this.resumableTaskProgressRepository.findBy(progressConditions)
+				: Promise.resolve([] as DBResumableTaskProgress[]),
+			this.getLatestTaskHistories(tasks),
+		]);
+
+		const progressByTask = new Map<string, DBResumableTaskProgress>();
+		for (const progress of progresses) {
+			progressByTask.set(getKey(progress.pluginId, progress.taskId), progress);
 		}
 
-		return {
-			uuid,
-			taskId: task.id,
-			subTasks,
-			pluginId: plugin?.package.name ?? null,
-			status: activeTask
-				? TaskStatusResponse.RUNNING
-				: resumableProgress
-					? TaskStatusResponse.SUSPENDED
-					: TaskStatusResponse.STOPPED,
-			percent:
-				typeof activeTask?.percent == "number"
-					? activeTask.percent * 100
-					: resumableProgress && resumableProgress.progress >= 0
-						? resumableProgress.progress * 100
-						: null,
-			resumable: task.resumable,
-		};
+		const historyByTask = new Map<string, DBTaskHistory>();
+		for (const history of histories) {
+			historyByTask.set(getKey(history.pluginId, history.taskId), history);
+		}
+
+		const activeTaskByUuid = new Map<string, ActiveTask>();
+		for (const activeTask of this.activePluginTasks) {
+			activeTaskByUuid.set(activeTask.uuid, activeTask);
+		}
+
+		return tasks.map(({ plugin, task, uuid }) => {
+			const pluginId = plugin?.package.name ?? "";
+			const activeTask = activeTaskByUuid.get(uuid);
+			const resumableProgress =
+				progressByTask.get(getKey(pluginId, task.id)) ?? null;
+			const history = historyByTask.get(getKey(pluginId, task.id)) ?? null;
+
+			let subTasks: string[] | null = null;
+
+			if ("getSubTasks" in task) {
+				subTasks = [...task.getSubTasks()];
+			}
+
+			if (subTasks && !subTasks.length) {
+				subTasks = null;
+			}
+
+			return {
+				uuid,
+				taskId: task.id,
+				subTasks,
+				pluginId: plugin?.package.name ?? null,
+				status: activeTask
+					? TaskStatusResponse.RUNNING
+					: resumableProgress
+						? TaskStatusResponse.SUSPENDED
+						: TaskStatusResponse.STOPPED,
+				percent:
+					typeof activeTask?.percent == "number"
+						? activeTask.percent * 100
+						: resumableProgress && resumableProgress.progress >= 0
+							? resumableProgress.progress * 100
+							: null,
+				resumable: task.resumable,
+				lastRun: history
+					? {
+							result: history.result,
+							duration: history.duration,
+							dateStarted: new Date(history.dateStarted),
+							subTaskId: history.subTaskId,
+						}
+					: null,
+			};
+		});
+	}
+
+	private async getLatestTaskHistories(
+		tasks: LoadedTask[],
+	): Promise<DBTaskHistory[]> {
+		const parameters: Record<string, string> = {};
+
+		const query = this.taskHistoryRepository
+			.createQueryBuilder("history")
+			.where(
+				new Brackets((where) => {
+					tasks.forEach(({ plugin, task }, index) => {
+						parameters[`pluginId${index}`] = plugin?.package.name ?? "";
+						parameters[`taskId${index}`] = task.id;
+
+						where.orWhere(
+							new Brackets((condition) => {
+								condition
+									.where(`history.pluginId = :pluginId${index}`)
+									.andWhere(`history.taskId = :taskId${index}`);
+							}),
+						);
+					});
+				}),
+			);
+		query.setParameters(parameters);
+
+		const newerHistory = query
+			.subQuery()
+			.select("1")
+			.from(DBTaskHistory, "newer")
+			.where("newer.pluginId = history.pluginId")
+			.andWhere("newer.taskId = history.taskId")
+			.andWhere(
+				new Brackets((where) => {
+					where.where("newer.dateStarted > history.dateStarted").orWhere(
+						new Brackets((tie) => {
+							tie
+								.where("newer.dateStarted = history.dateStarted")
+								.andWhere("newer.runId > history.runId");
+						}),
+					);
+				}),
+			)
+			.getQuery();
+
+		return query.andWhere(`NOT EXISTS ${newerHistory}`).getMany();
 	}
 
 	findTask(plugin: LoadedPlugin | null, taskId: string) {
@@ -343,6 +430,7 @@ export class TasksService {
 			? `Plugin "${task.plugin.package.name}"'s Task "${task.task.id}"`
 			: `SYSTEM Task "${task.task.id}"`;
 		this.logger.log(`Started ${title}`);
+		const dateStarted = Date.now();
 
 		let lastResumeUpdateTime = 0;
 		let isUpdatingTime = false;
@@ -394,14 +482,28 @@ export class TasksService {
 			promise = task.task.run(context);
 		}
 
+		const entity: QueryDeepPartialEntity<DBTaskHistory> = {
+			runId,
+			pluginId: task.plugin?.package.name ?? "",
+			taskId: task.task.id,
+			subTaskId: subTask,
+			dateStarted,
+		};
+
 		promise
 			.then(() => {
 				this.logger.log(`Finished ${title}`);
+
+				entity.result = TaskHistoryResult.COMPLETED;
 			})
 			.catch((e) => {
 				this.logger.error(`${title} failed with error:`, e);
+				entity.result = TaskHistoryResult.FAILED;
 			})
-			.finally(() => {
+			.finally(async () => {
+				entity.duration = Date.now() - dateStarted;
+				await this.taskHistoryRepository.insert(entity);
+
 				const index = this.activePluginTasks.indexOf(activeTask);
 				if (index >= 0) {
 					this.activePluginTasks.splice(index, 1);

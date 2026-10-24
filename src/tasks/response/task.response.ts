@@ -1,4 +1,5 @@
 import { ApiProperty, ApiSchema } from "@nestjs/swagger";
+import { TaskHistoryResponse } from "./task-history.response";
 
 export enum TaskStatusResponse {
 	STOPPED = "stopped",
@@ -41,4 +42,10 @@ export class TaskResponse {
 
 	@ApiProperty()
 	resumable: boolean;
+
+	@ApiProperty({
+		type: TaskHistoryResponse,
+		nullable: true,
+	})
+	lastRun: TaskHistoryResponse | null;
 }

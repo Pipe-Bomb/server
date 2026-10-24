@@ -5,10 +5,11 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { DBResumableTaskProgress } from "./entity/resumable-task-progress.entity";
 import { WorkflowsModule } from "src/workflows/workflows.module";
 import { UsersModule } from "src/users/users.module";
+import { DBTaskHistory } from "./entity/task-history.entity";
 
 @Module({
 	imports: [
-		TypeOrmModule.forFeature([DBResumableTaskProgress]),
+		TypeOrmModule.forFeature([DBResumableTaskProgress, DBTaskHistory]),
 		WorkflowsModule,
 		UsersModule,
 	],
