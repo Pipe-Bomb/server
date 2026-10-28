@@ -1,5 +1,5 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import {
 	AttributeSource,
 	Attribute,
@@ -15,7 +15,10 @@ import { DBAttributeTemplate } from "src/attributes/entities/attribute.entity-te
 import { DBPlaylistAttribute } from "src/attributes/entities/playlist-attribute.entity";
 import { DBTrackAttribute } from "src/attributes/entities/track-attribute.entity";
 import { AttributeType as AttributeTypeEnum } from "src/attributes/enum/attribute-type.enum";
-import { LoadedAttributeSource } from "src/attributes/interface/loaded-attribute-source.interface";
+import {
+	CachedLoadedAttributeSource,
+	LoadedAttributeSource,
+} from "src/attributes/interface/loaded-attribute-source.interface";
 import { LoadedAttribute } from "src/attributes/interface/loaded-attribute.interface";
 import { PersistentAttributeResponse } from "src/attributes/response/persistent-attribute.response";
 import { ResolvedAttributeDefinition } from "src/attributes/interface/resolved-attribute-definition.interface";
@@ -24,7 +27,8 @@ import { ResourceManagerService } from "src/resource-manager/resource-manager.se
 import { ResourceResponse } from "src/resource-manager/response/resource.response";
 import { RelativeUrl } from "src/interception/relative-url";
 import { TasksService } from "src/tasks/tasks.service";
-import { DeepPartial, In, Repository } from "typeorm";
+import { DataSource, DeepPartial, In, Repository } from "typeorm";
+import { DBAttributeSource } from "./entity/attribute-source.entity";
 
 @Injectable()
 export class AttributeSourcesService {
@@ -35,8 +39,11 @@ export class AttributeSourcesService {
 	private readonly artistAttributes = new Set<LoadedAttribute>();
 	private readonly albumAttributes = new Set<LoadedAttribute>();
 	private readonly playlistAttributes = new Set<LoadedAttribute>();
+	private sourceOrder: LoadedAttributeSource[] = [];
 
 	constructor(
+		@InjectRepository(DBAttributeSource)
+		private readonly attributeSourcesRepository: Repository<DBAttributeSource>,
 		@InjectRepository(DBTrackAttribute)
 		private readonly trackAttributesRepository: Repository<DBTrackAttribute>,
 		@InjectRepository(DBArtistAttribute)
@@ -45,6 +52,8 @@ export class AttributeSourcesService {
 		private readonly albumAttributesRepository: Repository<DBAlbumAttribute>,
 		@InjectRepository(DBPlaylistAttribute)
 		private readonly playlistAttributesRepository: Repository<DBPlaylistAttribute>,
+		@InjectDataSource()
+		private readonly dataSource: DataSource,
 		private readonly tasksService: TasksService,
 		private readonly resourceManagerService: ResourceManagerService,
 	) {}
@@ -126,9 +135,11 @@ export class AttributeSourcesService {
 			getLogger: () => new Logger(`ATTRIBUTE SOURCE ${source.getName()}`),
 		});
 		this.sources.push(loadedAttributeSource); // todo: do this preserving saved order
-		this.logger.log(
-			`Plugin "${plugin.package.name}" registered Attribute Source "${source.id}"`,
-		);
+		this.fetchSourceOrder().then(() => {
+			this.logger.log(
+				`Plugin "${plugin.package.name}" registered Attribute Source "${source.id}"`,
+			);
+		});
 	}
 
 	getAttributeSource(pluginId: string, sourceId: string) {
@@ -620,26 +631,78 @@ export class AttributeSourcesService {
 		await this.playlistAttributesRepository.insert(attributes);
 	}
 
-	setSourceOrder(order: OrderedAttributeSourceDto[]) {
-		const output: LoadedAttributeSource[] = [];
+	async setSourceOrder(order: OrderedAttributeSourceDto[]) {
+		const toInsert: DBAttributeSource[] = [];
+		const includedSources = new Set<LoadedAttributeSource>();
 		for (const entry of order) {
 			const source = this.sources.find(
 				(source) =>
 					source.plugin.package.name == entry.pluginId &&
 					source.source.id == entry.sourceId,
 			);
-			if (source && !output.includes(source)) {
-				output.push(source);
+			if (!source) {
+				throw new NotFoundException("Attribute source not found");
+			}
+			includedSources.add(source);
+			toInsert.push({
+				pluginId: source.plugin.package.name,
+				sourceId: source.source.id,
+				priority: toInsert.length + 1,
+				disabled: false,
+			});
+		}
+		for (const source of this.sources.values()) {
+			if (!includedSources.has(source)) {
+				toInsert.push({
+					pluginId: source.plugin.package.name,
+					sourceId: source.source.id,
+					priority: toInsert.length + 1,
+					disabled: true,
+				});
 			}
 		}
 
-		for (const source of this.sources) {
-			if (!output.includes(source)) {
-				output.push(source);
+		await this.dataSource.transaction(async (tm) => {
+			const sourceRepo = tm.getRepository(DBAttributeSource);
+
+			await sourceRepo.deleteAll();
+			await sourceRepo.insert(toInsert);
+		});
+		await this.fetchSourceOrder();
+	}
+
+	public getSourceOrder(): LoadedAttributeSource[] {
+		return [...this.sourceOrder];
+	}
+
+	private async fetchSourceOrder() {
+		const entities = await this.attributeSourcesRepository.find({
+			order: {
+				priority: "asc",
+			},
+		});
+		const sources: LoadedAttributeSource[] = [];
+		const disabledSources = new Set<LoadedAttributeSource>();
+		for (const entity of entities) {
+			const source = this.sources.find(
+				(source) =>
+					source.plugin.package.name == entity.pluginId &&
+					source.source.id == entity.sourceId,
+			);
+			if (source) {
+				if (entity.disabled) {
+					disabledSources.add(source);
+				} else {
+					sources.push(source);
+				}
 			}
 		}
-
-		this.sources.splice(0, this.sources.length, ...output);
+		for (const source of this.sources.values()) {
+			if (!disabledSources.has(source) && !sources.includes(source)) {
+				sources.push(source);
+			}
+		}
+		this.sourceOrder = sources;
 	}
 
 	toMap<T extends DBAttributeTemplate>(
@@ -663,6 +726,7 @@ export class AttributeSourcesService {
 		if (!type) {
 			return output;
 		}
+		const sources = this.getSourceOrder();
 
 		const map = new Map<string, T[]>();
 
@@ -692,7 +756,7 @@ export class AttributeSourcesService {
 				if (!attribute.pluginId && !attribute.sourceId) {
 					group = -1;
 				} else {
-					group = this.sources.findIndex(
+					group = sources.findIndex(
 						(source) =>
 							source.plugin.package.name == attribute.pluginId &&
 							source.source.id == attribute.sourceId,
@@ -851,7 +915,23 @@ export class AttributeSourcesService {
 		}[type];
 	}
 
-	getSources() {
-		return [...this.sources];
+	getSources(): CachedLoadedAttributeSource[] {
+		const sources: CachedLoadedAttributeSource[] = this.sourceOrder.map(
+			(source) => ({
+				...source,
+				enabled: true,
+			}),
+		);
+
+		for (const source of this.sources) {
+			if (!this.sourceOrder.includes(source)) {
+				sources.push({
+					...source,
+					enabled: false,
+				});
+			}
+		}
+
+		return sources;
 	}
 }

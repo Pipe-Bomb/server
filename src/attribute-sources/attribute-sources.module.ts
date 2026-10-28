@@ -9,6 +9,7 @@ import { TasksModule } from "src/tasks/tasks.module";
 import { ResourceManagerModule } from "src/resource-manager/resource-manager.module";
 import { DBAlbumAttribute } from "src/attributes/entities/album-attribute.entity";
 import { DBPlaylistAttribute } from "src/attributes/entities/playlist-attribute.entity";
+import { DBAttributeSource } from "./entity/attribute-source.entity";
 
 @Module({
 	imports: [
@@ -17,6 +18,7 @@ import { DBPlaylistAttribute } from "src/attributes/entities/playlist-attribute.
 			DBArtistAttribute,
 			DBAlbumAttribute,
 			DBPlaylistAttribute,
+			DBAttributeSource,
 		]),
 		TasksModule,
 		ResourceManagerModule,
