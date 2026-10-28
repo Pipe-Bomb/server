@@ -8,9 +8,9 @@ import {
 } from "@nestjs/common";
 import { AttributeSourcesService } from "./attribute-sources.service";
 import { ApiOperation, ApiOkResponse } from "@nestjs/swagger";
-import { AttributeSourceOrderDto } from "src/attributes/dto/attribute-source-order.dto";
+import { AttributeSourceOrderDto } from "src/attribute-sources/dto/attribute-source-order.dto";
 import { AttributeSourceResponse } from "src/attributes/response/attribute-source.response";
-import { LoadedAttributeSource } from "src/attributes/interface/loaded-attribute-source.interface";
+import { CachedLoadedAttributeSource } from "src/attributes/interface/loaded-attribute-source.interface";
 import { Privileges } from "src/privileges/privileges.decorator";
 import { PrivilegesService } from "src/privileges/privileges.service";
 
@@ -49,11 +49,14 @@ export class AttributeSourcesController {
 		return this.getAll();
 	}
 
-	private toResponse(source: LoadedAttributeSource): AttributeSourceResponse {
+	private toResponse(
+		source: CachedLoadedAttributeSource,
+	): AttributeSourceResponse {
 		return {
 			pluginId: source.plugin.package.name,
 			sourceId: source.source.id,
 			name: source.source.getName(),
+			enabled: source.enabled,
 		};
 	}
 }

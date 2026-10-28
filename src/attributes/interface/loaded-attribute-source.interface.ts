@@ -5,3 +5,7 @@ export interface LoadedAttributeSource {
 	source: AttributeSource;
 	plugin: LoadedPlugin;
 }
+
+export interface CachedLoadedAttributeSource extends LoadedAttributeSource {
+	enabled: boolean;
+}

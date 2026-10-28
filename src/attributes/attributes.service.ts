@@ -68,7 +68,7 @@ export class AttributesService {
 			track.uuid,
 		);
 
-		const sources = this.attributeSourcesService.getSources();
+		const sources = this.attributeSourcesService.getSourceOrder();
 
 		for (const source of sources) {
 			try {
@@ -157,7 +157,7 @@ export class AttributesService {
 		);
 
 		const helper = await this.artistManagerService.getInformationHelper(artist);
-		const sources = this.attributeSourcesService.getSources();
+		const sources = this.attributeSourcesService.getSourceOrder();
 
 		for (const source of sources) {
 			try {
@@ -341,7 +341,7 @@ export class AttributesService {
 		);
 
 		const helper = await this.albumManagerService.getInformationHelper(album);
-		const sources = this.attributeSourcesService.getSources();
+		const sources = this.attributeSourcesService.getSourceOrder();
 
 		for (const source of sources) {
 			try {

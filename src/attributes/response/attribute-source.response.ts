@@ -10,4 +10,7 @@ export class AttributeSourceResponse {
 
 	@ApiProperty()
 	name: string;
+
+	@ApiProperty()
+	enabled: boolean;
 }

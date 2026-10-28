@@ -1,5 +1,5 @@
 import { IsArray, ValidateNested } from "class-validator";
-import { OrderedAttributeSourceDto } from "./ordered-attribute-source.dto";
+import { OrderedAttributeSourceDto } from "../../attributes/dto/ordered-attribute-source.dto";
 import { Type } from "class-transformer";
 import { ApiProperty } from "@nestjs/swagger";
 
