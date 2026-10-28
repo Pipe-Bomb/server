@@ -8,7 +8,7 @@ import { plainToInstance } from "class-transformer";
 import { isUUID, validate } from "class-validator";
 import { execFile } from "child_process";
 import { existsSync } from "fs";
-import { cp, lstat, mkdir, readdir, readFile, rm } from "fs/promises";
+import { cp, lstat, mkdir, readdir, readFile, rm, stat } from "fs/promises";
 import path from "path";
 import { promisify } from "util";
 import { PluginPackageDto } from "./dto/plugin-package.dto";
@@ -57,6 +57,7 @@ import { SavedTracksService } from "src/tracks/saved-tracks.service";
 import { Emitter } from "src/util/emitter.util";
 import { EventMap } from "sdk/events";
 import { EventClientService } from "src/event-client/event-client.service";
+import { PLUGIN_SDK_DIRECTORY } from "./const/plugin-sdk-directory.const";
 
 @Injectable()
 export class PluginsService {
@@ -285,7 +286,8 @@ export class PluginsService {
 		const exec = promisify(execFile);
 		const npmEnv = {
 			...process.env,
-			npm_config_cache: path.join(tempDir, ".npm-cache"),
+			// npm_config_cache: path.join(tempDir, ".npm-cache"),
+			npm_config_cache: path.join(process.cwd(), "plugin-cache", ".npm-cache"),
 			NODE_ENV: "development",
 		};
 
@@ -305,9 +307,54 @@ export class PluginsService {
 		}
 
 		if (packageJson?.scripts?.build) {
-			this.logger.debug("Executing plugin build script");
+			this.logger.debug("Building plugin");
 			await exec("npm", ["run", "build"], { cwd: tempDir, env: npmEnv });
-			await exec("npm", ["prune", "--omit=dev"], { cwd: tempDir, env: npmEnv });
+
+			const usesSdk = !!(
+				packageJson?.dependencies?.["@pipe-bomb/plugin-sdk"] ||
+				packageJson?.devDependencies?.["@pipe-bomb/plugin-sdk"]
+			);
+
+			if (usesSdk) {
+				const dependencyPath = path.join(
+					tempDir,
+					"node_modules",
+					"@pipe-bomb",
+					"plugin-sdk",
+				);
+				try {
+					const dependencyStat = await stat(
+						path.join(tempDir, "node_modules", "@pipe-bomb", "plugin-sdk"),
+					);
+					if (!dependencyStat.isDirectory()) {
+						throw new Error("Installed SDK path is not a directory");
+					}
+				} catch {
+					throw new Error("SDK not installed");
+				}
+
+				this.logger.debug(`Clearing bundled SDK`);
+				await rm(dependencyPath, {
+					recursive: true,
+					force: true,
+				});
+				this.logger.debug(`Copying server SDK`);
+				await cp(PLUGIN_SDK_DIRECTORY, dependencyPath, {
+					recursive: true,
+				});
+				this.logger.debug("Checking plugin compatibility with server SDK");
+				try {
+					await exec("npm", ["run", "build"], { cwd: tempDir, env: npmEnv });
+				} catch (e) {
+					this.logger.error("Failed to build with server SDK");
+					throw new BadRequestException(
+						"Plugin is not compatible with server version",
+					);
+				}
+				this.logger.debug("Plugin is compatible with server version");
+			}
+
+			// await exec("npm", ["prune", "--omit=dev"], { cwd: tempDir, env: npmEnv });
 		}
 
 		const entryRelative =
@@ -333,6 +380,10 @@ export class PluginsService {
 				? ["clone", "--depth", "1", "--branch", ref, gitUrl, tempDir]
 				: ["clone", "--depth", "1", gitUrl, tempDir];
 			await exec("git", cloneArgs);
+
+			if (ref) {
+				await exec("git", ["config", "pipebomb.ref", ref], { cwd: tempDir });
+			}
 
 			const packageJson = await this.buildPlugin(tempDir);
 
@@ -1284,12 +1335,39 @@ export class PluginsService {
 
 		try {
 			const destDir = path.join(this.pluginsDirectory, name);
+			this.logger.debug(
+				`Fetching information about currently installed version of "${name}"`,
+			);
 
-			this.logger.debug(`Copying "${name}" to temp directory for update`);
-			await cp(destDir, tempDir, { recursive: true });
+			const url = (
+				await exec("git", ["remote", "get-url", "origin"], {
+					cwd: destDir,
+				})
+			).stdout.trim();
+			if (!url) {
+				throw new Error("No repository URL");
+			}
+
+			const branch = (
+				await exec("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
+					cwd: destDir,
+				})
+			).stdout.trim();
+
+			const ref = (
+				await exec("git", ["config", "--get", "pipebomb.ref"], {
+					cwd: destDir,
+				}).catch(() => ({ stdout: "" }))
+			).stdout.trim();
+
+			const cloneArgs = ["clone", "--depth", "1", "--no-tags"];
+			if (ref || (branch && branch != "HEAD")) {
+				cloneArgs.push("--branch", ref || branch);
+			}
+			cloneArgs.push(url, tempDir);
 
 			this.logger.debug(`Pulling latest changes for "${name}"`);
-			await exec("git", ["pull"], { cwd: tempDir });
+			await exec("git", cloneArgs);
 
 			await this.buildPlugin(tempDir);
 
