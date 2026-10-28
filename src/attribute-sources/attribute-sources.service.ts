@@ -67,6 +67,8 @@ export class AttributeSourcesService {
 			return;
 		}
 		const [loaded] = this.sources.splice(index, 1);
+		this.sourceOrder = this.sourceOrder.filter((source) => source != loaded);
+
 		for (const attr of [...this.trackAttributes]) {
 			if (attr.source === loaded) {
 				this.trackAttributes.delete(attr);
