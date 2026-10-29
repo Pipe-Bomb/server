@@ -149,6 +149,7 @@
 	"privilege.system.view-plugin-marketplaces.name": "View plugin marketplaces",
 	"privilege.system.select-search-source.name": "Select search source",
 	"privilege.system.view-search-sources.name": "View search sources",
+	"privilege.system.manage-identifiers.name": "Manage identifiers",
 
 	"config.system.allow-user-registrations.name": "Allow user registrations",
 	"config.system.allow-user-registrations.description": "Whether new users can register accounts"
