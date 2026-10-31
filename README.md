@@ -139,7 +139,7 @@ If you start Pipe Bomb server with `npm run start:plugin-dev`, the server will a
 
 - ✅ Search Handler for plugins to replace search provided by server
 
-- ➖ Save ephemeral artists and albums without manually copying to a playlist
+- ✅ Save ephemeral artists and albums without manually copying to a playlist
 
 - ➖ User overridable attributes and identities
 
