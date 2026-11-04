@@ -3,4 +3,9 @@ export enum ConfigNodeType {
 	HEADING = "heading",
 	SECTION = "section",
 	PARAGRAPH = "paragraph",
+	CHECKBOX = "checkbox",
+	ORDERABLE = "orderable",
+	SEARCH = "search",
+	MARKDOWN = "markdown",
+	BUTTON = "button",
 }

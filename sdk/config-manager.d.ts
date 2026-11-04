@@ -66,6 +66,10 @@ export interface ConfigManager {
 	enable(
 		configManagerApiContext: ConfigManagerApiContext,
 	): void | Promise<void>;
+
+	search?(id: string, query: string): Promise<ConfigNode>;
+
+	onButtonPress?(id: string): Promise<ConfigNode>;
 }
 
 export interface UserConfigManager {
@@ -79,11 +83,22 @@ export interface UserConfigManager {
 	enable(
 		userConfigManagerApiContext: UserConfigManagerApiContext,
 	): void | Promise<void>;
+
+	search?(id: string, query: string): Promise<ConfigNode | null>;
 }
 
 export interface ConfigSection {}
 
-export type ConfigNodeType = "text" | "heading" | "section" | "paragraph";
+export type ConfigNodeType =
+	| "text"
+	| "heading"
+	| "section"
+	| "paragraph"
+	| "checkbox"
+	| "orderable"
+	| "search"
+	| "markdown"
+	| "button";
 
 interface BaseConfigNode {
 	type: ConfigNodeType;
@@ -106,6 +121,8 @@ export interface HeadingConfigNode extends BaseConfigNode {
 export interface SectionConfigNode extends BaseConfigNode {
 	type: "section";
 	children: ConfigNode[];
+	background?: "surface" | "warning" | "error" | "none";
+	horizontal?: boolean;
 }
 
 export interface ParagraphConfigNode extends BaseConfigNode {
@@ -113,12 +130,50 @@ export interface ParagraphConfigNode extends BaseConfigNode {
 	content: string;
 }
 
-// export interface CollapsibleSectionConfigNode extends SectionConfigNode {
-// 	collapsed: boolean;
-// }
+export interface CheckboxConfigNode extends BaseConfigNode {
+	type: "checkbox";
+	id: string;
+	checked: boolean;
+	readonly?: boolean | null;
+}
+
+export type OrderableChild = ConfigNode & {
+	orderableId: string;
+};
+
+export interface OrderableConfigNode extends BaseConfigNode {
+	type: "orderable";
+	id: string;
+	children: OrderableChild[];
+}
+
+export interface SearchConfigNode extends BaseConfigNode {
+	type: "search";
+	id: string;
+	name: string;
+	value: string;
+	placeholder?: string | null;
+	results: ConfigNode | null;
+}
+
+export interface MarkdownConfigNode extends BaseConfigNode {
+	type: "markdown";
+	content: string;
+}
+
+export interface ButtonConfigNode extends BaseConfigNode {
+	type: "button";
+	id: string;
+	content: string;
+}
 
 export type ConfigNode =
 	| TextConfigNode
 	| HeadingConfigNode
 	| SectionConfigNode
-	| ParagraphConfigNode;
+	| ParagraphConfigNode
+	| CheckboxConfigNode
+	| OrderableConfigNode
+	| SearchConfigNode
+	| MarkdownConfigNode
+	| ButtonConfigNode;

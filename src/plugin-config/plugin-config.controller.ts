@@ -8,6 +8,7 @@ import {
 	NotFoundException,
 	Param,
 	Post,
+	ServiceUnavailableException,
 } from "@nestjs/common";
 import { PluginConfigService } from "./plugin-config.service";
 import {
@@ -29,6 +30,9 @@ import { DBUser } from "src/users/entity/user.entity";
 import { UserConfigsResponse } from "./response/user-configs.response";
 import { Privileges } from "src/privileges/privileges.decorator";
 import { PrivilegesService } from "src/privileges/privileges.service";
+import { PluginConfigSearchDto } from "./dto/plugin-config-search.dto";
+import { ConfigSectionBackground } from "./enum/config-section-background.enum";
+import { PluginConfigButtonDto } from "./dto/plugin-config-button.dto";
 
 @Controller("plugin-config")
 export class PluginConfigController {
@@ -184,6 +188,62 @@ export class PluginConfigController {
 		};
 	}
 
+	@Post("plugin/:pluginId/search")
+	@ApiOperation({ operationId: "searchPluginConfig" })
+	@ApiOkResponse({
+		type: PluginConfigResponse,
+	})
+	@ApiNotFoundResponse()
+	@ApiForbiddenResponse()
+	@Privileges("edit_plugin_configs")
+	@HttpCode(HttpStatus.OK)
+	async searchPluginConfig(
+		@Param("pluginId") pluginId: string,
+		@Body() dto: PluginConfigSearchDto,
+	): Promise<PluginConfigResponse> {
+		const config = this.pluginConfigService.findPluginConfig(pluginId);
+		if (!config) {
+			throw new NotFoundException("Config not found");
+		}
+
+		if (!config.configManager.search) {
+			throw new ServiceUnavailableException("Config doesn't implement search");
+		}
+
+		const results = await config.configManager.search(dto.id, dto.query);
+		return {
+			node: this.toResponse(results),
+		};
+	}
+
+	@Post("plugin/:pluginId/button")
+	@ApiOperation({ operationId: "activatePluginConfigButton" })
+	@ApiOkResponse({
+		type: PluginConfigResponse,
+	})
+	@ApiNotFoundResponse()
+	@ApiForbiddenResponse()
+	@Privileges("edit_plugin_configs")
+	@HttpCode(HttpStatus.OK)
+	async activatePluginConfigButton(
+		@Param("pluginId") pluginId: string,
+		@Body() dto: PluginConfigButtonDto,
+	): Promise<PluginConfigResponse> {
+		const config = this.pluginConfigService.findPluginConfig(pluginId);
+		if (!config) {
+			throw new NotFoundException("Config not found");
+		}
+
+		if (!config.configManager.onButtonPress) {
+			throw new ServiceUnavailableException("Config doesn't implement buttons");
+		}
+
+		const results = await config.configManager.onButtonPress(dto.id);
+		return {
+			node: this.toResponse(results),
+		};
+	}
+
 	private toResponse(node: ConfigNode): ConfigNodeResponse {
 		switch (node.type) {
 			case "heading":
@@ -210,11 +270,58 @@ export class PluginConfigController {
 			case "section":
 				return {
 					type: ConfigNodeType.SECTION,
+					horizontal: !!node.horizontal,
+					background: (() => {
+						switch (node.background) {
+							case "surface":
+								return ConfigSectionBackground.SURFACE;
+							case "warning":
+								return ConfigSectionBackground.WARNING;
+							default:
+								return ConfigSectionBackground.NONE;
+						}
+					})(),
 					children: node.children.map((child) => this.toResponse(child)),
 				};
 			case "paragraph":
 				return {
 					type: ConfigNodeType.PARAGRAPH,
+					content: node.content,
+				};
+			case "checkbox":
+				return {
+					type: ConfigNodeType.CHECKBOX,
+					id: node.id,
+					checked: node.checked,
+					readonly: !!node.readonly,
+				};
+			case "orderable":
+				return {
+					type: ConfigNodeType.ORDERABLE,
+					id: node.id,
+					children: node.children.map(({ orderableId, ...child }) => ({
+						orderableId,
+						child: this.toResponse(child),
+					})),
+				};
+			case "search":
+				return {
+					type: ConfigNodeType.SEARCH,
+					id: node.id,
+					name: node.name,
+					value: node.value,
+					placeholder: node.placeholder ?? null,
+					results: node.results ? this.toResponse(node.results) : null,
+				};
+			case "markdown":
+				return {
+					type: ConfigNodeType.MARKDOWN,
+					content: node.content,
+				};
+			case "button":
+				return {
+					type: ConfigNodeType.BUTTON,
+					id: node.id,
 					content: node.content,
 				};
 		}

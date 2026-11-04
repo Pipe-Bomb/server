@@ -872,6 +872,20 @@ export class PlaylistsService {
 					}
 				}
 
+				let initialVisibility = PlaylistVisibility.PUBLIC;
+				if (visibility) {
+					switch (visibility) {
+						case "private":
+							initialVisibility = PlaylistVisibility.PRIVATE;
+							break;
+						case "unlisted":
+							initialVisibility = PlaylistVisibility.UNLISTED;
+							break;
+					}
+				} else if (owner) {
+					initialVisibility = PlaylistVisibility.UNLISTED;
+				}
+
 				const playlist = await this.create(
 					owner
 						? {
@@ -885,9 +899,7 @@ export class PlaylistsService {
 							},
 					attributeSource,
 					attributes?.attributes ?? [],
-					(visibility ?? owner)
-						? PlaylistVisibility.PUBLIC
-						: PlaylistVisibility.UNLISTED,
+					initialVisibility,
 				);
 				return playlist.uuid;
 			},
